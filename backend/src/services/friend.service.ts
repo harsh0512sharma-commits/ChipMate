@@ -20,7 +20,7 @@ export interface FriendRequestDto {
 export function sendFriendRequest(requesterId: string, targetFriendCode: string): { success: boolean; status: string; friendshipId: string } {
   const targetUser = getUserByFriendCode(targetFriendCode);
   if (!targetUser) {
-    throw new Error('No user found with that friend code');
+    throw new Error('No user found with that mobile number');
   }
 
   if (targetUser.id === requesterId) {
@@ -107,7 +107,7 @@ export function getFriendsList(userId: string) {
   const db = getDb();
   const rows = db.prepare(`
     SELECT f.id as friendship_id, f.status, f.created_at as friendship_created_at,
-      u.id, u.display_name, u.friend_code, u.avatar_url,
+      u.id, u.display_name, u.friend_code, u.phone_number, u.avatar_url,
       s.net_winnings, s.games_played, s.win_rate
     FROM friendships f
     JOIN users u ON (CASE WHEN f.user_id = ? THEN f.friend_id ELSE f.user_id END) = u.id
@@ -120,7 +120,8 @@ export function getFriendsList(userId: string) {
     friendshipId: r.friendship_id,
     id: r.id,
     displayName: r.display_name,
-    friendCode: r.friend_code,
+    friendCode: r.phone_number || r.friend_code,
+    phoneNumber: r.phone_number,
     avatarUrl: r.avatar_url,
     netWinnings: r.net_winnings || 0,
     gamesPlayed: r.games_played || 0,
@@ -133,7 +134,7 @@ export function getPendingRequests(userId: string) {
 
   // Requests received by this user
   const received = db.prepare(`
-    SELECT f.id, f.created_at, u.id as user_id, u.display_name, u.friend_code, u.avatar_url
+    SELECT f.id, f.created_at, u.id as user_id, u.display_name, COALESCE(u.phone_number, u.friend_code) as friend_code, u.phone_number, u.avatar_url
     FROM friendships f
     JOIN users u ON f.requester_id = u.id
     WHERE f.status = 'PENDING' AND f.requester_id != ? AND (f.user_id = ? OR f.friend_id = ?)
@@ -141,7 +142,7 @@ export function getPendingRequests(userId: string) {
 
   // Requests sent by this user
   const sent = db.prepare(`
-    SELECT f.id, f.created_at, u.id as user_id, u.display_name, u.friend_code, u.avatar_url
+    SELECT f.id, f.created_at, u.id as user_id, u.display_name, COALESCE(u.phone_number, u.friend_code) as friend_code, u.phone_number, u.avatar_url
     FROM friendships f
     JOIN users u ON (CASE WHEN f.user_id = ? THEN f.friend_id ELSE f.user_id END) = u.id
     WHERE f.status = 'PENDING' AND f.requester_id = ?

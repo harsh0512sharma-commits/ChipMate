@@ -74,20 +74,25 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead }
   };
 
   const handleLookup = async () => {
-    if (!friendCodeInput.trim()) return;
+    const trimmed = friendCodeInput.trim();
+    if (!trimmed) return;
+    if (trimmed.length < 5) {
+      setSearchError('Please enter a valid mobile number');
+      return;
+    }
     setSearchError(null);
     setFoundUser(null);
     setSearchLoading(true);
 
     try {
-      const res = await apiRequest(`/users/lookup?code=${friendCodeInput.trim().toUpperCase()}`);
+      const res = await apiRequest(`/users/lookup?code=${encodeURIComponent(trimmed)}`);
       if (res.success && res.user) {
         setFoundUser(res.user);
       } else {
-        setSearchError('No user found with that friend code');
+        setSearchError('No user found with that mobile number');
       }
     } catch (err: any) {
-      setSearchError(err.message || 'Lookup failed');
+      setSearchError(err.message || 'No user found with that mobile number');
     } finally {
       setSearchLoading(false);
     }
@@ -151,7 +156,7 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead }
     <View style={styles.container}>
       <Header
         title="Friends"
-        subtitle={`My Friend Code: #${user?.friend_code}`}
+        subtitle={`My Mobile No: ${user?.phone_number || user?.friend_code || 'N/A'}`}
         rightAction={
           <TouchableOpacity
             style={styles.addBtnHeader}
@@ -191,17 +196,17 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead }
         {tab === 'FRIENDS' ? (
           friends.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Users size={40} color={colors.textMuted} />
-              <Text style={styles.emptyTitle}>You haven't added any friends yet</Text>
-              <Text style={styles.emptySubtitle}>
-                Add friends using their unique Friend Code or directly during a live game!
+              <Users size={36} color={colors.textMuted} />
+              <Text style={styles.emptyTitle}>No friends added yet</Text>
+              <Text style={styles.emptySub}>
+                Add your poker and teen patti friends using their 10-digit mobile number!
               </Text>
               <TouchableOpacity
                 style={styles.addFriendCenterBtn}
                 onPress={() => setShowAddModal(true)}
               >
                 <UserPlus size={16} color="#FFF" />
-                <Text style={styles.addFriendCenterBtnText}>Add by Friend Code</Text>
+                <Text style={styles.addFriendCenterBtnText}>Add by Mobile Number</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -215,7 +220,7 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead }
 
                 <View style={{ flex: 1 }}>
                   <Text style={styles.friendName}>{friend.displayName}</Text>
-                  <Text style={styles.friendCode}>#{friend.friendCode}</Text>
+                  <Text style={styles.friendCode}>📱 {friend.friendCode}</Text>
                   <Text style={styles.friendStats}>
                     Games: {friend.gamesPlayed} • Win Rate: {friend.winRate}%
                   </Text>
@@ -257,7 +262,7 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead }
                   <View key={req.id} style={styles.requestCard}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.friendName}>{req.display_name}</Text>
-                      <Text style={styles.friendCode}>#{req.friend_code}</Text>
+                      <Text style={styles.friendCode}>📱 {req.friend_code}</Text>
                     </View>
                     <View style={{ flexDirection: 'row' }}>
                       <TouchableOpacity
@@ -287,7 +292,7 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead }
                   <View key={req.id} style={styles.requestCard}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.friendName}>{req.display_name}</Text>
-                      <Text style={styles.friendCode}>#{req.friend_code}</Text>
+                      <Text style={styles.friendCode}>📱 {req.friend_code}</Text>
                     </View>
                     <View style={styles.pendingBadge}>
                       <Clock size={12} color={colors.warningText} />
@@ -312,14 +317,15 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead }
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalSubtitle}>Enter their unique collision-resistant friend code</Text>
+            <Text style={styles.modalSubtitle}>Enter their 10-digit mobile number</Text>
 
             <View style={styles.searchInputRow}>
               <TextInput
                 style={styles.modalInput}
-                placeholder="e.g. HARSH7K2"
+                placeholder="e.g. 9876543210"
                 placeholderTextColor={colors.textMuted}
-                autoCapitalize="characters"
+                keyboardType="phone-pad"
+                maxLength={10}
                 value={friendCodeInput}
                 onChangeText={setFriendCodeInput}
               />
@@ -347,7 +353,7 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead }
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.foundName}>{foundUser.displayName}</Text>
-                  <Text style={styles.foundCode}>#{foundUser.friendCode}</Text>
+                  <Text style={styles.foundCode}>📱 {foundUser.friendCode}</Text>
                 </View>
 
                 {requestSent ? (

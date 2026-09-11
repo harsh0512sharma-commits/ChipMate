@@ -201,7 +201,7 @@ export function getFriendLeaderboard(userId: string, sortBy: 'NET_WINNINGS' | 'W
   if (sortBy === 'BIGGEST_WIN') orderClause = 's.biggest_win DESC';
 
   const rows = db.prepare(`
-    SELECT u.id, u.display_name, u.friend_code, u.avatar_url,
+    SELECT u.id, u.display_name, u.friend_code, u.phone_number, u.avatar_url,
       COALESCE(s.games_played, 0) as games_played,
       COALESCE(s.games_won, 0) as games_won,
       COALESCE(s.win_rate, 0) as win_rate,
@@ -220,7 +220,8 @@ export function getFriendLeaderboard(userId: string, sortBy: 'NET_WINNINGS' | 'W
     id: r.id,
     isSelf: r.id === userId,
     displayName: r.display_name,
-    friendCode: r.friend_code,
+    friendCode: r.phone_number || r.friend_code,
+    phoneNumber: r.phone_number,
     avatarUrl: r.avatar_url,
     gamesPlayed: r.games_played,
     gamesWon: r.games_won,

@@ -296,6 +296,7 @@ export function initSchema(db: Database.Database) {
   try { db.exec("ALTER TABLE users ADD COLUMN password_hash TEXT"); } catch (_) {}
   try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number)"); } catch (_) {}
   try { db.exec("CREATE INDEX IF NOT EXISTS idx_pending_reg_email ON pending_registrations(email)"); } catch (_) {}
+  try { db.exec("UPDATE users SET friend_code = phone_number WHERE phone_number IS NOT NULL AND phone_number != '' AND (friend_code != phone_number OR friend_code IS NULL)"); } catch (_) {}
 }
 
 const SYNC_TABLES = [

@@ -169,7 +169,7 @@ export function signupVerifyOtp(params: {
   if (!user) {
     const userId = uuidv4();
     const displayName = params.displayName?.trim() || pending.phone_number;
-    const friendCode = generateFriendCode(displayName);
+    const friendCode = pending.phone_number || generateFriendCode(displayName);
     const createdAt = new Date().toISOString();
 
     db.prepare(`
@@ -184,6 +184,10 @@ export function signupVerifyOtp(params: {
     `).run(userId, createdAt);
 
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as UserRecord;
+  } else if (pending.phone_number && user.friend_code !== pending.phone_number) {
+    db.prepare('UPDATE users SET phone_number = ?, friend_code = ?, updated_at = ? WHERE id = ?')
+      .run(pending.phone_number, pending.phone_number, now, user.id);
+    user = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id) as UserRecord;
   }
 
   const token = jwt.sign(
@@ -227,6 +231,11 @@ export function loginWithPassword(identifier: string, password: string): { token
   const matches = verifyPassword(password, user.password_hash);
   if (!matches) {
     throw new Error('Invalid mobile number or password');
+  }
+
+  if (user.phone_number && user.friend_code !== user.phone_number) {
+    db.prepare('UPDATE users SET friend_code = ? WHERE id = ?').run(user.phone_number, user.id);
+    user.friend_code = user.phone_number;
   }
 
   const token = jwt.sign(
@@ -371,7 +380,11 @@ export function getUserById(userId: string): (UserRecord & { stats?: any }) | nu
 
 export function getUserByFriendCode(friendCode: string): UserRecord | null {
   const db = getDb();
-  const user = db.prepare('SELECT id, email, display_name, friend_code, avatar_url, created_at FROM users WHERE UPPER(friend_code) = ?')
-    .get(friendCode.trim().toUpperCase()) as UserRecord | undefined;
+  const trimmed = friendCode.trim();
+  const user = db.prepare(`
+    SELECT id, email, phone_number, display_name, friend_code, avatar_url, created_at 
+    FROM users 
+    WHERE phone_number = ? OR UPPER(friend_code) = ?
+  `).get(trimmed, trimmed.toUpperCase()) as UserRecord | undefined;
   return user || null;
 }

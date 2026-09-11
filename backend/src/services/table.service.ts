@@ -265,12 +265,15 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
   if (!table) return null;
 
   // Fetch host user details
-  const hostUser = db.prepare('SELECT id, display_name, friend_code, email FROM users WHERE id = ?').get(table.host_user_id) as any;
+  const hostUser = db.prepare('SELECT id, display_name, friend_code, phone_number, email FROM users WHERE id = ?').get(table.host_user_id) as any;
+  if (hostUser && hostUser.phone_number) {
+    hostUser.friend_code = hostUser.phone_number;
+  }
 
   // Fetch players
   const players = db.prepare(`
     SELECT gp.id, gp.user_id, gp.role, gp.current_chips, gp.total_buyin_amount, gp.total_buyin_chips, gp.joined_at,
-      u.display_name, u.friend_code, u.avatar_url
+      u.display_name, u.friend_code, u.phone_number, u.avatar_url
     FROM game_players gp
     JOIN users u ON gp.user_id = u.id
     WHERE gp.game_id = ?
@@ -288,6 +291,7 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
     }
     return {
       ...p,
+      friend_code: p.phone_number || p.friend_code,
       friendshipStatus,
       moneyEquivalent: p.current_chips * table.chip_value
     };

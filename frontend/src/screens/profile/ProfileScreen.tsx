@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  Platform
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import {
   User,
@@ -18,52 +19,65 @@ import {
   Coins,
   TrendingUp,
   LogOut,
-  Sliders,
-  Sparkles
+  Sparkles,
+  Edit2
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
 import { Header } from '../../components/Header';
-import { getDefaultApiBase, setCustomApiBase } from '../../api/client';
+import { apiRequest } from '../../api/client';
 
 export const ProfileScreen: React.FC = () => {
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout, refreshUser, updateUser } = useAuth();
   const [copied, setCopied] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [customApiUrl, setCustomApiUrl] = useState(getDefaultApiBase());
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [newName, setNewName] = useState(user?.display_name || '');
+  const [savingName, setSavingName] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   const stats = user?.stats || {};
   const netWinnings = stats.net_winnings || 0;
   const netChips = stats.net_chips || 0;
 
   const handleCopyCode = () => {
-    if (user?.friend_code && Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(user.friend_code);
+    const codeToCopy = user?.phone_number || user?.friend_code || '';
+    if (codeToCopy && Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(codeToCopy);
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSaveApiBase = async () => {
+  const handleSaveName = async () => {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed.length < 2) {
+      setNameError('Name must be at least 2 characters');
+      return;
+    }
+    setNameError(null);
+    setSavingName(true);
     try {
-      await setCustomApiBase(customApiUrl);
-      Alert.alert('Saved', 'API Base URL updated.');
-      setShowSettings(false);
+      const res = await apiRequest('/auth/profile', {
+        method: 'PUT',
+        body: { displayName: trimmed }
+      });
+      if (res.success && res.user) {
+        updateUser(res.user);
+        setIsEditingName(false);
+        Alert.alert('Success', 'Profile name updated successfully!');
+      } else {
+        setNameError(res.error || 'Failed to update name');
+      }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to save URL');
+      setNameError(err.message || 'Failed to update name');
+    } finally {
+      setSavingName(false);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Header
-        title="Profile & Stats"
-        rightAction={
-          <TouchableOpacity onPress={() => setShowSettings(prev => !prev)} style={styles.settingsBtn}>
-            <Sliders size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
-        }
-      />
+      <Header title="Profile & Stats" />
 
       <ScrollView contentContainerStyle={styles.content}>
         {/* User Card */}
@@ -74,42 +88,82 @@ export const ProfileScreen: React.FC = () => {
             </Text>
           </View>
 
-          <Text style={styles.displayName}>{user?.display_name}</Text>
+          {/* Name Display & Editing */}
+          {isEditingName ? (
+            <View style={styles.editNameBox}>
+              <Text style={styles.editNameLabel}>FULL / DISPLAY NAME</Text>
+              <TextInput
+                style={styles.nameInput}
+                value={newName}
+                onChangeText={(text) => {
+                  setNewName(text);
+                  setNameError(null);
+                }}
+                placeholder="Enter your name"
+                placeholderTextColor={colors.textMuted}
+                autoFocus
+              />
+              {nameError && <Text style={styles.nameErrorText}>{nameError}</Text>}
+              <View style={styles.editNameBtnRow}>
+                <TouchableOpacity
+                  style={[styles.saveNameBtn, savingName && { opacity: 0.6 }]}
+                  onPress={handleSaveName}
+                  disabled={savingName}
+                >
+                  {savingName ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Text style={styles.saveNameBtnText}>Save Name</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.cancelNameBtn}
+                  onPress={() => {
+                    setIsEditingName(false);
+                    setNewName(user?.display_name || '');
+                    setNameError(null);
+                  }}
+                  disabled={savingName}
+                >
+                  <Text style={styles.cancelNameBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.nameRow}>
+              <Text style={styles.displayName}>{user?.display_name || 'Player'}</Text>
+              <TouchableOpacity
+                style={styles.editNameBtn}
+                onPress={() => {
+                  setNewName(user?.display_name || '');
+                  setNameError(null);
+                  setIsEditingName(true);
+                }}
+              >
+                <Edit2 size={13} color={colors.primary} />
+                <Text style={styles.editNameBtnText}>Edit Name</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <Text style={styles.emailText}>{user?.email}</Text>
 
-          {/* Friend Code Box */}
-          <TouchableOpacity style={styles.friendCodeBox} onPress={handleCopyCode}>
-            <Text style={styles.codeLabel}>YOUR UNIQUE FRIEND CODE</Text>
+          {/* Unique Friend Code Box (Mobile Number) */}
+          <TouchableOpacity style={styles.friendCodeBox} onPress={handleCopyCode} activeOpacity={0.8}>
+            <Text style={styles.codeLabel}>YOUR UNIQUE FRIEND CODE (MOBILE NO.)</Text>
             <View style={styles.codeRow}>
-              <Text style={styles.codeText}>#{user?.friend_code}</Text>
+              <Text style={styles.codeText}>{user?.phone_number || user?.friend_code || 'N/A'}</Text>
               {copied ? (
-                <Check size={16} color={colors.successText} style={{ marginLeft: 6 }} />
+                <Check size={18} color={colors.successText} style={{ marginLeft: 8 }} />
               ) : (
-                <Copy size={16} color={colors.primary} style={{ marginLeft: 6 }} />
+                <Copy size={18} color={colors.primary} style={{ marginLeft: 8 }} />
               )}
             </View>
-            <Text style={styles.copyHint}>{copied ? 'Copied to clipboard!' : 'Tap to copy and share'}</Text>
+            <Text style={styles.copyHint}>
+              {copied ? 'Copied to clipboard!' : 'Friends can add you using this 10-digit number'}
+            </Text>
           </TouchableOpacity>
         </View>
-
-        {/* Server Endpoint Settings (Toggled) */}
-        {showSettings && (
-          <View style={styles.settingsCard}>
-            <Text style={styles.settingsTitle}>Backend Server Connection</Text>
-            <Text style={styles.settingsSub}>
-              Change this if testing from a physical phone on your local Wi-Fi:
-            </Text>
-            <TextInput
-              style={styles.apiInput}
-              value={customApiUrl}
-              onChangeText={setCustomApiUrl}
-              placeholder="http://192.168.x.x:4000/api"
-            />
-            <TouchableOpacity style={styles.saveApiBtn} onPress={handleSaveApiBase}>
-              <Text style={styles.saveApiBtnText}>Save API URL</Text>
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* LIFETIME FINANCIAL CAREER STATS */}
         <View style={styles.card}>
@@ -270,15 +324,93 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40
   },
-  settingsBtn: {
-    width: 36,
-    height: 36,
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4
+  },
+  editNameBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary + '33',
+    marginLeft: 8
+  },
+  editNameBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+    marginLeft: 3
+  },
+  editNameBox: {
+    width: '100%',
+    backgroundColor: colors.cardInset,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.borderDark
+  },
+  editNameLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.textMuted,
+    letterSpacing: 0.8,
+    marginBottom: 6
+  },
+  nameInput: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
     borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text
+  },
+  nameErrorText: {
+    fontSize: 11,
+    color: colors.dangerText,
+    marginTop: 4
+  },
+  editNameBtnRow: {
+    flexDirection: 'row',
+    marginTop: 10
+  },
+  saveNameBtn: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  saveNameBtnText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700'
+  },
+  cancelNameBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
     backgroundColor: colors.cardRaised,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    borderColor: colors.borderDark,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center'
+    marginLeft: 10
+  },
+  cancelNameBtnText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600'
   },
   userCard: {
     backgroundColor: colors.card,
@@ -348,46 +480,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textMuted,
     marginTop: 2
-  },
-  settingsCard: {
-    backgroundColor: colors.cardInset,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.borderDark
-  },
-  settingsTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text
-  },
-  settingsSub: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 2,
-    marginBottom: 8
-  },
-  apiInput: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.borderDark,
-    borderRadius: 10,
-    padding: 10,
-    fontSize: 13,
-    color: colors.text
-  },
-  saveApiBtn: {
-    backgroundColor: colors.primary,
-    paddingVertical: 9,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8
-  },
-  saveApiBtnText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '700'
   },
   card: {
     backgroundColor: colors.card,

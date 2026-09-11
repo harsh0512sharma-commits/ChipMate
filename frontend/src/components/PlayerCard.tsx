@@ -66,7 +66,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
                 </View>
               )}
             </View>
-            <Text style={styles.friendCodeText}>#{player.friend_code}</Text>
+            <Text style={styles.friendCodeText}>📱 {player.friend_code}</Text>
           </View>
         </View>
 

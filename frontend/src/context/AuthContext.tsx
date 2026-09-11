@@ -4,6 +4,7 @@ import { initSocketClient } from '../api/socket';
 
 export interface User {
   id: string;
+  phone_number?: string | null;
   email: string;
   display_name: string;
   friend_code: string;

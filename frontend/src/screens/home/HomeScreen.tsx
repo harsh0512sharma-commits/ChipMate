@@ -101,12 +101,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* Welcome Header */}
         <View style={styles.welcomeRow}>
           <View>
-            <Text style={styles.greetingText}>Welcome back,</Text>
+            <Text style={styles.greetingText}>Welcome,</Text>
             <Text style={styles.userName}>{user?.display_name || 'Player'}</Text>
           </View>
           <View style={styles.friendCodeBadge}>
-            <Text style={styles.friendCodeLabel}>MY CODE</Text>
-            <Text style={styles.friendCodeValue}>{user?.friend_code}</Text>
+            <Text style={styles.friendCodeLabel}>MOBILE NO</Text>
+            <Text style={styles.friendCodeValue}>{user?.phone_number || user?.friend_code || 'N/A'}</Text>
           </View>
         </View>
 
