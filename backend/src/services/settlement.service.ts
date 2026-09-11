@@ -61,7 +61,7 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
   if (!table) throw new Error('Game not found');
 
   const players = db.prepare(`
-    SELECT gp.*, u.display_name, u.friend_code
+    SELECT gp.*, COALESCE(gp.guest_name, u.display_name) as display_name, u.friend_code
     FROM game_players gp
     JOIN users u ON gp.user_id = u.id
     WHERE gp.game_id = ?
@@ -70,8 +70,8 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
   // Fetch all active/unsettled loans
   const loans = db.prepare(`
     SELECT l.*,
-      lender.user_id as lender_user_id, u_lender.display_name as lender_name,
-      borrower.user_id as borrower_user_id, u_borrower.display_name as borrower_name
+      lender.user_id as lender_user_id, COALESCE(lender.guest_name, u_lender.display_name) as lender_name,
+      borrower.user_id as borrower_user_id, COALESCE(borrower.guest_name, u_borrower.display_name) as borrower_name
     FROM loans l
     JOIN game_players lender ON l.lender_id = lender.id
     JOIN users u_lender ON lender.user_id = u_lender.id
@@ -342,8 +342,8 @@ export function getSettlementDetails(gameId: string) {
 
   const items = db.prepare(`
     SELECT si.*, 
-      from_gp.user_id as from_user_id, u_from.display_name as from_display_name,
-      to_gp.user_id as to_user_id, u_to.display_name as to_display_name
+      from_gp.user_id as from_user_id, COALESCE(from_gp.guest_name, u_from.display_name) as from_display_name,
+      to_gp.user_id as to_user_id, COALESCE(to_gp.guest_name, u_to.display_name) as to_display_name
     FROM settlement_items si
     JOIN game_players from_gp ON si.from_player_id = from_gp.id
     JOIN users u_from ON from_gp.user_id = u_from.id

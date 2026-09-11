@@ -38,6 +38,9 @@ export function updateLifetimeStatsForFinalizedGame(
   const db = getDb();
 
   for (const p of players) {
+    if (!p.userId || p.userId.startsWith('guest_')) {
+      continue;
+    }
     // Recompute complete lifetime stats from all finalized games for this user to guarantee mathematical purity
     recalculateUserLifetimeStats(p.userId);
   }

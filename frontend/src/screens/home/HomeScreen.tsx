@@ -30,6 +30,7 @@ interface HomeScreenProps {
   onOpenJoinTable: () => void;
   onOpenLeaderboard: () => void;
   onOpenGameHistory: () => void;
+  onOpenSummary?: (tableId: string) => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -37,7 +38,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onCreateTable,
   onOpenJoinTable,
   onOpenLeaderboard,
-  onOpenGameHistory
+  onOpenGameHistory,
+  onOpenSummary
 }) => {
   const { user, refreshUser } = useAuth();
   const [activeTables, setActiveTables] = useState<any[]>([]);
@@ -48,28 +50,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const loadData = async () => {
     try {
-      const [activeRes, historyRes] = await Promise.all([
+      const [activeRes, histRes] = await Promise.all([
         apiRequest('/tables/active'),
         apiRequest('/tables/history')
       ]);
 
       if (activeRes.success) setActiveTables(activeRes.tables || []);
-      if (historyRes.success) setRecentCompleted(historyRes.history || []);
-      await refreshUser();
-    } catch (err) {
-      console.warn('Failed to load home data:', err);
+      if (histRes.success) setRecentCompleted(histRes.history || []);
+    } catch (err: any) {
+      console.warn('Home fetch error:', err.message);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([loadData(), refreshUser()]);
+    setRefreshing(false);
   };
 
   useEffect(() => {
     loadData();
   }, []);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  };
 
   const handleQuickJoin = async () => {
     if (!joinCodeInput.trim()) return;
@@ -82,13 +83,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       if (res.success && res.table) {
         setJoinCodeInput('');
         onOpenLiveTable(res.table.id);
+      } else {
+        setJoinError(res.error || 'Could not join table with that code.');
       }
     } catch (err: any) {
-      setJoinError(err.message || 'Could not join table');
+      setJoinError(err.message || 'Failed to join table.');
     }
   };
 
-  const primaryActiveTable = activeTables[0];
+  const primaryActiveTable = activeTables.length > 0 ? activeTables[0] : null;
   const stats = user?.stats || {};
   const netWinnings = stats.net_winnings || 0;
 
@@ -103,10 +106,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <View>
             <Text style={styles.greetingText}>Welcome,</Text>
             <Text style={styles.userName}>{user?.display_name || 'Player'}</Text>
-          </View>
-          <View style={styles.friendCodeBadge}>
-            <Text style={styles.friendCodeLabel}>MOBILE NO</Text>
-            <Text style={styles.friendCodeValue}>{user?.phone_number || user?.friend_code || 'N/A'}</Text>
           </View>
         </View>
 
@@ -249,8 +248,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <Text style={styles.emptyRecentText}>Your completed games will appear here.</Text>
             </View>
           ) : (
-            recentCompleted.slice(0, 3).map(game => (
-              <View key={game.id} style={styles.recentGameItem}>
+            recentCompleted.slice(0, 5).map(game => (
+              <TouchableOpacity
+                key={game.id}
+                style={styles.recentGameItem}
+                onPress={() => (onOpenSummary ? onOpenSummary(game.id) : onOpenGameHistory())}
+                activeOpacity={0.7}
+              >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.recentGameName}>{game.name}</Text>
                   <Text style={styles.recentGameMeta}>
@@ -266,9 +270,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   >
                     {(game.net_winnings_money || 0) >= 0 ? `+₹${game.net_winnings_money || 0}` : `-₹${Math.abs(game.net_winnings_money || 0)}`}
                   </Text>
-                  <Text style={styles.finalizedBadge}>Finalized</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                    <Text style={styles.finalizedBadge}>Finalized</Text>
+                    <ArrowRight size={12} color={colors.primary} style={{ marginLeft: 4 }} />
+                  </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </View>
@@ -495,10 +502,13 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   joinInputRow: {
-    flexDirection: 'row'
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
   },
   joinInput: {
     flex: 1,
+    minWidth: 0,
     backgroundColor: colors.cardInset,
     borderWidth: 1,
     borderColor: colors.borderSubtle,
@@ -508,12 +518,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 2,
-    color: colors.text,
-    marginRight: 8
+    color: colors.text
   },
   joinBtn: {
+    flexShrink: 0,
     backgroundColor: colors.primary,
-    paddingHorizontal: 22,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center'

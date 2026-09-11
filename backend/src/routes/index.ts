@@ -34,11 +34,13 @@ router.put('/tables/:tableId/settings', requireAuth, tableCtrl.updateSettings);
 router.post('/tables/join', requireAuth, tableCtrl.joinTable);
 router.post('/tables/:tableId/players', requireAuth, tableCtrl.addPlayer);
 router.post('/tables/:tableId/seat-friend', requireAuth, tableCtrl.seatFriend);
+router.post('/tables/:tableId/seat-guest', requireAuth, tableCtrl.seatGuest);
 router.delete('/tables/:tableId/players/:playerId', requireAuth, tableCtrl.removePlayer);
 router.post('/tables/:tableId/start', requireAuth, tableCtrl.startTable);
 router.get('/tables/active', requireAuth, tableCtrl.getActiveTables);
 router.get('/tables/history', requireAuth, tableCtrl.getTableHistory);
 router.get('/tables/:tableId', requireAuth, tableCtrl.getTable);
+router.get('/tables/:tableId/transactions', requireAuth, tableCtrl.getTableTransactions);
 
 // Ledger & Transaction routes (Host actions)
 router.post('/tables/:tableId/buy-in', requireAuth, ledgerCtrl.buyIn);

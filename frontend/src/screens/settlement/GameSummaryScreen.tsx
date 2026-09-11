@@ -7,9 +7,10 @@ import {
   TouchableOpacity,
   ActivityIndicator
 } from 'react-native';
-import { Trophy, TrendingDown, HandCoins, ArrowRight, Home } from 'lucide-react-native';
+import { Trophy, TrendingDown, HandCoins, ArrowRight, Home, History } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
+import { formatTxSummary } from '../table/LiveTableScreen';
 
 interface GameSummaryScreenProps {
   gameId: string;
@@ -23,17 +24,26 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
   onGoLeaderboard
 }) => {
   const [insights, setInsights] = useState<any>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAllTx, setShowAllTx] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await apiRequest(`/stats/game-insights/${gameId}`);
-        if (res.success) {
-          setInsights(res.insights);
+        const [insightsRes, txRes] = await Promise.allSettled([
+          apiRequest(`/stats/game-insights/${gameId}`),
+          apiRequest(`/tables/${gameId}/transactions`)
+        ]);
+
+        if (insightsRes.status === 'fulfilled' && insightsRes.value.success) {
+          setInsights(insightsRes.value.insights);
+        }
+        if (txRes.status === 'fulfilled' && txRes.value.success) {
+          setTransactions(txRes.value.transactions || []);
         }
       } catch (err) {
-        console.warn('Failed to load insights:', err);
+        console.warn('Failed to load summary details:', err);
       } finally {
         setLoading(false);
       }
@@ -111,6 +121,55 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
                   {insights.mostBorrowed.displayName} ({insights.mostBorrowed.chipsBorrowed} chips)
                 </Text>
               </View>
+            </View>
+          )}
+        </View>
+
+        {/* Transaction History & Audit Card */}
+        <View style={styles.auditCard}>
+          <View style={styles.auditHeaderRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <History size={16} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.auditTitle}>Game Transaction History</Text>
+            </View>
+            <View style={styles.txCountBadge}>
+              <Text style={styles.txCountText}>{transactions.length} events</Text>
+            </View>
+          </View>
+
+          {transactions.length === 0 ? (
+            <Text style={styles.emptyTxText}>No transactions recorded for this game.</Text>
+          ) : (
+            <View style={{ marginTop: 8 }}>
+              {(showAllTx ? transactions : transactions.slice(0, 5)).map((tx: any) => {
+                const summary = formatTxSummary(tx);
+                return (
+                  <View key={tx.id} style={styles.txItemRow}>
+                    <Text style={styles.txItemIcon}>{summary.icon}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.txItemTitle}>{summary.title}</Text>
+                      <Text style={styles.txItemDetail}>
+                        {summary.subtitle} • Recorded by {tx.actor_name}
+                      </Text>
+                    </View>
+                    <Text style={styles.txItemTime}>
+                      {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                  </View>
+                );
+              })}
+
+              {transactions.length > 5 && (
+                <TouchableOpacity
+                  style={styles.toggleTxBtn}
+                  onPress={() => setShowAllTx(prev => !prev)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.toggleTxBtnText}>
+                    {showAllTx ? 'Show Less' : `View All ${transactions.length} Transactions`}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
@@ -262,5 +321,81 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.text
+  },
+  auditCard: {
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  auditHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderDark
+  },
+  auditTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text
+  },
+  txCountBadge: {
+    backgroundColor: colors.cardInset,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.borderDark
+  },
+  txCountText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted
+  },
+  emptyTxText: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 10,
+    textAlign: 'center'
+  },
+  txItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderDark
+  },
+  txItemIcon: {
+    fontSize: 16,
+    marginRight: 10
+  },
+  txItemTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text
+  },
+  txItemDetail: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2
+  },
+  txItemTime: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginLeft: 8
+  },
+  toggleTxBtn: {
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 6
+  },
+  toggleTxBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary
   }
 });

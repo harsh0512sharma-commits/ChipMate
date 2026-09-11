@@ -4,13 +4,14 @@ import * as authService from '../services/auth.service';
 
 export async function signupRequestOtp(req: Request, res: Response): Promise<void> {
   try {
-    const { phoneNumber, email, password } = req.body;
-    if (!phoneNumber || !email || !password) {
-      res.status(400).json({ success: false, error: 'Phone number, email, and password are all mandatory.' });
+    const { phoneNumber, email, password, displayName, name } = req.body;
+    const fullName = (displayName || name || '').trim();
+    if (!fullName || !phoneNumber || !email || !password) {
+      res.status(400).json({ success: false, error: 'Full name, mobile number, email, and password are all mandatory.' });
       return;
     }
 
-    const result = await authService.signupRequestOtp({ phoneNumber, email, password });
+    const result = await authService.signupRequestOtp({ displayName: fullName, phoneNumber, email, password });
     res.json(result);
   } catch (err: any) {
     res.status(400).json({ success: false, error: err.message || 'Failed to process sign-up' });

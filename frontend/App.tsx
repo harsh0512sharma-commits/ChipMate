@@ -130,6 +130,7 @@ function MainNavigator() {
               onOpenJoinTable={() => setCurrentScreen('JOIN_TABLE')}
               onOpenLeaderboard={() => setCurrentScreen('TAB_LEADERBOARD')}
               onOpenGameHistory={() => setCurrentScreen('TAB_PROFILE')}
+              onOpenSummary={openSummary}
             />
           )}
 

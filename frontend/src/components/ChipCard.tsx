@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { CheckCircle2, AlertTriangle, Coins, Building, Layers } from 'lucide-react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { Coins, Layers, Building, Landmark } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 
 interface ChipCardProps {
@@ -8,8 +8,8 @@ interface ChipCardProps {
   playerChips: number;
   bankChips: number;
   chipValue: number;
-  isReconciled: boolean;
-  discrepancy: number;
+  isReconciled?: boolean;
+  discrepancy?: number;
   onReviewActivity?: () => void;
 }
 
@@ -17,108 +17,69 @@ export const ChipCard: React.FC<ChipCardProps> = ({
   totalChips,
   playerChips,
   bankChips,
-  chipValue,
-  isReconciled,
-  discrepancy,
-  onReviewActivity
+  chipValue
 }) => {
-  const totalAccounted = playerChips + bankChips;
   const totalPotMoney = totalChips * chipValue;
-  const inPlayPercent = totalChips > 0 ? Math.min(100, Math.max(0, (playerChips / totalChips) * 100)) : 0;
+  const inPlayMoney = playerChips * chipValue;
+  const bankMoney = bankChips * chipValue;
 
   return (
     <View style={styles.card}>
-      {/* Top Header: Badge + Reconciliation Pill */}
-      <View style={styles.statusRow}>
+      {/* Top Header: Badge + Rate Pill */}
+      <View style={styles.headerRow}>
         <View style={styles.badgeRow}>
           <View style={styles.iconRing}>
             <Coins size={14} color={colors.primary} />
           </View>
           <Text style={styles.badgeLabel}>CHIP INVENTORY</Text>
         </View>
-
-        {isReconciled ? (
-          <View style={styles.reconciledPill}>
-            <CheckCircle2 size={12} color={colors.successText} />
-            <Text style={styles.reconciledText}>Reconciled</Text>
-          </View>
-        ) : (
-          <View style={styles.mismatchPill}>
-            <AlertTriangle size={12} color={colors.dangerText} />
-            <Text style={styles.mismatchText}>{discrepancy} Unaccounted</Text>
-          </View>
-        )}
+        <View style={styles.ratePill}>
+          <Text style={styles.ratePillText}>₹{chipValue} / chip</Text>
+        </View>
       </View>
 
-      {/* Hero Numbers */}
-      <View style={styles.heroRow}>
-        <View style={styles.heroLeft}>
-          <Text style={styles.heroNumber}>
-            {totalAccounted}
-            <Text style={styles.heroSubNumber}>/{totalChips}</Text>
+      {/* 3 Metrics Horizontally Side-by-Side */}
+      <View style={styles.metricRow}>
+        {/* Column 1: In-Play Chips */}
+        <View style={styles.metricCol}>
+          <View style={styles.metricHeader}>
+            <Layers size={13} color={colors.primary} style={{ marginRight: 4 }} />
+            <Text style={styles.metricLabel}>IN-PLAY</Text>
+          </View>
+          <Text style={styles.metricChips}>
+            {playerChips} <Text style={styles.chipUnit}>chips</Text>
           </Text>
-          <Text style={styles.heroUnit}>CHIPS ACCOUNTED</Text>
-        </View>
-        <View style={styles.heroRight}>
-          <Text style={styles.potValue}>₹{totalPotMoney.toLocaleString('en-IN')}</Text>
-          <Text style={styles.potLabel}>Total Game Pot</Text>
-        </View>
-      </View>
-
-      {/* Modern Chip Distribution Visual Bar */}
-      <View style={styles.progressContainer}>
-        <View style={[styles.progressBarInPlay, { width: `${inPlayPercent}%` }]} />
-        <View style={[styles.progressBarBank, { width: `${100 - inPlayPercent}%` }]} />
-      </View>
-
-      {/* Two Inset Metric Tiles */}
-      <View style={styles.breakdownRow}>
-        <View style={styles.breakdownItem}>
-          <View style={styles.tileHeader}>
-            <Layers size={12} color={colors.primary} style={{ marginRight: 5 }} />
-            <Text style={styles.breakdownLabel}>In Play (Players)</Text>
-          </View>
-          <Text style={styles.breakdownValue}>{playerChips} <Text style={styles.chipTextSmall}>chips</Text></Text>
-          <Text style={styles.breakdownMoney}>₹{(playerChips * chipValue).toLocaleString('en-IN')}</Text>
+          <Text style={styles.metricMoney}>₹{inPlayMoney.toLocaleString('en-IN')}</Text>
         </View>
 
         <View style={styles.divider} />
 
-        <View style={styles.breakdownItem}>
-          <View style={styles.tileHeader}>
-            <Building size={12} color={colors.textSecondary} style={{ marginRight: 5 }} />
-            <Text style={styles.breakdownLabel}>Bank Vault</Text>
+        {/* Column 2: Bank Vault */}
+        <View style={styles.metricCol}>
+          <View style={styles.metricHeader}>
+            <Building size={13} color={colors.textSecondary} style={{ marginRight: 4 }} />
+            <Text style={styles.metricLabel}>BANK VAULT</Text>
           </View>
-          <Text style={[styles.breakdownValue, bankChips === 0 && { color: colors.warningText }]}>
-            {bankChips} <Text style={styles.chipTextSmall}>chips</Text>
+          <Text style={[styles.metricChips, bankChips === 0 && { color: colors.warningText }]}>
+            {bankChips} <Text style={styles.chipUnit}>chips</Text>
           </Text>
-          <Text style={styles.breakdownMoney}>₹{(bankChips * chipValue).toLocaleString('en-IN')}</Text>
+          <Text style={styles.metricMoney}>₹{bankMoney.toLocaleString('en-IN')}</Text>
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* Column 3: Total Game Pot */}
+        <View style={styles.metricCol}>
+          <View style={styles.metricHeader}>
+            <Landmark size={13} color={colors.chipGold} style={{ marginRight: 4 }} />
+            <Text style={[styles.metricLabel, { color: colors.chipGold }]}>TOTAL POT</Text>
+          </View>
+          <Text style={[styles.metricChips, { color: colors.chipGold }]}>
+            {totalChips} <Text style={[styles.chipUnit, { color: colors.chipGold }]}>chips</Text>
+          </Text>
+          <Text style={[styles.metricMoney, { color: colors.successText }]}>₹{totalPotMoney.toLocaleString('en-IN')}</Text>
         </View>
       </View>
-
-      {/* Footer Rate Info */}
-      <View style={styles.footerRow}>
-        <Text style={styles.footerText}>
-          Configured Rate: <Text style={styles.footerHighlight}>₹{chipValue} / chip</Text>
-        </Text>
-        <Text style={styles.footerText}>
-          In Play: <Text style={styles.footerHighlight}>{Math.round(inPlayPercent)}%</Text>
-        </Text>
-      </View>
-
-      {/* Discrepancy warning banner */}
-      {!isReconciled && (
-        <View style={styles.discrepancyBox}>
-          <Text style={styles.discrepancyWarningText}>
-            ⚠️ Mismatch: {totalAccounted} chips active vs {totalChips} physical chips.
-          </Text>
-          {onReviewActivity && (
-            <TouchableOpacity onPress={onReviewActivity} style={styles.reviewButton} activeOpacity={0.8}>
-              <Text style={styles.reviewButtonText}>Review Audit</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
     </View>
   );
 };
@@ -127,14 +88,14 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
     borderRadius: 18,
-    padding: 18,
+    padding: 16,
     marginHorizontal: 16,
     marginTop: 12,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: colors.borderSubtle
   },
-  statusRow: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -155,183 +116,69 @@ const styles = StyleSheet.create({
   },
   badgeLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textSecondary,
     letterSpacing: 0.8
   },
-  reconciledPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.successLight,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.successBorder
-  },
-  reconciledText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.successText,
-    marginLeft: 5
-  },
-  mismatchPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.dangerLight,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.dangerBorder
-  },
-  mismatchText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.dangerText,
-    marginLeft: 5
-  },
-  heroRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: 14
-  },
-  heroLeft: {
-    flex: 1
-  },
-  heroNumber: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -1
-  },
-  heroSubNumber: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.textSecondary
-  },
-  heroUnit: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.textMuted,
-    letterSpacing: 0.8,
-    marginTop: 2
-  },
-  heroRight: {
-    alignItems: 'flex-end'
-  },
-  potValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.primary
-  },
-  potLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 2,
-    fontWeight: '500'
-  },
-  progressContainer: {
-    height: 6,
-    borderRadius: 3,
+  ratePill: {
     backgroundColor: colors.cardInset,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    marginBottom: 14
-  },
-  progressBarInPlay: {
-    backgroundColor: colors.primary,
-    height: '100%'
-  },
-  progressBarBank: {
-    backgroundColor: colors.border,
-    height: '100%'
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    backgroundColor: colors.cardInset,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: colors.borderDark
   },
-  breakdownItem: {
-    flex: 1
+  ratePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textSecondary
   },
-  tileHeader: {
+  metricRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.cardInset,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderDark
+  },
+  metricCol: {
+    flex: 1,
+    alignItems: 'center'
+  },
+  metricHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4
   },
-  breakdownLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    fontWeight: '600'
+  metricLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 0.5
   },
-  breakdownValue: {
-    fontSize: 18,
+  metricChips: {
+    fontSize: 16,
     fontWeight: '800',
-    color: colors.text
+    color: colors.text,
+    letterSpacing: -0.3
   },
-  chipTextSmall: {
-    fontSize: 12,
+  chipUnit: {
+    fontSize: 11,
     fontWeight: '500',
     color: colors.textSecondary
   },
-  breakdownMoney: {
+  metricMoney: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.primary,
     marginTop: 2
   },
   divider: {
     width: 1,
+    height: 38,
     backgroundColor: colors.borderDark,
-    marginHorizontal: 12
-  },
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 2
-  },
-  footerText: {
-    fontSize: 12,
-    color: colors.textMuted,
-    fontWeight: '500'
-  },
-  footerHighlight: {
-    fontWeight: '600',
-    color: colors.textSecondary
-  },
-  discrepancyBox: {
-    marginTop: 12,
-    padding: 10,
-    backgroundColor: colors.dangerLight,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.dangerBorder,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between'
-  },
-  discrepancyWarningText: {
-    fontSize: 12,
-    color: colors.dangerText,
-    fontWeight: '600',
-    flex: 1
-  },
-  reviewButton: {
-    backgroundColor: colors.danger,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    marginLeft: 8
-  },
-  reviewButtonText: {
-    fontSize: 11,
-    color: '#FFF',
-    fontWeight: '700'
+    marginHorizontal: 2
   }
 });

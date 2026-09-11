@@ -172,3 +172,32 @@ export function getTableHistory(req: AuthenticatedRequest, res: Response): void 
     res.status(500).json({ success: false, error: err.message || 'Failed to fetch game history' });
   }
 }
+
+export function seatGuest(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const hostUserId = req.user!.userId;
+    const tableId = req.params.tableId as string;
+    const { guestName } = req.body;
+
+    if (!guestName || !guestName.trim()) {
+      res.status(400).json({ success: false, error: 'guestName is required' });
+      return;
+    }
+
+    const result = tableService.seatGuestPlayer(hostUserId, tableId, guestName.trim());
+    broadcastTableUpdate(tableId, 'PLAYER_SEATED', result);
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to seat guest player' });
+  }
+}
+
+export function getTableTransactions(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const tableId = req.params.tableId as string;
+    const transactions = tableService.getTableTransactions(tableId);
+    res.json({ success: true, transactions });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to fetch transactions' });
+  }
+}

@@ -11,6 +11,7 @@ import {
   ScrollView
 } from 'react-native';
 import {
+  User,
   Phone,
   Mail,
   Lock,
@@ -41,7 +42,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
   const [loginPhone, setLoginPhone] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
-  // Sign Up inputs (3 Mandatory Columns/Inputs)
+  // Sign Up inputs (4 Mandatory Columns/Inputs)
+  const [signupName, setSignupName] = useState('');
   const [signupPhone, setSignupPhone] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
@@ -110,23 +112,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
     }
   };
 
-  // 2. Handle Sign Up with 3 Mandatory Fields (Phone Number, Email, Password)
+  // 2. Handle Sign Up with 4 Mandatory Fields (Full Name, Phone Number, Email, Password)
   const handleSignUp = async () => {
+    const cleanedName = signupName.trim();
+    if (!cleanedName || cleanedName.length < 2) {
+      setError('Field 1: Please enter your full name (at least 2 characters).');
+      return;
+    }
+
     const cleanedPhone = signupPhoneClean(signupPhone);
     if (!cleanedPhone || cleanedPhone.length !== 10) {
-      setError('Column 1: Please enter a valid 10-digit mobile number (will be your username).');
+      setError('Field 2: Please enter a valid 10-digit mobile number (will be your username).');
       return;
     }
 
     const cleanedEmail = signupEmail.trim().toLowerCase();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!cleanedEmail || !emailRegex.test(cleanedEmail)) {
-      setError('Column 2: Please enter a valid email address to receive your OTP.');
+      setError('Field 3: Please enter a valid email address to receive your OTP.');
       return;
     }
 
     if (!signupPassword || signupPassword.length < 6) {
-      setError('Column 3: Password must be at least 6 characters.');
+      setError('Field 4: Password must be at least 6 characters.');
       return;
     }
 
@@ -137,6 +145,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
       const res = await apiRequest('/auth/signup-request-otp', {
         method: 'POST',
         body: {
+          name: cleanedName,
+          displayName: cleanedName,
           phoneNumber: cleanedPhone,
           email: cleanedEmail,
           password: signupPassword
@@ -362,19 +372,43 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
             </View>
           ) : (
             /* ================================================================= */
-            /* TAB 2: SIGN UP MODE (3 Columns / Fields - All Mandatory)          */
+            /* TAB 2: SIGN UP MODE (4 Fields - All Mandatory)                    */
             /* ================================================================= */
             <View>
               <View style={styles.mandatoryNotice}>
                 <Text style={styles.mandatoryNoticeText}>
-                  All 3 fields are mandatory. Your 10-digit mobile number will be your username.
+                  All 4 fields are mandatory. Your 10-digit mobile number will be your username.
                 </Text>
               </View>
 
-              {/* Column 1: Mobile Number (Mandatory) */}
+              {/* Field 1: Full Name (Mandatory) */}
               <View style={styles.inputContainer}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.inputLabel}>1. MOBILE NUMBER (USERNAME) *</Text>
+                  <Text style={styles.inputLabel}>1. FULL NAME *</Text>
+                </View>
+                <View style={[styles.inputRow, focusedField === 'signupName' && styles.inputRowFocused]}>
+                  <User size={18} color={focusedField === 'signupName' ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Your full name"
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="words"
+                    value={signupName}
+                    onChangeText={setSignupName}
+                    onFocus={() => setFocusedField('signupName')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                  {signupName.trim().length >= 2 && (
+                    <CheckCircle size={16} color={colors.successText} />
+                  )}
+                </View>
+                <Text style={styles.fieldHint}>Used for table seatings, rankings, and personal greetings.</Text>
+              </View>
+
+              {/* Field 2: Mobile Number (Mandatory) */}
+              <View style={styles.inputContainer}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.inputLabel}>2. MOBILE NUMBER (USERNAME) *</Text>
                 </View>
                 <View style={[styles.inputRow, focusedField === 'signupPhone' && styles.inputRowFocused]}>
                   <Phone size={18} color={focusedField === 'signupPhone' ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
@@ -396,10 +430,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
                 <Text style={styles.fieldHint}>This 10-digit number will be your username for login.</Text>
               </View>
 
-              {/* Column 2: Email Address (Mandatory) */}
+              {/* Field 3: Email Address (Mandatory) */}
               <View style={styles.inputContainer}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.inputLabel}>2. EMAIL ADDRESS *</Text>
+                  <Text style={styles.inputLabel}>3. EMAIL ADDRESS *</Text>
                 </View>
                 <View style={[styles.inputRow, focusedField === 'signupEmail' && styles.inputRowFocused]}>
                   <Mail size={18} color={focusedField === 'signupEmail' ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
@@ -419,10 +453,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
                 <Text style={styles.fieldHint}>We will send a 6-digit verification code to this email.</Text>
               </View>
 
-              {/* Column 3: Password (Mandatory) */}
+              {/* Field 4: Password (Mandatory) */}
               <View style={styles.inputContainer}>
                 <View style={styles.labelRow}>
-                  <Text style={styles.inputLabel}>3. PASSWORD *</Text>
+                  <Text style={styles.inputLabel}>4. PASSWORD *</Text>
                 </View>
                 <View style={[styles.inputRow, focusedField === 'signupPassword' && styles.inputRowFocused]}>
                   <Lock size={18} color={focusedField === 'signupPassword' ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />

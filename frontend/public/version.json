@@ -1,5 +1,5 @@
 {
-  "version": "1.0.3",
-  "buildTime": 1789146700000,
-  "releaseNotes": "Fix game finalization & stats recording button with dedicated confirmation modal."
+  "version": "1.0.4",
+  "buildTime": 1789150000000,
+  "releaseNotes": "Full name on signup, guest player seating, 3-column chip console, transaction audit & UI fixes."
 }

@@ -192,6 +192,10 @@ async function main() {
   for (const sql of statements) {
     await client.execute(sql);
   }
+  // Safe column additions
+  try { await client.execute("ALTER TABLE pending_registrations ADD COLUMN display_name TEXT"); } catch (_) {}
+  try { await client.execute("ALTER TABLE game_players ADD COLUMN is_guest INTEGER DEFAULT 0"); } catch (_) {}
+  try { await client.execute("ALTER TABLE game_players ADD COLUMN guest_name TEXT"); } catch (_) {}
   console.log('✅ ALL CHIPMATE TABLES CREATED IN TURSO CLOUD!');
   const res = await client.execute("SELECT name FROM sqlite_master WHERE type='table'");
   console.log('Tables in Turso:', res.rows.map(r => r.name));

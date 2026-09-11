@@ -55,9 +55,9 @@ export function createTable(params: {
 
   const insertGame = db.transaction(() => {
     db.prepare(`
-      INSERT INTO games (id, name, game_type, host_user_id, join_code, total_chips, chip_value, bank_chips, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'WAITING', ?)
-    `).run(id, params.name.trim(), params.gameType, params.hostUserId, joinCode, totalChips, chipValue, totalChips, now);
+      INSERT INTO games (id, name, game_type, host_user_id, join_code, total_chips, chip_value, bank_chips, status, created_at, started_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?)
+    `).run(id, params.name.trim(), params.gameType, params.hostUserId, joinCode, totalChips, chipValue, totalChips, now, now);
 
     db.prepare(`
       INSERT INTO game_players (id, game_id, user_id, role, current_chips, total_buyin_amount, total_buyin_chips, joined_at)
@@ -273,7 +273,9 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
   // Fetch players
   const players = db.prepare(`
     SELECT gp.id, gp.user_id, gp.role, gp.current_chips, gp.total_buyin_amount, gp.total_buyin_chips, gp.joined_at,
-      u.display_name, u.friend_code, u.phone_number, u.avatar_url
+      gp.is_guest, gp.guest_name,
+      COALESCE(gp.guest_name, u.display_name) as display_name,
+      u.friend_code, u.phone_number, u.avatar_url
     FROM game_players gp
     JOIN users u ON gp.user_id = u.id
     WHERE gp.game_id = ?
@@ -282,16 +284,18 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
 
   // Augment each player with friendship status relative to requestingUserId
   const playersWithFriendship = players.map(p => {
+    const isGuest = Boolean(p.is_guest || (p.user_id && p.user_id.startsWith('guest_')));
     let friendshipStatus: 'SELF' | 'FRIENDS' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'NONE' = 'NONE';
     if (p.user_id === requestingUserId) {
       friendshipStatus = 'SELF';
-    } else {
+    } else if (!isGuest) {
       const status = getFriendshipStatusBetween(requestingUserId, p.user_id);
       friendshipStatus = status as any;
     }
     return {
       ...p,
-      friend_code: p.phone_number || p.friend_code,
+      is_guest: isGuest,
+      friend_code: isGuest ? 'GUEST' : (p.phone_number || p.friend_code),
       friendshipStatus,
       moneyEquivalent: p.current_chips * table.chip_value
     };
@@ -306,8 +310,8 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
   // Fetch active loans
   const loans = db.prepare(`
     SELECT l.id, l.original_chip_amount, l.remaining_chip_amount, l.chip_value, l.status, l.created_at,
-      lender.id as lender_player_id, u_lender.display_name as lender_name,
-      borrower.id as borrower_player_id, u_borrower.display_name as borrower_name
+      lender.id as lender_player_id, COALESCE(lender.guest_name, u_lender.display_name) as lender_name,
+      borrower.id as borrower_player_id, COALESCE(borrower.guest_name, u_borrower.display_name) as borrower_name
     FROM loans l
     JOIN game_players lender ON l.lender_id = lender.id
     JOIN users u_lender ON lender.user_id = u_lender.id
@@ -317,17 +321,31 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
     ORDER BY l.created_at DESC
   `).all(tableId) as any[];
 
-  // Fetch recent transactions (last 30)
+  // Fetch recent transactions (last 50) with From -> To human player names
   const transactions = db.prepare(`
     SELECT t.id, t.type, t.chip_amount, t.chip_value, t.money_value, t.reversal_of, t.metadata, t.created_at,
       u_actor.display_name as actor_name,
       t.from_player_id,
-      t.to_player_id
+      t.to_player_id,
+      CASE
+        WHEN t.from_player_id = 'BANK' THEN 'Bank'
+        WHEN u_from.display_name IS NOT NULL THEN COALESCE(gp_from.guest_name, u_from.display_name)
+        ELSE 'Unknown'
+      END as from_player_name,
+      CASE
+        WHEN t.to_player_id = 'BANK' THEN 'Bank'
+        WHEN u_to.display_name IS NOT NULL THEN COALESCE(gp_to.guest_name, u_to.display_name)
+        ELSE 'Unknown'
+      END as to_player_name
     FROM transactions t
     JOIN users u_actor ON t.actor_user_id = u_actor.id
+    LEFT JOIN game_players gp_from ON t.from_player_id = gp_from.id
+    LEFT JOIN users u_from ON gp_from.user_id = u_from.id
+    LEFT JOIN game_players gp_to ON t.to_player_id = gp_to.id
+    LEFT JOIN users u_to ON gp_to.user_id = u_to.id
     WHERE t.game_id = ?
     ORDER BY t.created_at DESC
-    LIMIT 30
+    LIMIT 50
   `).all(tableId) as any[];
 
   return {
@@ -378,4 +396,75 @@ export function getUserCompletedTables(userId: string) {
     ORDER BY g.finalized_at DESC
     LIMIT 50
   `).all(userId, userId) as any[];
+}
+
+export function seatGuestPlayer(hostUserId: string, tableId: string, guestName: string): {
+  success: boolean;
+  playerId: string;
+  displayName: string;
+} {
+  const db = getDb();
+  const table = db.prepare('SELECT * FROM games WHERE id = ?').get(tableId) as GameTableRecord | undefined;
+  if (!table) throw new Error('Table not found');
+  if (table.host_user_id !== hostUserId) throw new Error('Only the host can seat guest players');
+  if (table.status === 'FINALIZED' || table.status === 'ARCHIVED') {
+    throw new Error('Cannot seat players in a finalized game');
+  }
+
+  const cleanName = guestName.trim();
+  if (!cleanName || cleanName.length < 2) {
+    throw new Error('Please enter a valid name for the guest (at least 2 characters)');
+  }
+
+  const guestUserId = 'guest_' + uuidv4();
+  const playerId = uuidv4();
+  const now = new Date().toISOString();
+  const dummyEmail = `${guestUserId}@chipmate.guest`;
+  const dummyFriendCode = `GUEST_${uuidv4().substring(0, 8).toUpperCase()}`;
+
+  db.transaction(() => {
+    // 1. Insert synthetic guest in users table so foreign keys and joins are 100% compliant
+    db.prepare(`
+      INSERT INTO users (id, phone_number, email, display_name, friend_code, created_at, updated_at)
+      VALUES (?, NULL, ?, ?, ?, ?, ?)
+    `).run(guestUserId, dummyEmail, cleanName, dummyFriendCode, now, now);
+
+    // 2. Insert into game_players
+    db.prepare(`
+      INSERT INTO game_players (id, game_id, user_id, role, current_chips, total_buyin_amount, total_buyin_chips, is_guest, guest_name, joined_at)
+      VALUES (?, ?, ?, 'PLAYER', 0, 0, 0, 1, ?, ?)
+    `).run(playerId, tableId, guestUserId, cleanName, now);
+  })();
+
+  return { success: true, playerId, displayName: cleanName };
+}
+
+export function getTableTransactions(tableId: string) {
+  const db = getDb();
+  const transactions = db.prepare(`
+    SELECT t.id, t.type, t.chip_amount, t.chip_value, t.money_value, t.reversal_of, t.metadata, t.created_at,
+      u_actor.display_name as actor_name,
+      t.from_player_id,
+      t.to_player_id,
+      CASE
+        WHEN t.from_player_id = 'BANK' THEN 'Bank'
+        WHEN u_from.display_name IS NOT NULL THEN COALESCE(gp_from.guest_name, u_from.display_name)
+        ELSE 'Unknown'
+      END as from_player_name,
+      CASE
+        WHEN t.to_player_id = 'BANK' THEN 'Bank'
+        WHEN u_to.display_name IS NOT NULL THEN COALESCE(gp_to.guest_name, u_to.display_name)
+        ELSE 'Unknown'
+      END as to_player_name
+    FROM transactions t
+    JOIN users u_actor ON t.actor_user_id = u_actor.id
+    LEFT JOIN game_players gp_from ON t.from_player_id = gp_from.id
+    LEFT JOIN users u_from ON gp_from.user_id = u_from.id
+    LEFT JOIN game_players gp_to ON t.to_player_id = gp_to.id
+    LEFT JOIN users u_to ON gp_to.user_id = u_to.id
+    WHERE t.game_id = ?
+    ORDER BY t.created_at ASC
+  `).all(tableId) as any[];
+
+  return transactions;
 }

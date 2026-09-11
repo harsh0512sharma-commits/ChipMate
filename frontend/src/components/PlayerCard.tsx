@@ -14,6 +14,7 @@ export interface PlayerCardData {
   total_buyin_chips: number;
   friendshipStatus: 'SELF' | 'FRIENDS' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'NONE';
   moneyEquivalent: number;
+  is_guest?: boolean;
 }
 
 interface PlayerCardProps {
@@ -34,6 +35,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
   onSelectPlayer
 }) => {
   const isHost = player.role === 'HOST';
+  const isGuest = Boolean(player.is_guest || player.friend_code === 'GUEST' || (player.user_id && player.user_id.startsWith('guest_')));
   const currentMoney = player.current_chips * chipValue;
   const netPnL = currentMoney - player.total_buyin_amount;
   const isProfit = netPnL > 0;
@@ -49,9 +51,9 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
       {/* Top Header: Avatar, Name, Host Tag, Social Button */}
       <View style={styles.topRow}>
         <View style={styles.nameSection}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {player.display_name ? player.display_name.charAt(0).toUpperCase() : 'P'}
+          <View style={[styles.avatar, isGuest && { backgroundColor: colors.cardRaised, borderColor: colors.borderDark }]}>
+            <Text style={[styles.avatarText, isGuest && { color: colors.textSecondary }]}>
+              {player.display_name ? player.display_name.charAt(0).toUpperCase() : 'G'}
             </Text>
           </View>
           <View style={styles.nameMeta}>
@@ -66,22 +68,28 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
                 </View>
               )}
             </View>
-            <Text style={styles.friendCodeText}>📱 {player.friend_code}</Text>
+            {isGuest ? (
+              <View style={styles.guestBadge}>
+                <Text style={styles.guestBadgeText}>GUEST PLAYER</Text>
+              </View>
+            ) : (
+              <Text style={styles.friendCodeText}>📱 {player.friend_code}</Text>
+            )}
           </View>
         </View>
 
         {/* Social / Friendship Action */}
-        {player.friendshipStatus === 'FRIENDS' ? (
+        {!isGuest && player.friendshipStatus === 'FRIENDS' ? (
           <View style={styles.friendPill}>
             <UserCheck size={11} color={colors.successText} />
             <Text style={styles.friendPillText}>Friends</Text>
           </View>
-        ) : player.friendshipStatus === 'PENDING_SENT' || player.friendshipStatus === 'PENDING_RECEIVED' ? (
+        ) : !isGuest && (player.friendshipStatus === 'PENDING_SENT' || player.friendshipStatus === 'PENDING_RECEIVED') ? (
           <View style={styles.pendingPill}>
             <Clock size={11} color={colors.warningText} />
             <Text style={styles.pendingPillText}>Pending</Text>
           </View>
-        ) : player.friendshipStatus === 'NONE' && onAddFriend ? (
+        ) : !isGuest && player.friendshipStatus === 'NONE' && onAddFriend ? (
           <TouchableOpacity
             onPress={() => onAddFriend(player.friend_code)}
             style={styles.addFriendButton}
@@ -197,6 +205,22 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 1,
     fontWeight: '500'
+  },
+  guestBadge: {
+    backgroundColor: colors.cardInset,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginTop: 2,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: colors.borderDark
+  },
+  guestBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    letterSpacing: 0.5
   },
   hostBadge: {
     flexDirection: 'row',

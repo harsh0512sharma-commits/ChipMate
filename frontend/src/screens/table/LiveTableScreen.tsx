@@ -9,7 +9,8 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
-  Modal
+  Modal,
+  TextInput
 } from 'react-native';
 import {
   QrCode,
@@ -39,6 +40,64 @@ import { PlayerCard } from '../../components/PlayerCard';
 import { ActionSheet } from '../../components/ActionSheet';
 import { QRCodeModal } from '../../components/QRCodeModal';
 
+export function formatTxSummary(tx: any): { title: string; subtitle: string; icon: string } {
+  const fromName = tx.from_player_name || 'Bank';
+  const toName = tx.to_player_name || 'Bank';
+  const amount = tx.chip_amount;
+  const money = tx.money_value;
+
+  switch (tx.type) {
+    case 'BUY_IN':
+      return {
+        title: `Bank issued ${amount} chips to ${toName}`,
+        subtitle: `Buy-in: ₹${money} • Vault chips issued`,
+        icon: '💰'
+      };
+    case 'RE_BUY':
+      return {
+        title: `Bank issued ${amount} chips (Re-buy) to ${toName}`,
+        subtitle: `Re-buy: ₹${money} • Added to table`,
+        icon: '🔄'
+      };
+    case 'LEND':
+      return {
+        title: `${fromName} lent ${amount} chips to ${toName}`,
+        subtitle: `Loan: ₹${money} • Tracked until settled`,
+        icon: '🤝'
+      };
+    case 'RETURN':
+      return {
+        title: `${fromName} repaid ${amount} chips to ${toName}`,
+        subtitle: `Loan Repayment: ₹${money}`,
+        icon: '↩️'
+      };
+    case 'TRANSFER':
+      return {
+        title: `${fromName} transferred ${amount} chips to ${toName}`,
+        subtitle: `Direct chip transfer: ₹${money}`,
+        icon: '↔️'
+      };
+    case 'CORRECTION':
+      return {
+        title: `Chip count corrected for ${toName || fromName}`,
+        subtitle: `Set to ${amount} chips`,
+        icon: '✏️'
+      };
+    case 'REVERSAL':
+      return {
+        title: `Reversal of transaction`,
+        subtitle: `${amount} chips (₹${money}) reversed`,
+        icon: '⏪'
+      };
+    default:
+      return {
+        title: `${tx.type} (${amount} chips)`,
+        subtitle: `₹${money} • By ${tx.actor_name}`,
+        icon: '⚡'
+      };
+  }
+}
+
 interface LiveTableScreenProps {
   tableId: string;
   onBack: () => void;
@@ -64,6 +123,9 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const [showQR, setShowQR] = useState(false);
   const [showActivity, setShowActivity] = useState(false);
   const [showSeatFriendModal, setShowSeatFriendModal] = useState(false);
+  const [showAddGuestModal, setShowAddGuestModal] = useState(false);
+  const [guestNameInput, setGuestNameInput] = useState('');
+  const [addingGuest, setAddingGuest] = useState(false);
   const [friends, setFriends] = useState<any[]>([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [addFriendFeedback, setAddFriendFeedback] = useState<string | null>(null);
@@ -165,6 +227,34 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
       }
     } catch (err: any) {
       Alert.alert('Seating Error', err.message || 'Could not seat friend');
+    }
+  };
+
+  const handleSeatGuest = async () => {
+    const clean = guestNameInput.trim();
+    if (!clean || clean.length < 2) {
+      Alert.alert('Guest Name', 'Please enter a valid name for the guest (at least 2 characters).');
+      return;
+    }
+    setAddingGuest(true);
+    try {
+      const res = await apiRequest(`/tables/${tableId}/seat-guest`, {
+        method: 'POST',
+        body: { guestName: clean }
+      });
+      if (res.success) {
+        setGuestNameInput('');
+        setShowAddGuestModal(false);
+        setAddFriendFeedback(`✓ Seated guest "${res.displayName}" at the table!`);
+        setTimeout(() => setAddFriendFeedback(null), 3500);
+        fetchTableData();
+      } else {
+        Alert.alert('Error', res.error || 'Failed to add guest player');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to add guest player');
+    } finally {
+      setAddingGuest(false);
     }
   };
 
@@ -293,35 +383,6 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
           </View>
         )}
 
-        {/* Start Game prompt if in WAITING mode */}
-        {isWaiting && isHost && (
-          <View style={styles.waitingBanner}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.waitingTitle}>Table is in Setup Mode</Text>
-              <Text style={styles.waitingSubtitle}>
-                Invite or seat friends directly, then start the game.
-              </Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <TouchableOpacity
-                style={styles.seatFriendBannerBtn}
-                onPress={() => {
-                  loadFriends();
-                  setShowSeatFriendModal(true);
-                }}
-                activeOpacity={0.8}
-              >
-                <UserPlus size={14} color="#FFF" style={{ marginRight: 4 }} />
-                <Text style={styles.seatFriendBannerBtnText}>Seat Friend</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.startGameBtn} onPress={handleStartGame} activeOpacity={0.8}>
-                <Play size={14} color="#FFF" fill="#FFF" style={{ marginRight: 4 }} />
-                <Text style={styles.startGameBtnText}>Start Game</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
 
         {/* Viewer Mode Banner for Non-Hosts */}
         {!isHost && (
@@ -442,19 +503,23 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
             {recentTransactions.length === 0 ? (
               <Text style={styles.emptyActivityText}>No transactions recorded yet.</Text>
             ) : (
-              recentTransactions.map((tx: any) => (
-                <View key={tx.id} style={styles.txRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.txType}>{tx.type}</Text>
-                    <Text style={styles.txDetail}>
-                      {tx.chip_amount} chips (₹{tx.money_value}) • By {tx.actor_name}
+              recentTransactions.map((tx: any) => {
+                const summary = formatTxSummary(tx);
+                return (
+                  <View key={tx.id} style={styles.txRow}>
+                    <Text style={styles.txIcon}>{summary.icon}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.txType}>{summary.title}</Text>
+                      <Text style={styles.txDetail}>
+                        {summary.subtitle} • Recorded by {tx.actor_name}
+                      </Text>
+                    </View>
+                    <Text style={styles.txTime}>
+                      {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                   </View>
-                  <Text style={styles.txTime}>
-                    {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                </View>
-              ))
+                );
+              })
             )}
           </View>
         )}
@@ -463,17 +528,27 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
         <View style={styles.playerListHeader}>
           <Text style={styles.playerListTitle}>Players ({players.length})</Text>
           {isHost && !isFinalized && (
-            <TouchableOpacity
-              style={styles.seatFriendHeaderBtn}
-              onPress={() => {
-                loadFriends();
-                setShowSeatFriendModal(true);
-              }}
-              activeOpacity={0.7}
-            >
-              <UserPlus size={13} color={colors.primary} style={{ marginRight: 5 }} />
-              <Text style={styles.seatFriendHeaderBtnText}>+ Seat Friend</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <TouchableOpacity
+                style={styles.seatGuestHeaderBtn}
+                onPress={() => setShowAddGuestModal(true)}
+                activeOpacity={0.7}
+              >
+                <Plus size={13} color="#FFF" style={{ marginRight: 3 }} />
+                <Text style={styles.seatGuestHeaderBtnText}>+ Add Guest</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.seatFriendHeaderBtn}
+                onPress={() => {
+                  loadFriends();
+                  setShowSeatFriendModal(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <UserPlus size={13} color={colors.primary} style={{ marginRight: 3 }} />
+                <Text style={styles.seatFriendHeaderBtnText}>+ Seat Friend</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 
@@ -660,6 +735,51 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
         tableName={table.name}
         onClose={() => setShowQR(false)}
       />
+
+      {/* ADD GUEST PLAYER MODAL */}
+      <Modal visible={showAddGuestModal} transparent animationType="fade" onRequestClose={() => setShowAddGuestModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Seat Guest Player</Text>
+                <Text style={styles.modalSubtitle}>Add an offline / non-app player to this table.</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowAddGuestModal(false)} style={styles.modalCloseBtn} activeOpacity={0.7}>
+                <X size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ marginTop: 14 }}>
+              <Text style={styles.guestInputLabel}>GUEST PLAYER NAME *</Text>
+              <TextInput
+                style={styles.guestTextInput}
+                placeholder="e.g. Rohan, Uncle Dave, Player 4"
+                placeholderTextColor={colors.textMuted}
+                autoFocus
+                value={guestNameInput}
+                onChangeText={setGuestNameInput}
+              />
+              <Text style={styles.guestHintText}>
+                Guest players can buy chips, take loans, transfer chips, and participate in final settlements without an account.
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.addGuestSubmitBtn, (!guestNameInput.trim() || addingGuest) && { opacity: 0.6 }]}
+                onPress={handleSeatGuest}
+                disabled={!guestNameInput.trim() || addingGuest}
+                activeOpacity={0.8}
+              >
+                {addingGuest ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.addGuestSubmitBtnText}>Seat Guest at Table</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -905,19 +1025,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.borderDark
   },
+  txIcon: {
+    fontSize: 16,
+    marginRight: 10
+  },
   txType: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.text
   },
   txDetail: {
     fontSize: 11,
     color: colors.textMuted,
-    marginTop: 1
+    marginTop: 2
   },
   txTime: {
     fontSize: 11,
-    color: colors.textMuted
+    color: colors.textMuted,
+    marginLeft: 8
   },
   playerListHeader: {
     paddingHorizontal: 20,
@@ -939,19 +1064,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 8
   },
-  seatFriendBannerBtn: {
+  seatGuestHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.cardRaised,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderRadius: 10
+    backgroundColor: colors.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8
   },
-  seatFriendBannerBtnText: {
-    color: '#FFF',
+  seatGuestHeaderBtnText: {
     fontSize: 12,
+    color: '#FFF',
     fontWeight: '700'
   },
   seatFriendHeaderBtn: {
@@ -967,6 +1090,43 @@ const styles = StyleSheet.create({
   seatFriendHeaderBtnText: {
     fontSize: 12,
     color: colors.primary,
+    fontWeight: '700'
+  },
+  guestInputLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
+    marginBottom: 6
+  },
+  guestTextInput: {
+    backgroundColor: colors.cardInset,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.text,
+    fontWeight: '600'
+  },
+  guestHintText: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 6,
+    marginBottom: 16,
+    lineHeight: 16
+  },
+  addGuestSubmitBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  addGuestSubmitBtnText: {
+    color: '#FFF',
+    fontSize: 14,
     fontWeight: '700'
   },
   viewerBanner: {

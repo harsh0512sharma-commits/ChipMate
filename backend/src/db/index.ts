@@ -119,6 +119,7 @@ export function initSchema(db: Database.Database) {
       email TEXT NOT NULL,
       password_hash TEXT NOT NULL,
       code TEXT NOT NULL,
+      display_name TEXT,
       expires_at TEXT NOT NULL,
       consumed INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
@@ -169,6 +170,8 @@ export function initSchema(db: Database.Database) {
       current_chips INTEGER NOT NULL DEFAULT 0,
       total_buyin_amount REAL NOT NULL DEFAULT 0,
       total_buyin_chips INTEGER NOT NULL DEFAULT 0,
+      is_guest INTEGER NOT NULL DEFAULT 0,
+      guest_name TEXT,
       joined_at TEXT NOT NULL,
       left_at TEXT,
       FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
@@ -297,6 +300,9 @@ export function initSchema(db: Database.Database) {
   try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number)"); } catch (_) {}
   try { db.exec("CREATE INDEX IF NOT EXISTS idx_pending_reg_email ON pending_registrations(email)"); } catch (_) {}
   try { db.exec("UPDATE users SET friend_code = phone_number WHERE phone_number IS NOT NULL AND phone_number != '' AND (friend_code != phone_number OR friend_code IS NULL)"); } catch (_) {}
+  try { db.exec("ALTER TABLE pending_registrations ADD COLUMN display_name TEXT"); } catch (_) {}
+  try { db.exec("ALTER TABLE game_players ADD COLUMN is_guest INTEGER DEFAULT 0"); } catch (_) {}
+  try { db.exec("ALTER TABLE game_players ADD COLUMN guest_name TEXT"); } catch (_) {}
 }
 
 const SYNC_TABLES = [

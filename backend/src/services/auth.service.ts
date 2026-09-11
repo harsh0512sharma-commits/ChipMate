@@ -75,10 +75,19 @@ export function normalizePhoneNumber(phone: string): string {
 }
 
 export async function signupRequestOtp(params: {
+  displayName: string;
   phoneNumber: string;
   email: string;
   password: string;
 }): Promise<{ success: boolean; message: string; devOtp?: string }> {
+  if (!params.displayName || !params.displayName.trim()) {
+    throw new Error('Full name is required.');
+  }
+  const cleanName = params.displayName.trim();
+  if (cleanName.length < 2) {
+    throw new Error('Full name must be at least 2 characters.');
+  }
+
   const normalizedPhone = normalizePhoneNumber(params.phoneNumber);
   const normalizedEmail = params.email.trim().toLowerCase();
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -124,14 +133,14 @@ export async function signupRequestOtp(params: {
   db.prepare('UPDATE pending_registrations SET consumed = 1 WHERE email = ? OR phone_number = ?').run(normalizedEmail, normalizedPhone);
 
   db.prepare(`
-    INSERT INTO pending_registrations (id, phone_number, email, password_hash, code, expires_at, consumed, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, 0, ?)
-  `).run(pendingId, normalizedPhone, normalizedEmail, passwordHash, code, expiresAt, now.toISOString());
+    INSERT INTO pending_registrations (id, phone_number, email, password_hash, code, display_name, expires_at, consumed, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
+  `).run(pendingId, normalizedPhone, normalizedEmail, passwordHash, code, cleanName, expiresAt, now.toISOString());
 
   const emailResult = await sendOtpEmail({
     email: normalizedEmail,
     code,
-    displayName: normalizedPhone
+    displayName: cleanName
   });
 
   return {
@@ -168,7 +177,7 @@ export function signupVerifyOtp(params: {
 
   if (!user) {
     const userId = uuidv4();
-    const displayName = params.displayName?.trim() || pending.phone_number;
+    const displayName = params.displayName?.trim() || pending.display_name?.trim() || ('Player ' + pending.phone_number.slice(-4));
     const friendCode = pending.phone_number || generateFriendCode(displayName);
     const createdAt = new Date().toISOString();
 
