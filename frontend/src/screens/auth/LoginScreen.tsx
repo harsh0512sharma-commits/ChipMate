@@ -49,6 +49,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // Server URL custom config
   const [showServerConfig, setShowServerConfig] = useState(false);
@@ -286,8 +287,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
               {/* Field 1: Mobile Number */}
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>MOBILE NUMBER (USERNAME)</Text>
-                <View style={styles.inputRow}>
-                  <Phone size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                <View style={[styles.inputRow, focusedField === 'loginPhone' && styles.inputRowFocused]}>
+                  <Phone size={18} color={focusedField === 'loginPhone' ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
                   <TextInput
                     style={styles.input}
                     placeholder="10-digit mobile number"
@@ -296,6 +297,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
                     maxLength={10}
                     value={loginPhone}
                     onChangeText={setLoginPhone}
+                    onFocus={() => setFocusedField('loginPhone')}
+                    onBlur={() => setFocusedField(null)}
                   />
                 </View>
               </View>
@@ -303,8 +306,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
               {/* Field 2: Password */}
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>PASSWORD</Text>
-                <View style={styles.inputRow}>
-                  <Lock size={18} color={colors.textSecondary} style={{ marginRight: 10 }} />
+                <View style={[styles.inputRow, focusedField === 'loginPassword' && styles.inputRowFocused]}>
+                  <Lock size={18} color={focusedField === 'loginPassword' ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
                   <TextInput
                     style={styles.input}
                     placeholder="Enter your password"
@@ -312,6 +315,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
                     secureTextEntry={!showPassword}
                     value={loginPassword}
                     onChangeText={setLoginPassword}
+                    onFocus={() => setFocusedField('loginPassword')}
+                    onBlur={() => setFocusedField(null)}
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword(prev => !prev)}
@@ -371,8 +376,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
                 <View style={styles.labelRow}>
                   <Text style={styles.inputLabel}>1. MOBILE NUMBER (USERNAME) *</Text>
                 </View>
-                <View style={styles.inputRow}>
-                  <Phone size={18} color={colors.primary} style={{ marginRight: 10 }} />
+                <View style={[styles.inputRow, focusedField === 'signupPhone' && styles.inputRowFocused]}>
+                  <Phone size={18} color={focusedField === 'signupPhone' ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
                   <TextInput
                     style={styles.input}
                     placeholder="10-digit mobile number"
@@ -381,6 +386,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
                     maxLength={10}
                     value={signupPhone}
                     onChangeText={setSignupPhone}
+                    onFocus={() => setFocusedField('signupPhone')}
+                    onBlur={() => setFocusedField(null)}
                   />
                   {signupPhone.length === 10 && (
                     <CheckCircle size={16} color={colors.successText} />
@@ -394,8 +401,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
                 <View style={styles.labelRow}>
                   <Text style={styles.inputLabel}>2. EMAIL ADDRESS *</Text>
                 </View>
-                <View style={styles.inputRow}>
-                  <Mail size={18} color={colors.primary} style={{ marginRight: 10 }} />
+                <View style={[styles.inputRow, focusedField === 'signupEmail' && styles.inputRowFocused]}>
+                  <Mail size={18} color={focusedField === 'signupEmail' ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
                   <TextInput
                     style={styles.input}
                     placeholder="name@example.com"
@@ -405,6 +412,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
                     autoCorrect={false}
                     value={signupEmail}
                     onChangeText={setSignupEmail}
+                    onFocus={() => setFocusedField('signupEmail')}
+                    onBlur={() => setFocusedField(null)}
                   />
                 </View>
                 <Text style={styles.fieldHint}>We will send a 6-digit verification code to this email.</Text>
@@ -415,8 +424,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
                 <View style={styles.labelRow}>
                   <Text style={styles.inputLabel}>3. PASSWORD *</Text>
                 </View>
-                <View style={styles.inputRow}>
-                  <Lock size={18} color={colors.primary} style={{ marginRight: 10 }} />
+                <View style={[styles.inputRow, focusedField === 'signupPassword' && styles.inputRowFocused]}>
+                  <Lock size={18} color={focusedField === 'signupPassword' ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
                   <TextInput
                     style={styles.input}
                     placeholder="Minimum 6 characters"
@@ -424,6 +433,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
                     secureTextEntry={!showPassword}
                     value={signupPassword}
                     onChangeText={setSignupPassword}
+                    onFocus={() => setFocusedField('signupPassword')}
+                    onBlur={() => setFocusedField(null)}
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword(prev => !prev)}
@@ -473,17 +484,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
           <Text style={styles.footerNote}>
             ChipMate records physical chips, loans, and final settlements. It does not process real-money payments.
           </Text>
-
-          <TouchableOpacity
-            onPress={() => setShowServerConfig(prev => !prev)}
-            style={styles.serverFooterBtn}
-            activeOpacity={0.7}
-          >
-            <Server size={12} color={colors.textMuted} style={{ marginRight: 6 }} />
-            <Text style={styles.serverFooterText}>
-              Backend: {serverUrlInput.replace(/\/api\/?$/, '').replace(/^https?:\/\//, '')}
-            </Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -639,17 +639,31 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.cardInset,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12
+    backgroundColor: '#11141B',
+    borderWidth: 1.5,
+    borderColor: '#232936',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    height: 54,
+    minHeight: 54
+  },
+  inputRowFocused: {
+    borderColor: colors.primary,
+    backgroundColor: '#151922'
   },
   input: {
     flex: 1,
-    fontSize: 15,
-    color: colors.text
+    height: '100%',
+    fontSize: 16,
+    color: '#F8FAFC',
+    paddingVertical: 0,
+    backgroundColor: 'transparent',
+    ...(Platform.OS === 'web' ? {
+      outlineStyle: 'none',
+      outlineWidth: 0,
+      backgroundColor: 'transparent',
+      boxShadow: 'none'
+    } as any : {})
   },
   button: {
     backgroundColor: colors.primary,

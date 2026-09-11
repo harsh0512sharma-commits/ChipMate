@@ -28,7 +28,7 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
   onBack
 }) => {
   const { login } = useAuth();
-  const [code, setCode] = useState(initialDevOtp || '');
+  const [code, setCode] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isNewUserStep, setIsNewUserStep] = useState(false);
   const [tempToken, setTempToken] = useState<string | null>(null);
@@ -183,19 +183,37 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
               </View>
             )}
 
-            <View style={styles.inputContainer}>
-              <View style={styles.inputRow}>
-                <KeyRound size={20} color={colors.textSecondary} style={{ marginRight: 10 }} />
-                <TextInput
-                  style={styles.otpInput}
-                  placeholder="123456"
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType="numeric"
-                  maxLength={6}
-                  value={code}
-                  onChangeText={setCode}
-                />
+            {/* Symmetrical Centered 6-Digit OTP Cells */}
+            <View style={styles.otpGridWrapper}>
+              <View style={styles.otpGridRow}>
+                {[0, 1, 2, 3, 4, 5].map((idx) => {
+                  const digit = code[idx] || '';
+                  const isCurrent = code.length === idx;
+                  return (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.otpBox,
+                        isCurrent && styles.otpBoxActive,
+                        digit ? styles.otpBoxFilled : null
+                      ]}
+                    >
+                      <Text style={styles.otpDigitText}>{digit}</Text>
+                    </View>
+                  );
+                })}
               </View>
+
+              {/* Invisible native input for typing/pasting */}
+              <TextInput
+                style={styles.otpNativeHiddenInput}
+                keyboardType="number-pad"
+                maxLength={6}
+                value={code}
+                onChangeText={(val) => setCode(val.replace(/\D/g, ''))}
+                autoFocus
+                caretHidden
+              />
             </View>
 
             <TouchableOpacity
@@ -353,13 +371,58 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12
   },
-  otpInput: {
+  otpGridWrapper: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    position: 'relative',
+    height: 56
+  },
+  otpGridRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+    maxWidth: 360
+  },
+  otpBox: {
     flex: 1,
-    fontSize: 24,
+    maxWidth: 50,
+    height: 54,
+    backgroundColor: '#12151C',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#242A36',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  otpBoxActive: {
+    borderColor: colors.primary,
+    backgroundColor: '#161922'
+  },
+  otpBoxFilled: {
+    borderColor: 'rgba(235, 94, 40, 0.4)',
+    backgroundColor: '#161922'
+  },
+  otpDigitText: {
+    fontSize: 22,
     fontWeight: '800',
-    letterSpacing: 8,
-    color: colors.primary,
+    color: '#F8FAFC',
     textAlign: 'center'
+  },
+  otpNativeHiddenInput: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0,
+    width: '100%',
+    height: '100%',
+    fontSize: 24,
+    color: 'transparent'
   },
   nameInput: {
     flex: 1,
