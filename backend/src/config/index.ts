@@ -11,6 +11,8 @@ export const config = {
   senderEmail: process.env.SENDER_EMAIL || 'otp@chipmate.app',
   senderName: process.env.SENDER_NAME || 'ChipMate',
   dbPath: process.env.DB_PATH || path.resolve(__dirname, '../../data/chipmate.db'),
+  tursoDatabaseUrl: process.env.TURSO_DATABASE_URL || '',
+  tursoAuthToken: process.env.TURSO_AUTH_TOKEN || '',
   otpExpiryMinutes: 10,
   defaultChipCount: 100,
   defaultChipValue: 10

@@ -1,9 +1,54 @@
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
+import { createClient, Client as LibsqlClient } from '@libsql/client';
 import { config } from '../config';
 
 let dbInstance: Database.Database | null = null;
+let tursoClient: LibsqlClient | null = null;
+
+export function getTursoClient(): LibsqlClient | null {
+  if (tursoClient) return tursoClient;
+  if (config.tursoDatabaseUrl && config.tursoAuthToken) {
+    try {
+      tursoClient = createClient({
+        url: config.tursoDatabaseUrl,
+        authToken: config.tursoAuthToken
+      });
+    } catch (e) {
+      console.warn('[Turso] Failed to initialize client:', e);
+    }
+  }
+  return tursoClient;
+}
+
+function wrapDatabaseWithReplication(db: Database.Database): Database.Database {
+  const client = getTursoClient();
+  if (!client) return db;
+
+  const origPrepare = db.prepare.bind(db);
+  (db as any).prepare = function(sql: string) {
+    const stmt = origPrepare(sql);
+    const upper = sql.trim().toUpperCase();
+    const isWrite = upper.startsWith('INSERT') || upper.startsWith('UPDATE') || upper.startsWith('DELETE') || upper.startsWith('REPLACE');
+
+    if (isWrite) {
+      const origRun = stmt.run.bind(stmt);
+      stmt.run = function(...args: any[]) {
+        const result = origRun(...args);
+        // Asynchronously replicate to Turso Cloud in background
+        const sanitizedArgs = args.map(arg => (arg === undefined ? null : arg));
+        client.execute({ sql, args: sanitizedArgs }).catch(err => {
+          console.warn('[Turso Cloud Replication Warning]:', err.message);
+        });
+        return result;
+      };
+    }
+    return stmt;
+  };
+
+  return db;
+}
 
 export function getDb(customPath?: string): Database.Database {
   if (customPath) {
@@ -23,6 +68,7 @@ export function getDb(customPath?: string): Database.Database {
     }
     db.pragma('foreign_keys = ON');
     initSchema(db);
+    wrapDatabaseWithReplication(db);
     dbInstance = db;
     return db;
   }
@@ -41,6 +87,7 @@ export function getDb(customPath?: string): Database.Database {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   initSchema(db);
+  wrapDatabaseWithReplication(db);
   dbInstance = db;
   return db;
 }
@@ -250,3 +297,51 @@ export function initSchema(db: Database.Database) {
   try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number)"); } catch (_) {}
   try { db.exec("CREATE INDEX IF NOT EXISTS idx_pending_reg_email ON pending_registrations(email)"); } catch (_) {}
 }
+
+const SYNC_TABLES = [
+  'users',
+  'pending_registrations',
+  'otp_codes',
+  'friendships',
+  'games',
+  'game_players',
+  'transactions',
+  'loans',
+  'settlements',
+  'settlement_items',
+  'player_game_results',
+  'player_lifetime_stats'
+];
+
+export async function syncFromTursoCloud(db: Database.Database): Promise<void> {
+  const client = getTursoClient();
+  if (!client) return;
+
+  try {
+    console.log('🔄 Checking Turso Cloud database for existing data...');
+    let totalRestored = 0;
+
+    for (const table of SYNC_TABLES) {
+      const res = await client.execute(`SELECT * FROM ${table}`);
+      if (res.rows.length > 0) {
+        for (const row of res.rows) {
+          const keys = Object.keys(row);
+          const placeholders = keys.map(() => '?').join(', ');
+          const values = keys.map(k => (row as any)[k]);
+          db.prepare(`INSERT OR REPLACE INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`).run(...values);
+        }
+        totalRestored += res.rows.length;
+        console.log(`  ↳ Restored ${res.rows.length} rows for table [${table}]`);
+      }
+    }
+
+    if (totalRestored > 0) {
+      console.log(`✅ Restored ${totalRestored} records from Turso Cloud into local cache!`);
+    } else {
+      console.log('✅ Turso Cloud connected and ready.');
+    }
+  } catch (err: any) {
+    console.warn('[Turso Cloud Hydration Warning]:', err.message);
+  }
+}
+
