@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
   Alert
 } from 'react-native';
 import {
@@ -15,7 +16,8 @@ import {
   HandCoins,
   Check,
   Lock,
-  RotateCcw
+  RotateCcw,
+  X
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
@@ -37,10 +39,11 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [finalizeError, setFinalizeError] = useState<string | null>(null);
 
   const loadSettlement = async () => {
     try {
-      // If table is not in settling mode yet, proceed to settle
       const res = await apiRequest(`/tables/${tableId}/settle`);
       if (res.success) {
         setData(res);
@@ -69,33 +72,29 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
     }
   };
 
-  const handleFinalize = async () => {
-    Alert.alert(
-      'Finalize Game?',
-      'This game will become read-only and its statistics will permanently update player profiles and friend leaderboards.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Finalize & Lock',
-          style: 'destructive',
-          onPress: async () => {
-            setIsFinalizing(true);
-            try {
-              const res = await apiRequest(`/tables/${tableId}/settle/finalize`, {
-                method: 'POST'
-              });
-              if (res.success) {
-                onGameFinalized(tableId);
-              }
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to finalize game');
-            } finally {
-              setIsFinalizing(false);
-            }
-          }
-        }
-      ]
-    );
+  const handleFinalizePress = () => {
+    setFinalizeError(null);
+    setShowConfirmModal(true);
+  };
+
+  const performFinalize = async () => {
+    setIsFinalizing(true);
+    setFinalizeError(null);
+    try {
+      const res = await apiRequest(`/tables/${tableId}/settle/finalize`, {
+        method: 'POST'
+      });
+      if (res.success) {
+        setShowConfirmModal(false);
+        onGameFinalized(tableId);
+      } else {
+        setFinalizeError(res.error || 'Failed to finalize game');
+      }
+    } catch (err: any) {
+      setFinalizeError(err.message || 'Failed to finalize game');
+    } finally {
+      setIsFinalizing(false);
+    }
   };
 
   if (loading || !data) {
@@ -108,6 +107,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
   }
 
   const isFinalized = data.status === 'FINALIZED';
+  const isHost = !data.hostUserId || !user?.id || data.hostUserId === user?.id;
   const players = data.players || [];
   const optimized = data.optimizedSettlements || [];
   const loans = data.outstandingLoans || [];
@@ -246,20 +246,28 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
         {/* Host Actions: Finalize */}
         {!isFinalized ? (
           <View style={styles.actionsContainer}>
-            <TouchableOpacity
-              style={[styles.finalizeBtn, isFinalizing && { opacity: 0.7 }]}
-              onPress={handleFinalize}
-              disabled={isFinalizing}
-            >
-              {isFinalizing ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Lock size={18} color="#FFF" style={{ marginRight: 8 }} />
-                  <Text style={styles.finalizeBtnText}>Finalize Game & Save Stats</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+            {isHost ? (
+              <TouchableOpacity
+                style={[styles.finalizeBtn, isFinalizing && { opacity: 0.7 }]}
+                onPress={handleFinalizePress}
+                disabled={isFinalizing}
+              >
+                {isFinalizing ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Lock size={18} color="#FFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.finalizeBtnText}>Finalize Game & Save Stats</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.nonHostNotice}>
+                <Text style={styles.nonHostNoticeText}>
+                  Table Host will finalize the game when all chip counts and debts are settled.
+                </Text>
+              </View>
+            )}
 
             <TouchableOpacity style={styles.keepPlayingBtn} onPress={onBack}>
               <RotateCcw size={16} color={colors.textSecondary} style={{ marginRight: 6 }} />
@@ -275,6 +283,73 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
           </View>
         )}
       </ScrollView>
+
+      {/* Finalize Confirmation Modal */}
+      <Modal
+        visible={showConfirmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isFinalizing) setShowConfirmModal(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconBadge}>
+                <Lock size={22} color={colors.primary} />
+              </View>
+              <Text style={styles.modalTitle}>Finalize Game & Save Stats</Text>
+              <Text style={styles.modalSub}>
+                Are you sure you want to end and lock this game?
+              </Text>
+            </View>
+
+            <View style={styles.modalInfoBox}>
+              <Text style={styles.modalBullet}>• Table will be locked as permanent read-only</Text>
+              <Text style={styles.modalBullet}>• Debt settlement transfers will be frozen</Text>
+              <Text style={styles.modalBullet}>• Career earnings, win rates, and streak stats will be recorded to profiles & leaderboards</Text>
+            </View>
+
+            {!data.isReconciled && (
+              <View style={styles.modalWarnBox}>
+                <AlertTriangle size={15} color={colors.warningText} style={{ marginRight: 6 }} />
+                <Text style={styles.modalWarnText}>
+                  Note: Chips are not 100% reconciled (Discrepancy: {data.discrepancy} chips).
+                </Text>
+              </View>
+            )}
+
+            {finalizeError && (
+              <View style={styles.modalErrorBox}>
+                <Text style={styles.modalErrorText}>{finalizeError}</Text>
+              </View>
+            )}
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowConfirmModal(false)}
+                disabled={isFinalizing}
+              >
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalConfirmBtn, isFinalizing && { opacity: 0.7 }]}
+                onPress={performFinalize}
+                disabled={isFinalizing}
+              >
+                {isFinalizing ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.modalConfirmBtnText}>Finalize & Lock</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -525,5 +600,137 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     marginLeft: 6
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.78)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  modalIconBadge: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+    textAlign: 'center'
+  },
+  modalSub: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 4
+  },
+  modalInfoBox: {
+    backgroundColor: colors.cardInset,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    marginBottom: 14
+  },
+  modalBullet: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 6
+  },
+  modalWarnBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warningLight,
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: colors.warningBorder
+  },
+  modalWarnText: {
+    fontSize: 11,
+    color: colors.warningText,
+    flex: 1,
+    fontWeight: '600'
+  },
+  modalErrorBox: {
+    backgroundColor: colors.dangerLight,
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: colors.dangerBorder
+  },
+  modalErrorText: {
+    fontSize: 12,
+    color: colors.dangerText,
+    fontWeight: '600',
+    textAlign: 'center'
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    gap: 12
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  modalCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary
+  },
+  modalConfirmBtn: {
+    flex: 1.3,
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  modalConfirmBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFF'
+  },
+  nonHostNotice: {
+    backgroundColor: colors.cardInset,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    alignItems: 'center',
+    marginBottom: 10
+  },
+  nonHostNoticeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textMuted,
+    textAlign: 'center'
   }
 });

@@ -36,6 +36,7 @@ export interface OptimizedPayment {
 export interface SettlementReview {
   gameId: string;
   tableName: string;
+  hostUserId: string;
   gameType: string;
   status: string;
   totalChips: number;
@@ -147,6 +148,7 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
   return {
     gameId: table.id,
     tableName: table.name,
+    hostUserId: table.host_user_id,
     gameType: table.game_type,
     status: table.status,
     totalChips: table.total_chips,

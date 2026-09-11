@@ -1,5 +1,5 @@
 {
-  "version": "1.0.2",
-  "buildTime": 1789138500000,
-  "releaseNotes": "Mobile number as friend code, profile name editing, rankings display by name, and cleaned up navigation."
+  "version": "1.0.3",
+  "buildTime": 1789146700000,
+  "releaseNotes": "Fix game finalization & stats recording button with dedicated confirmation modal."
 }
