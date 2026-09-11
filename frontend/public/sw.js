@@ -1,4 +1,4 @@
-﻿const CACHE_NAME = 'chipmate-pwa-v1';
+const CACHE_NAME = 'chipmate-pwa-v1';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -35,8 +35,8 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Never cache API requests or WebSocket connections
-  if (url.pathname.startsWith('/api') || url.pathname.startsWith('/socket.io') || event.request.method !== 'GET') {
+  // Never cache API requests, WebSocket connections, or version check files
+  if (url.pathname.startsWith('/api') || url.pathname.startsWith('/socket.io') || url.pathname.includes('version.json') || event.request.method !== 'GET') {
     return;
   }
 
