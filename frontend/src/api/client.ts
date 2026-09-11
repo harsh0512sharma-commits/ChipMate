@@ -9,11 +9,24 @@ let customApiBase: string | null = null;
 
 export function getDefaultApiBase(): string {
   if (customApiBase) return customApiBase;
+
+  // 1. Environment variable (configured in Vercel or local .env)
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl && envUrl.trim().length > 0) {
+    const trimmed = envUrl.trim().replace(/\/+$/, '');
+    return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+  }
+
+  // 2. Localhost development on web
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const host = window.location.hostname;
-    return `http://${host}:4000/api`;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:4000/api';
+    }
   }
-  return 'http://localhost:4000/api';
+
+  // 3. Fallback for deployed cloud apps (Render backend default)
+  return 'https://chipmate-backend.onrender.com/api';
 }
 
 export async function setCustomApiBase(url: string) {

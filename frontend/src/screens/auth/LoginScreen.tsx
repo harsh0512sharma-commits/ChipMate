@@ -20,10 +20,13 @@ import {
   Coins,
   ShieldCheck,
   CheckCircle,
-  Sparkles
+  Sparkles,
+  Server,
+  Settings,
+  Check
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
-import { apiRequest } from '../../api/client';
+import { apiRequest, getDefaultApiBase, setCustomApiBase } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 
 interface LoginScreenProps {
@@ -46,6 +49,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Server URL custom config
+  const [showServerConfig, setShowServerConfig] = useState(false);
+  const [serverUrlInput, setServerUrlInput] = useState(getDefaultApiBase());
+  const [serverSavedMsg, setServerSavedMsg] = useState(false);
+
+  const handleSaveServerUrl = async () => {
+    let clean = serverUrlInput.trim().replace(/\/+$/, '');
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = `https://${clean}`;
+    }
+    if (!clean.endsWith('/api')) {
+      clean = `${clean}/api`;
+    }
+    await setCustomApiBase(clean);
+    setServerUrlInput(clean);
+    setServerSavedMsg(true);
+    setTimeout(() => {
+      setServerSavedMsg(false);
+      setShowServerConfig(false);
+      setError(null);
+    }, 1000);
+  };
 
   // 1. Handle Sign In with Mobile Number + Password
   const handleSignIn = async () => {
@@ -187,7 +213,68 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
 
           {error && (
             <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
+              <Text style={styles.errorText}>
+                {error.toLowerCase().includes('fetch')
+                  ? `Cannot reach backend server at:\n${serverUrlInput}\n\nMake sure your Render backend service is deployed and running.`
+                  : error}
+              </Text>
+              {error.toLowerCase().includes('fetch') && (
+                <TouchableOpacity
+                  onPress={() => setShowServerConfig(true)}
+                  style={styles.errorConfigBtn}
+                  activeOpacity={0.8}
+                >
+                  <Settings size={14} color={colors.primary} style={{ marginRight: 6 }} />
+                  <Text style={styles.errorConfigBtnText}>Change Backend URL</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* Server Config Drawer */}
+          {showServerConfig && (
+            <View style={styles.serverConfigCard}>
+              <View style={styles.serverConfigHeader}>
+                <Server size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                <Text style={styles.serverConfigTitle}>Backend Server Connection</Text>
+              </View>
+              <Text style={styles.serverConfigDesc}>
+                Enter your Render backend URL (e.g. https://chipmate-backend.onrender.com):
+              </Text>
+              <View style={styles.serverInputRow}>
+                <TextInput
+                  style={styles.serverInput}
+                  value={serverUrlInput}
+                  onChangeText={setServerUrlInput}
+                  placeholder="https://your-backend.onrender.com/api"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+              <View style={styles.serverBtnRow}>
+                <TouchableOpacity
+                  onPress={handleSaveServerUrl}
+                  style={styles.serverSaveBtn}
+                  activeOpacity={0.8}
+                >
+                  {serverSavedMsg ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Check size={14} color="#FFF" style={{ marginRight: 4 }} />
+                      <Text style={styles.serverSaveBtnText}>Saved!</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.serverSaveBtnText}>Save & Connect</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setShowServerConfig(false)}
+                  style={styles.serverCancelBtn}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.serverCancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
@@ -386,6 +473,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
           <Text style={styles.footerNote}>
             ChipMate records physical chips, loans, and final settlements. It does not process real-money payments.
           </Text>
+
+          <TouchableOpacity
+            onPress={() => setShowServerConfig(prev => !prev)}
+            style={styles.serverFooterBtn}
+            activeOpacity={0.7}
+          >
+            <Server size={12} color={colors.textMuted} style={{ marginRight: 6 }} />
+            <Text style={styles.serverFooterText}>
+              Backend: {serverUrlInput.replace(/\/api\/?$/, '').replace(/^https?:\/\//, '')}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -589,5 +687,98 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
     lineHeight: 15
+  },
+  errorConfigBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(235, 94, 40, 0.12)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(235, 94, 40, 0.3)'
+  },
+  errorConfigBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary
+  },
+  serverConfigCard: {
+    backgroundColor: colors.cardInset,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  serverConfigHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6
+  },
+  serverConfigTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text
+  },
+  serverConfigDesc: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 10,
+    lineHeight: 15
+  },
+  serverInputRow: {
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10
+  },
+  serverInput: {
+    fontSize: 13,
+    color: colors.text
+  },
+  serverBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  serverSaveBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8
+  },
+  serverSaveBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFF'
+  },
+  serverCancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12
+  },
+  serverCancelBtnText: {
+    fontSize: 12,
+    color: colors.textMuted
+  },
+  serverFooterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)'
+  },
+  serverFooterText: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '500'
   }
 });
