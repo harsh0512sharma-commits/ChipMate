@@ -28,7 +28,9 @@ import {
   UserPlus,
   Check,
   X,
-  UserCheck
+  UserCheck,
+  Trash2,
+  LogOut
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
@@ -129,6 +131,10 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const [friends, setFriends] = useState<any[]>([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [addFriendFeedback, setAddFriendFeedback] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingTable, setDeletingTable] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [leavingTable, setLeavingTable] = useState(false);
 
   const fetchTableData = useCallback(async () => {
     try {
@@ -151,6 +157,16 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
 
     const unsubscribeSocket = onTableUpdated((payload: any) => {
       if (payload.tableId === tableId) {
+        if (payload.eventType === 'TABLE_DELETED') {
+          Alert.alert('Table Deleted', payload.payload?.message || 'This table was deleted by the host.');
+          onBack();
+          return;
+        }
+        if (payload.eventType === 'HOST_CHANGED') {
+          if (payload.payload?.newHostUserId === user?.id) {
+            Alert.alert('Host Assigned', 'The previous host left the table. You are now the Table Host!');
+          }
+        }
         fetchTableData();
       }
     });
@@ -164,7 +180,43 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
       unsubscribeSocket();
       unsubscribeConn();
     };
-  }, [tableId, fetchTableData]);
+  }, [tableId, fetchTableData, user?.id, onBack]);
+
+  const handleDeleteTable = async () => {
+    setDeletingTable(true);
+    try {
+      const res = await apiRequest(`/tables/${tableId}`, { method: 'DELETE' });
+      if (res.success) {
+        setShowDeleteModal(false);
+        Alert.alert('Table Deleted', 'The table has been deleted successfully.');
+        onBack();
+      } else {
+        Alert.alert('Delete Failed', res.error || 'Could not delete table');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to delete table');
+    } finally {
+      setDeletingTable(false);
+    }
+  };
+
+  const handleLeaveTable = async () => {
+    setLeavingTable(true);
+    try {
+      const res = await apiRequest(`/tables/${tableId}/leave`, { method: 'POST' });
+      if (res.success) {
+        setShowLeaveModal(false);
+        Alert.alert('Table Notice', res.message || 'You have left the table.');
+        onBack();
+      } else {
+        Alert.alert('Leave Failed', res.error || 'Could not leave table');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to leave table');
+    } finally {
+      setLeavingTable(false);
+    }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -342,6 +394,9 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
 
   const lastTx = recentTransactions && recentTransactions.length > 0 ? recentTransactions[0] : null;
 
+  const otherRegisteredPlayers = (players || []).filter((p: any) => p.user_id !== user?.id && !p.is_guest);
+  const nextHostName = otherRegisteredPlayers.length > 0 ? otherRegisteredPlayers[0].display_name : 'the next player';
+
   return (
     <View style={styles.container}>
       {/* Top Header */}
@@ -357,6 +412,9 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowActivity(prev => !prev)} style={styles.headerIconBtn}>
               <History size={20} color={colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowLeaveModal(true)} style={styles.headerIconBtn}>
+              <LogOut size={20} color={colors.dangerText} />
             </TouchableOpacity>
           </View>
         }
@@ -388,9 +446,15 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
         {!isHost && (
           <View style={styles.viewerBanner}>
             <ShieldAlert size={15} color={colors.primary} style={{ marginRight: 8 }} />
-            <Text style={styles.viewerBannerText}>
-              Spectator / Player Mode • The host records all table transactions.
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.viewerBannerText}>
+                Spectator / Player Mode • The host records all table transactions.
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setShowLeaveModal(true)} style={styles.leaveBannerBtn} activeOpacity={0.7}>
+              <LogOut size={12} color={colors.dangerText} style={{ marginRight: 4 }} />
+              <Text style={styles.leaveBannerBtnText}>Leave</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -467,6 +531,16 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                 <Flag size={14} color={colors.dangerText} />
                 <Text style={[styles.menuItemText, { color: colors.dangerText, fontWeight: '700', marginLeft: 4 }]}>
                   End Game
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.menuItem, styles.deleteTableMenuItem]}
+                onPress={() => setShowDeleteModal(true)}
+              >
+                <Trash2 size={14} color={colors.dangerText} />
+                <Text style={[styles.menuItemText, { color: colors.dangerText, fontWeight: '700', marginLeft: 4 }]}>
+                  Delete Table
                 </Text>
               </TouchableOpacity>
             </View>
@@ -621,6 +695,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
               <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
                 {friends.map(f => {
                   const isSeated = players.some((p: any) => p.user_id === f.id);
+                  const isInOtherGame = f.isInActiveGame && f.activeGameId !== table.id;
                   return (
                     <View key={f.id} style={styles.friendModalRow}>
                       <View style={styles.friendModalAvatar}>
@@ -637,6 +712,12 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                         <View style={styles.seatedBadge}>
                           <Check size={11} color={colors.successText} style={{ marginRight: 4 }} />
                           <Text style={styles.seatedBadgeText}>Seated</Text>
+                        </View>
+                      ) : isInOtherGame ? (
+                        <View style={styles.inGameBadge}>
+                          <Text style={styles.inGameBadgeText} numberOfLines={1}>
+                            In Game: {f.activeGameName || 'Active'}
+                          </Text>
                         </View>
                       ) : (
                         <TouchableOpacity
@@ -775,6 +856,118 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                 ) : (
                   <Text style={styles.addGuestSubmitBtnText}>Seat Guest at Table</Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* DELETE TABLE MODAL (Host Only) */}
+      <Modal visible={showDeleteModal} transparent animationType="fade" onRequestClose={() => setShowDeleteModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, { color: colors.dangerText }]}>Delete Table?</Text>
+                <Text style={styles.modalSubtitle}>Permanently cancel and remove this table.</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowDeleteModal(false)} style={styles.modalCloseBtn} activeOpacity={0.7}>
+                <X size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ marginTop: 14 }}>
+              <Text style={styles.confirmModalWarningText}>
+                ⚠️ Are you sure you want to delete this table? All chip records, loans, and player sessions will be cleared. This action cannot be undone.
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.dangerConfirmBtn, deletingTable && { opacity: 0.6 }]}
+                onPress={handleDeleteTable}
+                disabled={deletingTable}
+                activeOpacity={0.8}
+              >
+                {deletingTable ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.dangerConfirmBtnText}>Yes, Delete Table</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelModalBtn}
+                onPress={() => setShowDeleteModal(false)}
+                disabled={deletingTable}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelModalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* LEAVE TABLE MODAL */}
+      <Modal visible={showLeaveModal} transparent animationType="fade" onRequestClose={() => setShowLeaveModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, { color: colors.dangerText }]}>
+                  {isHost
+                    ? otherRegisteredPlayers.length === 0
+                      ? 'Leave & Delete Table?'
+                      : 'Leave Table & Transfer Host?'
+                    : 'Leave Table?'}
+                </Text>
+                <Text style={styles.modalSubtitle}>
+                  {isHost
+                    ? otherRegisteredPlayers.length === 0
+                      ? 'You are the only registered player.'
+                      : `Host will transfer to ${nextHostName}.`
+                    : 'Exit this active game session.'}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowLeaveModal(false)} style={styles.modalCloseBtn} activeOpacity={0.7}>
+                <X size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ marginTop: 14 }}>
+              <Text style={styles.confirmModalWarningText}>
+                {isHost
+                  ? otherRegisteredPlayers.length === 0
+                    ? '⚠️ Since you are the only player, leaving this table will permanently delete it.'
+                    : `⚠️ Since you are the host, leaving will automatically transfer host control to ${nextHostName}. Any active chips you hold will be returned to the vault.`
+                  : '⚠️ Any active chips you hold will be returned to the vault. If you have active loans, please repay or settle them first.'}
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.dangerConfirmBtn, leavingTable && { opacity: 0.6 }]}
+                onPress={handleLeaveTable}
+                disabled={leavingTable}
+                activeOpacity={0.8}
+              >
+                {leavingTable ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.dangerConfirmBtnText}>
+                    {isHost
+                      ? otherRegisteredPlayers.length === 0
+                        ? 'Leave & Delete Table'
+                        : `Transfer & Leave Table`
+                      : 'Confirm Leave Table'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelModalBtn}
+                onPress={() => setShowLeaveModal(false)}
+                disabled={leavingTable}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelModalBtnText}>Stay at Table</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1279,5 +1472,76 @@ const styles = StyleSheet.create({
   quickActionOptionDesc: {
     fontSize: 11,
     color: colors.textSecondary
+  },
+  deleteTableMenuItem: {
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)'
+  },
+  leaveBannerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8
+  },
+  leaveBannerBtnText: {
+    color: colors.dangerText,
+    fontSize: 11,
+    fontWeight: '700'
+  },
+  inGameBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    maxWidth: 140
+  },
+  inGameBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F59E0B'
+  },
+  confirmModalWarningText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 16,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    borderRadius: 10,
+    padding: 12
+  },
+  dangerConfirmBtn: {
+    backgroundColor: colors.dangerText,
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10
+  },
+  dangerConfirmBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700'
+  },
+  cancelModalBtn: {
+    backgroundColor: colors.cardInset,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  cancelModalBtnText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600'
   }
 });

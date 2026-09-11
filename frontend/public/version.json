@@ -1,5 +1,5 @@
 {
-  "version": "1.0.4",
-  "buildTime": 1789150000000,
-  "releaseNotes": "Full name on signup, guest player seating, 3-column chip console, transaction audit & UI fixes."
+  "version": "1.0.5",
+  "buildTime": 1789155000000,
+  "releaseNotes": "Table deletion by host, host-leaving role reassignment, and active game concurrency protection."
 }

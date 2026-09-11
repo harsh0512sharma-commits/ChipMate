@@ -151,6 +151,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <Text style={styles.continueButtonText}>Continue Live Game</Text>
               <ArrowRight size={18} color="#FFF" style={{ marginLeft: 6 }} />
             </TouchableOpacity>
+
+            {activeTables.length > 1 && (
+              <View style={styles.otherActiveTablesBox}>
+                <Text style={styles.otherActiveTablesTitle}>
+                  You have {activeTables.length - 1} other active table{activeTables.length > 2 ? 's' : ''}:
+                </Text>
+                {activeTables.slice(1).map(otherTable => (
+                  <TouchableOpacity
+                    key={otherTable.id}
+                    style={styles.otherTableRow}
+                    onPress={() => onOpenLiveTable(otherTable.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.otherTableName}>{otherTable.name} (#{otherTable.join_code})</Text>
+                      <Text style={styles.otherTableDetail}>Role: {otherTable.player_role} • {otherTable.status}</Text>
+                    </View>
+                    <Text style={styles.otherTableOpenLink}>Open & Settle / Delete →</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         ) : (
           <View style={styles.createCard}>
@@ -661,5 +683,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFF',
     marginLeft: 6
+  },
+  otherActiveTablesBox: {
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDark
+  },
+  otherActiveTablesTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.chipGold,
+    marginBottom: 8
+  },
+  otherTableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardInset,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 6
+  },
+  otherTableName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text
+  },
+  otherTableDetail: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2
+  },
+  otherTableOpenLink: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+    marginLeft: 8
   }
 });

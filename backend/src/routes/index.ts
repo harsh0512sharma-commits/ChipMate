@@ -41,6 +41,8 @@ router.get('/tables/active', requireAuth, tableCtrl.getActiveTables);
 router.get('/tables/history', requireAuth, tableCtrl.getTableHistory);
 router.get('/tables/:tableId', requireAuth, tableCtrl.getTable);
 router.get('/tables/:tableId/transactions', requireAuth, tableCtrl.getTableTransactions);
+router.delete('/tables/:tableId', requireAuth, tableCtrl.deleteTable);
+router.post('/tables/:tableId/leave', requireAuth, tableCtrl.leaveTable);
 
 // Ledger & Transaction routes (Host actions)
 router.post('/tables/:tableId/buy-in', requireAuth, ledgerCtrl.buyIn);

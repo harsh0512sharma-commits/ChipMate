@@ -201,3 +201,45 @@ export function getTableTransactions(req: AuthenticatedRequest, res: Response): 
     res.status(500).json({ success: false, error: err.message || 'Failed to fetch transactions' });
   }
 }
+
+export function deleteTable(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const hostUserId = req.user!.userId;
+    const tableId = req.params.tableId as string;
+
+    const result = tableService.deleteTable(hostUserId, tableId);
+    broadcastTableUpdate(tableId, 'TABLE_DELETED', { tableId });
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to delete table' });
+  }
+}
+
+export function leaveTable(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const userId = req.user!.userId;
+    const tableId = req.params.tableId as string;
+
+    const result = tableService.leaveTable(userId, tableId);
+    if (result.tableDeleted) {
+      broadcastTableUpdate(tableId, 'TABLE_DELETED', { tableId, message: result.message });
+    } else {
+      if (result.newHostUserId) {
+        broadcastTableUpdate(tableId, 'HOST_CHANGED', {
+          tableId,
+          newHostUserId: result.newHostUserId,
+          newHostName: result.newHostName,
+          departingUserId: result.departingUserId
+        });
+      }
+      broadcastTableUpdate(tableId, 'PLAYER_LEFT', {
+        tableId,
+        departingUserId: result.departingUserId
+      });
+    }
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to leave table' });
+  }
+}
+

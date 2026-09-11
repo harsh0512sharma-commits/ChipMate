@@ -280,11 +280,17 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
             <View style={styles.friendListGrid}>
               {friends.map(friend => {
                 const isSelected = selectedFriendIds.includes(friend.id);
+                const isBusy = Boolean(friend.isInActiveGame);
                 return (
                   <TouchableOpacity
                     key={friend.id}
-                    onPress={() => toggleFriend(friend.id)}
-                    style={[styles.friendItemCard, isSelected && styles.friendItemCardSelected]}
+                    onPress={() => !isBusy && toggleFriend(friend.id)}
+                    style={[
+                      styles.friendItemCard,
+                      isSelected && styles.friendItemCardSelected,
+                      isBusy && { opacity: 0.55 }
+                    ]}
+                    disabled={isBusy}
                     activeOpacity={0.7}
                   >
                     <View style={styles.friendAvatarBadge}>
@@ -300,13 +306,21 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
                       <Text style={styles.friendCodeSmall}>#{friend.friendCode}</Text>
                     </View>
 
-                    <View style={[styles.friendCheckCircle, isSelected && styles.friendCheckCircleSelected]}>
-                      {isSelected ? (
-                        <Check size={12} color="#FFF" />
-                      ) : (
-                        <UserPlus size={12} color={colors.textMuted} />
-                      )}
-                    </View>
+                    {isBusy ? (
+                      <View style={styles.friendInGameBadge}>
+                        <Text style={styles.friendInGameBadgeText} numberOfLines={1}>
+                          In Game: {friend.activeGameName || 'Active'}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={[styles.friendCheckCircle, isSelected && styles.friendCheckCircleSelected]}>
+                        {isSelected ? (
+                          <Check size={12} color="#FFF" />
+                        ) : (
+                          <UserPlus size={12} color={colors.textMuted} />
+                        )}
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -575,5 +589,19 @@ const styles = StyleSheet.create({
   friendCheckCircleSelected: {
     backgroundColor: colors.primary,
     borderColor: colors.primary
+  },
+  friendInGameBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    maxWidth: 130
+  },
+  friendInGameBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#F59E0B'
   }
 });

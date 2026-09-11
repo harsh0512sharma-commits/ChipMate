@@ -108,7 +108,19 @@ export function getFriendsList(userId: string) {
   const rows = db.prepare(`
     SELECT f.id as friendship_id, f.status, f.created_at as friendship_created_at,
       u.id, u.display_name, u.friend_code, u.phone_number, u.avatar_url,
-      s.net_winnings, s.games_played, s.win_rate
+      s.net_winnings, s.games_played, s.win_rate,
+      (
+        SELECT g.name FROM game_players gp
+        JOIN games g ON gp.game_id = g.id
+        WHERE gp.user_id = u.id AND g.status IN ('WAITING', 'ACTIVE', 'SETTLING')
+        LIMIT 1
+      ) as active_game_name,
+      (
+        SELECT g.id FROM game_players gp
+        JOIN games g ON gp.game_id = g.id
+        WHERE gp.user_id = u.id AND g.status IN ('WAITING', 'ACTIVE', 'SETTLING')
+        LIMIT 1
+      ) as active_game_id
     FROM friendships f
     JOIN users u ON (CASE WHEN f.user_id = ? THEN f.friend_id ELSE f.user_id END) = u.id
     LEFT JOIN player_lifetime_stats s ON s.user_id = u.id
@@ -125,7 +137,10 @@ export function getFriendsList(userId: string) {
     avatarUrl: r.avatar_url,
     netWinnings: r.net_winnings || 0,
     gamesPlayed: r.games_played || 0,
-    winRate: r.win_rate || 0
+    winRate: r.win_rate || 0,
+    isInActiveGame: Boolean(r.active_game_id),
+    activeGameName: r.active_game_name || null,
+    activeGameId: r.active_game_id || null
   }));
 }
 
