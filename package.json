@@ -1,0 +1,16 @@
+{
+  "name": "chipmate-project",
+  "version": "1.0.0",
+  "description": "ChipMate - Real-Time Home Game Chip Ledger, Settlement & Player Statistics Application",
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run web",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npx expo export -p web",
+    "start:backend": "cd backend && npm start",
+    "test": "cd backend && npm test"
+  },
+  "keywords": ["poker", "teen-patti", "chip-ledger", "settlement", "statistics"],
+  "author": "",
+  "license": "ISC"
+}

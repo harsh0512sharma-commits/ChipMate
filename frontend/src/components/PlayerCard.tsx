@@ -1,0 +1,356 @@
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Crown, UserCheck, Clock, UserPlus, HandCoins, TrendingUp, TrendingDown } from 'lucide-react-native';
+import { colors } from '../theme/colors';
+
+export interface PlayerCardData {
+  id: string;
+  user_id: string;
+  display_name: string;
+  friend_code: string;
+  role: 'HOST' | 'PLAYER';
+  current_chips: number;
+  total_buyin_amount: number;
+  total_buyin_chips: number;
+  friendshipStatus: 'SELF' | 'FRIENDS' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'NONE';
+  moneyEquivalent: number;
+}
+
+interface PlayerCardProps {
+  player: PlayerCardData;
+  chipValue: number;
+  loansDescription?: string[];
+  isHostView?: boolean;
+  onAddFriend?: (friendCode: string) => void;
+  onSelectPlayer?: () => void;
+}
+
+export const PlayerCard: React.FC<PlayerCardProps> = ({
+  player,
+  chipValue,
+  loansDescription = [],
+  isHostView = false,
+  onAddFriend,
+  onSelectPlayer
+}) => {
+  const isHost = player.role === 'HOST';
+  const currentMoney = player.current_chips * chipValue;
+  const netPnL = currentMoney - player.total_buyin_amount;
+  const isProfit = netPnL > 0;
+  const isLoss = netPnL < 0;
+
+  return (
+    <TouchableOpacity
+      activeOpacity={onSelectPlayer ? 0.75 : 1}
+      onPress={onSelectPlayer}
+      disabled={!onSelectPlayer}
+      style={styles.card}
+    >
+      {/* Top Header: Avatar, Name, Host Tag, Social Button */}
+      <View style={styles.topRow}>
+        <View style={styles.nameSection}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {player.display_name ? player.display_name.charAt(0).toUpperCase() : 'P'}
+            </Text>
+          </View>
+          <View style={styles.nameMeta}>
+            <View style={styles.nameLine}>
+              <Text style={styles.playerName} numberOfLines={1}>
+                {player.display_name}
+              </Text>
+              {isHost && (
+                <View style={styles.hostBadge}>
+                  <Crown size={10} color={colors.primary} />
+                  <Text style={styles.hostBadgeText}>HOST</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.friendCodeText}>#{player.friend_code}</Text>
+          </View>
+        </View>
+
+        {/* Social / Friendship Action */}
+        {player.friendshipStatus === 'FRIENDS' ? (
+          <View style={styles.friendPill}>
+            <UserCheck size={11} color={colors.successText} />
+            <Text style={styles.friendPillText}>Friends</Text>
+          </View>
+        ) : player.friendshipStatus === 'PENDING_SENT' || player.friendshipStatus === 'PENDING_RECEIVED' ? (
+          <View style={styles.pendingPill}>
+            <Clock size={11} color={colors.warningText} />
+            <Text style={styles.pendingPillText}>Pending</Text>
+          </View>
+        ) : player.friendshipStatus === 'NONE' && onAddFriend ? (
+          <TouchableOpacity
+            onPress={() => onAddFriend(player.friend_code)}
+            style={styles.addFriendButton}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <UserPlus size={12} color={colors.primary} />
+            <Text style={styles.addFriendButtonText}>Add Friend</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {/* Main Stats: Chips & Financial P&L */}
+      <View style={styles.statsContainer}>
+        <View style={styles.chipSection}>
+          <Text style={styles.bigChipNumber}>{player.current_chips}</Text>
+          <Text style={styles.chipLabel}>CHIPS HELD</Text>
+        </View>
+
+        <View style={styles.moneySection}>
+          <Text style={styles.moneyAmount}>
+            ₹{currentMoney.toLocaleString('en-IN')}
+          </Text>
+
+          {/* Live P&L indicator badge */}
+          <View style={styles.pnlRow}>
+            {isProfit ? (
+              <View style={styles.pnlPillGreen}>
+                <TrendingUp size={11} color={colors.successText} style={{ marginRight: 3 }} />
+                <Text style={styles.pnlTextGreen}>+₹{netPnL.toLocaleString('en-IN')}</Text>
+              </View>
+            ) : isLoss ? (
+              <View style={styles.pnlPillRed}>
+                <TrendingDown size={11} color={colors.dangerText} style={{ marginRight: 3 }} />
+                <Text style={styles.pnlTextRed}>-₹{Math.abs(netPnL).toLocaleString('en-IN')}</Text>
+              </View>
+            ) : (
+              <Text style={styles.pnlNeutral}>Even (₹0)</Text>
+            )}
+            <Text style={styles.buyinSubText}>Buy-in: ₹{player.total_buyin_amount.toLocaleString('en-IN')}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Active Loans summary if any */}
+      {loansDescription.length > 0 && (
+        <View style={styles.loanContainer}>
+          <HandCoins size={13} color={colors.warningText} style={{ marginTop: 2, marginRight: 6 }} />
+          <View style={{ flex: 1 }}>
+            {loansDescription.map((desc, idx) => (
+              <Text key={idx} style={styles.loanText} numberOfLines={2}>
+                {desc}
+              </Text>
+            ))}
+          </View>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+};
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12
+  },
+  nameSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1
+  },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.primary
+  },
+  nameMeta: {
+    flex: 1
+  },
+  nameLine: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  playerName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text
+  },
+  friendCodeText: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 1,
+    fontWeight: '500'
+  },
+  hostBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder
+  },
+  hostBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.primary,
+    marginLeft: 3,
+    letterSpacing: 0.5
+  },
+  friendPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.successLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.successBorder
+  },
+  friendPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.successText,
+    marginLeft: 4
+  },
+  pendingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warningLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.warningBorder
+  },
+  pendingPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.warningText,
+    marginLeft: 4
+  },
+  addFriendButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder
+  },
+  addFriendButtonText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+    marginLeft: 4
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    backgroundColor: colors.cardInset,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.borderDark
+  },
+  chipSection: {
+    justifyContent: 'flex-end'
+  },
+  bigChipNumber: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.text,
+    lineHeight: 32,
+    letterSpacing: -0.5
+  },
+  chipLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 0.8,
+    marginTop: 2
+  },
+  moneySection: {
+    alignItems: 'flex-end'
+  },
+  moneyAmount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text
+  },
+  pnlRow: {
+    alignItems: 'flex-end',
+    marginTop: 2
+  },
+  pnlPillGreen: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.successLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6
+  },
+  pnlTextGreen: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.successText
+  },
+  pnlPillRed: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.dangerLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6
+  },
+  pnlTextRed: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.dangerText
+  },
+  pnlNeutral: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '500'
+  },
+  buyinSubText: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 2
+  },
+  loanContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.warningLight,
+    borderRadius: 10,
+    padding: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: colors.warningBorder
+  },
+  loanText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.warningText
+  }
+});
