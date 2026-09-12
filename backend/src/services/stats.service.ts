@@ -344,8 +344,14 @@ export function getGameInsights(gameId: string) {
     LIMIT 1
   `).get(gameId) as any;
 
+  const game = db.prepare('SELECT id, name, game_type, created_at, started_at, finalized_at FROM games WHERE id = ?').get(gameId) as any;
+
   return {
     gameId,
+    gameName: game?.name || 'Game Table',
+    gameType: game?.game_type || 'TEEN_PATTI',
+    createdAt: game?.created_at,
+    finalizedAt: game?.finalized_at,
     winner: {
       displayName: winner.display_name,
       netWinnings: winner.net_winnings_money,

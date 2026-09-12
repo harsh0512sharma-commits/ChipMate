@@ -133,7 +133,7 @@ export const HeadToHeadScreen: React.FC<HeadToHeadScreenProps> = ({
                 <View style={{ flex: 1 }}>
                   <Text style={styles.gameName}>{g.name}</Text>
                   <Text style={styles.gameDate}>
-                    {g.date ? new Date(g.date).toLocaleDateString() : 'Finalized'}
+                    📅 {g.date ? new Date(g.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Finalized'}
                   </Text>
                 </View>
 

@@ -34,6 +34,22 @@ interface HomeScreenProps {
   onOpenSummary?: (tableId: string) => void;
 }
 
+export function formatGameDateTime(dateStr?: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const datePart = d.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+  const timePart = d.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  return `${datePart} • ${timePart}`;
+}
+
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenLiveTable,
   onCreateTable,
@@ -286,11 +302,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 onPress={() => (onOpenSummary ? onOpenSummary(game.id) : onOpenGameHistory())}
                 activeOpacity={0.7}
               >
-                <View style={{ flex: 1 }}>
+                <View style={{ flex: 1, marginRight: 8 }}>
                   <Text style={styles.recentGameName}>{game.name}</Text>
                   <Text style={styles.recentGameMeta}>
                     {game.game_type === 'TEEN_PATTI' ? 'Teen Patti' : 'Poker'} • Host: {game.host_name}
                   </Text>
+                  {(game.finalized_at || game.created_at) && (
+                    <Text style={styles.recentGameDate}>
+                      📅 {formatGameDateTime(game.finalized_at || game.created_at)}
+                    </Text>
+                  )}
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text
@@ -664,6 +685,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     marginTop: 2
+  },
+  recentGameDate: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 4
   },
   recentGameNet: {
     fontSize: 15,

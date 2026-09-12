@@ -638,9 +638,14 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                         {summary.subtitle} • Recorded by {tx.actor_name}
                       </Text>
                     </View>
-                    <Text style={styles.txTime}>
-                      {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
+                    <View style={{ alignItems: 'flex-end', marginLeft: 8 }}>
+                      <Text style={styles.txDate}>
+                        {new Date(tx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </Text>
+                      <Text style={styles.txTime}>
+                        {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
                   </View>
                 );
               })
@@ -1411,10 +1416,15 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2
   },
+  txDate: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginBottom: 2
+  },
   txTime: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginLeft: 8
+    fontSize: 10,
+    color: colors.textMuted
   },
   playerListHeader: {
     paddingHorizontal: 20,

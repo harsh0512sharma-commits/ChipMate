@@ -1,5 +1,5 @@
 {
-  "version": "1.0.8",
-  "buildTime": 1789236000000,
-  "releaseNotes": "Chip denomination mode for table creation, profile stats cleanup, and player card UI refinement."
+  "version": "1.0.9",
+  "buildTime": 1789240000000,
+  "releaseNotes": "Clean database reset, animated opening splash screen, and full date display in game and transaction histories."
 }

@@ -18,6 +18,22 @@ interface GameSummaryScreenProps {
   onGoLeaderboard: () => void;
 }
 
+function formatGameDateTime(dateStr?: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const datePart = d.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+  const timePart = d.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  return `${datePart} • ${timePart}`;
+}
+
 export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
   gameId,
   onGoHome,
@@ -67,6 +83,15 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
           <Text style={styles.confetti}>🎉</Text>
           <Text style={styles.heroTitle}>Game Complete!</Text>
           <Text style={styles.heroSubtitle}>Results have been locked and added to player histories.</Text>
+
+          {insights?.gameName && (
+            <View style={styles.gameMetaBox}>
+              <Text style={styles.gameMetaName}>{insights.gameName}</Text>
+              <Text style={styles.gameMetaDate}>
+                {insights.gameType === 'TEEN_PATTI' ? 'Teen Patti' : 'Poker'} • Played {formatGameDateTime(insights.finalizedAt || insights.createdAt)}
+              </Text>
+            </View>
+          )}
 
           {insights?.winner && (
             <View style={styles.winnerBox}>
@@ -152,9 +177,14 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
                         {summary.subtitle} • Recorded by {tx.actor_name}
                       </Text>
                     </View>
-                    <Text style={styles.txItemTime}>
-                      {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
+                    <View style={{ alignItems: 'flex-end', marginLeft: 8 }}>
+                      <Text style={styles.txItemDate}>
+                        {new Date(tx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </Text>
+                      <Text style={styles.txItemTime}>
+                        {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
                   </View>
                 );
               })}
@@ -383,10 +413,37 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2
   },
-  txItemTime: {
+  gameMetaBox: {
+    backgroundColor: colors.cardInset,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    alignItems: 'center'
+  },
+  gameMetaName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.text
+  },
+  gameMetaDate: {
     fontSize: 11,
-    color: colors.textMuted,
-    marginLeft: 8
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 4
+  },
+  txItemDate: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginBottom: 2
+  },
+  txItemTime: {
+    fontSize: 10,
+    color: colors.textMuted
   },
   toggleTxBtn: {
     paddingVertical: 10,

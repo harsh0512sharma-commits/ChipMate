@@ -19,23 +19,51 @@ import {
   TrendingUp,
   LogOut,
   Sparkles,
-  Edit2
+  Edit2,
+  History,
+  ArrowRight
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
 import { Header } from '../../components/Header';
 import { apiRequest } from '../../api/client';
 
-export const ProfileScreen: React.FC = () => {
+interface ProfileScreenProps {
+  onOpenSummary?: (gameId: string) => void;
+}
+
+function formatGameDateTime(dateStr?: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const datePart = d.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+  const timePart = d.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  return `${datePart} • ${timePart}`;
+}
+
+export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary }) => {
   const { user, logout, refreshUser, updateUser } = useAuth();
   const [copied, setCopied] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState(user?.display_name || '');
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [gameHistory, setGameHistory] = useState<any[]>([]);
 
   useEffect(() => {
     refreshUser();
+    apiRequest('/tables/history')
+      .then(res => {
+        if (res.success && res.history) setGameHistory(res.history);
+      })
+      .catch(err => console.warn('Failed to fetch profile game history:', err));
   }, []);
 
   const stats = user?.stats || {};
@@ -277,6 +305,52 @@ export const ProfileScreen: React.FC = () => {
               {(stats.poker_net || 0) >= 0 ? `+₹${stats.poker_net || 0}` : `-₹${Math.abs(stats.poker_net || 0)}`}
             </Text>
           </View>
+        </View>
+
+        {/* COMPLETED GAMES HISTORY */}
+        <View style={styles.card}>
+          <View style={styles.historyCardHeader}>
+            <History size={18} color={colors.primary} style={{ marginRight: 8 }} />
+            <Text style={styles.sectionTitle}>GAME HISTORY ({gameHistory.length})</Text>
+          </View>
+          <Text style={styles.sectionSubtitle}>Complete ledger of all your finalized tables</Text>
+
+          {gameHistory.length === 0 ? (
+            <Text style={styles.emptyHistoryText}>No completed games recorded yet.</Text>
+          ) : (
+            gameHistory.map(game => (
+              <TouchableOpacity
+                key={game.id}
+                style={styles.historyGameItem}
+                onPress={() => onOpenSummary && onOpenSummary(game.id)}
+                activeOpacity={0.7}
+              >
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={styles.historyGameName}>{game.name}</Text>
+                  <Text style={styles.historyGameMeta}>
+                    {game.game_type === 'TEEN_PATTI' ? 'Teen Patti' : 'Poker'} • Host: {game.host_name}
+                  </Text>
+                  <Text style={styles.historyGameDate}>
+                    📅 {formatGameDateTime(game.finalized_at || game.created_at)}
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text
+                    style={[
+                      styles.historyGameNet,
+                      { color: (game.net_winnings_money || 0) >= 0 ? colors.successText : colors.dangerText }
+                    ]}
+                  >
+                    {(game.net_winnings_money || 0) >= 0 ? `+₹${game.net_winnings_money || 0}` : `-₹${Math.abs(game.net_winnings_money || 0)}`}
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                    <Text style={styles.finalizedBadge}>View Summary</Text>
+                    <ArrowRight size={12} color={colors.primary} style={{ marginLeft: 4 }} />
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
 
         {/* Logout Button */}
@@ -558,6 +632,53 @@ const styles = StyleSheet.create({
   gtNet: {
     fontSize: 16,
     fontWeight: '800'
+  },
+  historyCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4
+  },
+  emptyHistoryText: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginVertical: 12,
+    textAlign: 'center'
+  },
+  historyGameItem: {
+    backgroundColor: colors.cardInset,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  historyGameName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text
+  },
+  historyGameMeta: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2
+  },
+  historyGameDate: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 3
+  },
+  historyGameNet: {
+    fontSize: 14,
+    fontWeight: '800'
+  },
+  finalizedBadge: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.primary,
+    marginRight: 2
   },
   logoutBtn: {
     flexDirection: 'row',

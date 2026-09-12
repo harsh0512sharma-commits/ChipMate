@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { colors } from './src/theme/colors';
 import { InstallPromptModal } from './src/components/InstallPromptModal';
 import { UpdatePromptModal } from './src/components/UpdatePromptModal';
+import { SplashScreen } from './src/components/SplashScreen';
 
 // Screens
 import { LoginScreen } from './src/screens/auth/LoginScreen';
@@ -54,15 +55,14 @@ function MainNavigator() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('TAB_HOME');
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   const [h2hUserId, setH2hUserId] = useState<string | null>(null);
+  const [isSplashDone, setIsSplashDone] = useState(false);
 
-  if (isLoading) {
+  if (!isSplashDone || isLoading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ marginTop: 12, color: colors.textSecondary, fontWeight: '600' }}>
-          Loading ChipMate...
-        </Text>
-      </View>
+      <SplashScreen
+        isLoading={isLoading}
+        onAnimationEnd={() => setIsSplashDone(true)}
+      />
     );
   }
 
@@ -140,7 +140,7 @@ function MainNavigator() {
             <FriendsScreen onOpenHeadToHead={openH2H} />
           )}
 
-          {currentScreen === 'TAB_PROFILE' && <ProfileScreen />}
+          {currentScreen === 'TAB_PROFILE' && <ProfileScreen onOpenSummary={openSummary} />}
 
           {currentScreen === 'CREATE_TABLE' && (
             <CreateTableScreen
