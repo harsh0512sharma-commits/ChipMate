@@ -18,6 +18,7 @@ interface VerifyOtpScreenProps {
   email: string;
   phoneNumber?: string;
   initialDevOtp?: string;
+  initialName?: string;
   onBack: () => void;
 }
 
@@ -25,11 +26,12 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
   email,
   phoneNumber,
   initialDevOtp,
+  initialName,
   onBack
 }) => {
   const { login } = useAuth();
   const [code, setCode] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  const [displayName, setDisplayName] = useState(initialName || '');
   const [isNewUserStep, setIsNewUserStep] = useState(false);
   const [tempToken, setTempToken] = useState<string | null>(null);
   const [tempUser, setTempUser] = useState<any>(null);
@@ -63,7 +65,7 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
           body: {
             email,
             code: code.trim(),
-            displayName: displayName.trim() || phoneNumber
+            displayName: displayName.trim() || undefined
           }
         });
 
@@ -287,16 +289,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    paddingVertical: 28,
+    paddingHorizontal: 16
   },
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 24,
-    padding: 28,
+    backgroundColor: colors.background,
     width: '100%',
-    maxWidth: 420,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle
+    maxWidth: 440,
+    paddingHorizontal: 8,
+    borderWidth: 0
   },
   backBtn: {
     flexDirection: 'row',

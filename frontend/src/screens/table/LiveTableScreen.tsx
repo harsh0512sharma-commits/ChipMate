@@ -206,6 +206,11 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   };
 
   const handleLeaveTable = async () => {
+    if (isFinalized) {
+      setShowLeaveModal(false);
+      onBack();
+      return;
+    }
     setLeavingTable(true);
     try {
       const res = await apiRequest(`/tables/${tableId}/leave`, { method: 'POST' });
@@ -505,16 +510,30 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
 
         {/* Viewer Mode Banner for Non-Hosts */}
         {!isHost && (
-          <View style={styles.viewerBanner}>
-            <ShieldAlert size={15} color={colors.primary} style={{ marginRight: 8 }} />
+          <View style={[styles.viewerBanner, isFinalized && { borderColor: colors.primaryBorder, backgroundColor: colors.cardInset }]}>
+            <ShieldAlert size={15} color={isFinalized ? colors.successText : colors.primary} style={{ marginRight: 8 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.viewerBannerText}>
-                Spectator / Player Mode • The host records all table transactions.
+                {isFinalized
+                  ? 'Game Completed • Results & Lifetime Statistics have been finalized.'
+                  : 'Spectator / Player Mode • The host records all table transactions.'}
               </Text>
             </View>
-            <TouchableOpacity onPress={() => setShowLeaveModal(true)} style={styles.leaveBannerBtn} activeOpacity={0.7}>
-              <LogOut size={12} color={colors.dangerText} style={{ marginRight: 4 }} />
-              <Text style={styles.leaveBannerBtnText}>Leave</Text>
+            <TouchableOpacity
+              onPress={() => {
+                if (isFinalized) {
+                  onBack();
+                } else {
+                  setShowLeaveModal(true);
+                }
+              }}
+              style={[styles.leaveBannerBtn, isFinalized && { borderColor: colors.primaryBorder }]}
+              activeOpacity={0.7}
+            >
+              <LogOut size={12} color={isFinalized ? colors.primary : colors.dangerText} style={{ marginRight: 4 }} />
+              <Text style={[styles.leaveBannerBtnText, isFinalized && { color: colors.primary }]}>
+                {isFinalized ? 'Exit Table' : 'Leave'}
+              </Text>
             </TouchableOpacity>
           </View>
         )}

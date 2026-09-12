@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   SafeAreaView,
   View,
@@ -12,6 +12,7 @@ import {
 import { Home, Trophy, Users, User, ShieldCheck } from 'lucide-react-native';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { colors } from './src/theme/colors';
+import { apiRequest } from './src/api/client';
 import { InstallPromptModal } from './src/components/InstallPromptModal';
 import { UpdatePromptModal } from './src/components/UpdatePromptModal';
 import { SplashScreen } from './src/components/SplashScreen';
@@ -50,12 +51,30 @@ function MainNavigator() {
   const [authEmail, setAuthEmail] = useState('');
   const [authPhone, setAuthPhone] = useState<string | undefined>(undefined);
   const [authDevOtp, setAuthDevOtp] = useState<string | undefined>(undefined);
+  const [authName, setAuthName] = useState<string | undefined>(undefined);
 
   // App screen state
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('TAB_HOME');
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   const [h2hUserId, setH2hUserId] = useState<string | null>(null);
   const [isSplashDone, setIsSplashDone] = useState(false);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+
+  // Poll for incoming friend requests
+  useEffect(() => {
+    if (!token || !user) return;
+    const checkRequests = async () => {
+      try {
+        const res = await apiRequest('/friends/requests');
+        if (res.success && Array.isArray(res.received)) {
+          setPendingRequestsCount(res.received.length);
+        }
+      } catch (_) {}
+    };
+    checkRequests();
+    const interval = setInterval(checkRequests, 12000);
+    return () => clearInterval(interval);
+  }, [token, user]);
 
   if (!isSplashDone || isLoading) {
     return (
@@ -71,10 +90,11 @@ function MainNavigator() {
     if (authStep === 'LOGIN') {
       return (
         <LoginScreen
-          onOtpSent={(email, devOtp, phoneNumber) => {
+          onOtpSent={(email, devOtp, phoneNumber, name) => {
             setAuthEmail(email);
             setAuthDevOtp(devOtp);
             setAuthPhone(phoneNumber);
+            setAuthName(name);
             setAuthStep('OTP');
           }}
         />
@@ -85,6 +105,7 @@ function MainNavigator() {
         email={authEmail}
         phoneNumber={authPhone}
         initialDevOtp={authDevOtp}
+        initialName={authName}
         onBack={() => setAuthStep('LOGIN')}
       />
     );
@@ -137,7 +158,10 @@ function MainNavigator() {
           {currentScreen === 'TAB_LEADERBOARD' && <LeaderboardScreen />}
 
           {currentScreen === 'TAB_FRIENDS' && (
-            <FriendsScreen onOpenHeadToHead={openH2H} />
+            <FriendsScreen
+              onOpenHeadToHead={openH2H}
+              onRequestsUpdated={setPendingRequestsCount}
+            />
           )}
 
           {currentScreen === 'TAB_PROFILE' && <ProfileScreen onOpenSummary={openSummary} />}
@@ -246,6 +270,13 @@ function MainNavigator() {
                   size={20}
                   color={currentScreen === 'TAB_FRIENDS' ? colors.primary : colors.textSecondary}
                 />
+                {pendingRequestsCount > 0 && (
+                  <View style={styles.tabBadge}>
+                    <Text style={styles.tabBadgeText}>
+                      {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
+                    </Text>
+                  </View>
+                )}
               </View>
               <Text
                 style={[
@@ -352,5 +383,24 @@ const styles = StyleSheet.create({
   tabItemTextActive: {
     color: colors.primary,
     fontWeight: '700'
+  },
+  tabBadge: {
+    position: 'absolute',
+    top: -3,
+    right: 2,
+    backgroundColor: colors.dangerText,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: colors.card
+  },
+  tabBadgeText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontWeight: '900'
   }
 });

@@ -15,15 +15,15 @@ export function createApp() {
 
   // Health check
   app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.9', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.10', timestamp: new Date().toISOString() });
   });
 
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.9',
-      buildTime: 1789240000000,
-      releaseNotes: 'Clean database reset, animated opening splash screen, and full date display in game and transaction histories.'
+      version: '1.0.10',
+      buildTime: 1789242000000,
+      releaseNotes: 'Fix finalized table leave handling, preserve signup full name, seamless full-screen dark theme, and pending friend requests counter.'
     });
   };
   app.get('/version', versionHandler);

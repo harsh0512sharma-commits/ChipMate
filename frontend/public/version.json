@@ -1,5 +1,5 @@
 {
-  "version": "1.0.9",
-  "buildTime": 1789240000000,
-  "releaseNotes": "Clean database reset, animated opening splash screen, and full date display in game and transaction histories."
+  "version": "1.0.10",
+  "buildTime": 1789242000000,
+  "releaseNotes": "Fix finalized table leave handling, preserve signup full name, seamless full-screen dark theme, and pending friend requests counter."
 }

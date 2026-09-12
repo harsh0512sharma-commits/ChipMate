@@ -572,7 +572,12 @@ export function leaveTable(userId: string, tableId: string): {
   const table = db.prepare('SELECT * FROM games WHERE id = ?').get(tableId) as GameTableRecord | undefined;
   if (!table) throw new Error('Table not found');
   if (table.status === 'FINALIZED' || table.status === 'ARCHIVED') {
-    throw new Error('Cannot leave a finalized table');
+    return {
+      success: true,
+      tableDeleted: false,
+      departingUserId: userId,
+      message: 'Table is finalized. You have exited the table.'
+    };
   }
 
   const player = db.prepare('SELECT * FROM game_players WHERE game_id = ? AND user_id = ?').get(tableId, userId) as any;

@@ -30,7 +30,7 @@ import { apiRequest } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 
 interface LoginScreenProps {
-  onOtpSent: (email: string, devOtp?: string, phoneNumber?: string) => void;
+  onOtpSent: (email: string, devOtp?: string, phoneNumber?: string, name?: string) => void;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
@@ -139,7 +139,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
       });
 
       if (res.success) {
-        onOtpSent(cleanedEmail, res.devOtp, cleanedPhone);
+        onOtpSent(cleanedEmail, res.devOtp, cleanedPhone, cleanedName);
       } else {
         setError(res.error || 'Failed to initiate sign-up.');
       }
@@ -174,11 +174,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
           <Text style={styles.subtitle}>
             Poker Chip Calculator & Records
           </Text>
-
-          <View style={styles.badgeRow}>
-            <ShieldCheck size={14} color={colors.primary} />
-            <Text style={styles.badgeText}>Real-Time • Non-Gambling • Ledger Only</Text>
-          </View>
 
           {/* Dual Mode Tab Selector */}
           <View style={styles.tabBar}>
@@ -315,12 +310,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
             /* TAB 2: SIGN UP MODE (4 Fields - All Mandatory)                    */
             /* ================================================================= */
             <View>
-              <View style={styles.mandatoryNotice}>
-                <Text style={styles.mandatoryNoticeText}>
-                  All 4 fields are mandatory. Your 10-digit mobile number will be your username.
-                </Text>
-              </View>
-
               {/* Field 1: Full Name (Mandatory) */}
               <View style={styles.inputContainer}>
                 <View style={styles.labelRow}>
@@ -473,16 +462,16 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    backgroundColor: colors.background
   },
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 24,
-    padding: 24,
+    backgroundColor: colors.background,
     width: '100%',
-    maxWidth: 440,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle
+    maxWidth: 460,
+    paddingHorizontal: 8,
+    borderWidth: 0
   },
   logoRow: {
     alignItems: 'center',

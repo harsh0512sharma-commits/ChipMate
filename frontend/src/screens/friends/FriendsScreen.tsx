@@ -29,9 +29,10 @@ import { Header } from '../../components/Header';
 
 interface FriendsScreenProps {
   onOpenHeadToHead: (friendUserId: string) => void;
+  onRequestsUpdated?: (count: number) => void;
 }
 
-export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead }) => {
+export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead, onRequestsUpdated }) => {
   const { user } = useAuth();
   const [tab, setTab] = useState<'FRIENDS' | 'REQUESTS'>('FRIENDS');
   const [friends, setFriends] = useState<any[]>([]);
@@ -55,7 +56,11 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead }
       ]);
 
       if (fRes.success) setFriends(fRes.friends || []);
-      if (rRes.success) setRequests({ received: rRes.received || [], sent: rRes.sent || [] });
+      if (rRes.success) {
+        const received = rRes.received || [];
+        setRequests({ received, sent: rRes.sent || [] });
+        if (onRequestsUpdated) onRequestsUpdated(received.length);
+      }
     } catch (err) {
       console.warn('Failed to load friends:', err);
     } finally {

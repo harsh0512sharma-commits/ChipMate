@@ -27,6 +27,7 @@ import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
 import { Header } from '../../components/Header';
 import { apiRequest } from '../../api/client';
+import { APP_BUILD_VERSION } from '../../version';
 
 interface ProfileScreenProps {
   onOpenSummary?: (gameId: string) => void;
@@ -358,6 +359,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary }) =
           <LogOut size={16} color={colors.dangerText} style={{ marginRight: 8 }} />
           <Text style={styles.logoutBtnText}>Sign Out of ChipMate</Text>
         </TouchableOpacity>
+
+        {/* App Version Footer */}
+        <View style={styles.versionFooter}>
+          <Text style={styles.versionFooterText}>ChipMate v{APP_BUILD_VERSION}</Text>
+          <Text style={styles.versionSubText}>Zero-Sum Card Ledger • Real-Time Offline Sync</Text>
+        </View>
       </ScrollView>
     </View>
   );
@@ -695,5 +702,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: colors.dangerText
+  },
+  versionFooter: {
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 8
+  },
+  versionFooterText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    letterSpacing: 0.5
+  },
+  versionSubText: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: colors.textMuted,
+    marginTop: 3
   }
 });

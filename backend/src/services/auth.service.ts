@@ -178,7 +178,11 @@ export function signupVerifyOtp(params: {
 
   if (!user) {
     const userId = uuidv4();
-    const displayName = params.displayName?.trim() || pending.display_name?.trim() || ('Player ' + pending.phone_number.slice(-4));
+    const candidateName = params.displayName?.trim();
+    const displayName = (candidateName && candidateName !== pending.phone_number ? candidateName : null)
+      || pending.display_name?.trim()
+      || candidateName
+      || ('Player ' + pending.phone_number.slice(-4));
     const friendCode = pending.phone_number || generateFriendCode(displayName);
     const createdAt = new Date().toISOString();
 
@@ -194,9 +198,17 @@ export function signupVerifyOtp(params: {
     `).run(userId, createdAt);
 
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as UserRecord;
-  } else if (pending.phone_number && user.friend_code !== pending.phone_number) {
-    db.prepare('UPDATE users SET phone_number = ?, friend_code = ?, updated_at = ? WHERE id = ?')
-      .run(pending.phone_number, pending.phone_number, now, user.id);
+  } else {
+    // If existing user has display_name set to their phone number, upgrade to their real name
+    const candidateName = params.displayName?.trim();
+    const newName = (candidateName && candidateName !== pending.phone_number ? candidateName : null) || pending.display_name?.trim();
+    if (newName && (user.display_name === user.phone_number || !user.display_name || user.display_name.startsWith('Player '))) {
+      db.prepare('UPDATE users SET display_name = ?, updated_at = ? WHERE id = ?').run(newName, now, user.id);
+    }
+    if (pending.phone_number && user.friend_code !== pending.phone_number) {
+      db.prepare('UPDATE users SET phone_number = ?, friend_code = ?, updated_at = ? WHERE id = ?')
+        .run(pending.phone_number, pending.phone_number, now, user.id);
+    }
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id) as UserRecord;
   }
 
