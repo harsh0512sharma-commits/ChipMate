@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { getDb } from '../db';
 import { config } from '../config';
 import { sendOtpEmail } from './email.service';
+import { recalculateUserLifetimeStats } from './stats.service';
 
 export interface UserRecord {
   id: string;
@@ -205,7 +206,8 @@ export function signupVerifyOtp(params: {
     { expiresIn: '30d' }
   );
 
-  return { token, user };
+  const fullUser = getUserById(user.id) || user;
+  return { token, user: fullUser };
 }
 
 export function loginWithPassword(identifier: string, password: string): { token: string; user: UserRecord } {
@@ -253,7 +255,8 @@ export function loginWithPassword(identifier: string, password: string): { token
     { expiresIn: '30d' }
   );
 
-  return { token, user };
+  const fullUser = getUserById(user.id) || user;
+  return { token, user: fullUser };
 }
 
 export async function requestOtp(email: string): Promise<{ success: boolean; message: string; devOtp?: string }> {
@@ -354,7 +357,8 @@ export function verifyOtp(email: string, code: string): { token: string; user: U
     { expiresIn: '30d' }
   );
 
-  return { token, user, isNewUser };
+  const fullUser = getUserById(user.id) || user;
+  return { token, user: fullUser, isNewUser };
 }
 
 export function updateUserProfile(userId: string, displayName: string, avatarUrl?: string): UserRecord {
@@ -383,7 +387,12 @@ export function getUserById(userId: string): (UserRecord & { stats?: any }) | nu
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as UserRecord | undefined;
   if (!user) return null;
 
-  const stats = db.prepare('SELECT * FROM player_lifetime_stats WHERE user_id = ?').get(userId);
+  let stats: any;
+  try {
+    stats = recalculateUserLifetimeStats(userId);
+  } catch (_) {
+    stats = db.prepare('SELECT * FROM player_lifetime_stats WHERE user_id = ?').get(userId);
+  }
   return { ...user, stats };
 }
 

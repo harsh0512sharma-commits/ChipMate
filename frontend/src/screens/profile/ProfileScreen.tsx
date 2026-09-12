@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,10 @@ export const ProfileScreen: React.FC = () => {
   const [newName, setNewName] = useState(user?.display_name || '');
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+
+  useEffect(() => {
+    refreshUser();
+  }, []);
 
   const stats = user?.stats || {};
   const netWinnings = stats.net_winnings || 0;

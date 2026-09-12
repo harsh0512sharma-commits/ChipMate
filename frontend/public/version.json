@@ -1,5 +1,5 @@
 {
-  "version": "1.0.5",
-  "buildTime": 1789155000000,
-  "releaseNotes": "Table deletion by host, host-leaving role reassignment, and active game concurrency protection."
+  "version": "1.0.6",
+  "buildTime": 1789230000000,
+  "releaseNotes": "Career highlights persistence, friend games tracking, UI cleanup, and updated app logo."
 }

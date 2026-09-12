@@ -1,6 +1,7 @@
 import { randomUUID as uuidv4 } from 'crypto';
 import { getDb } from '../db';
 import { getUserByFriendCode, UserRecord } from './auth.service';
+import { recalculateUserLifetimeStats } from './stats.service';
 
 export interface FriendRequestDto {
   id: string;
@@ -105,6 +106,22 @@ export function removeFriend(userId: string, targetUserId: string): { success: b
 
 export function getFriendsList(userId: string) {
   const db = getDb();
+
+  // Find all accepted friends
+  const friendIdRows = db.prepare(`
+    SELECT DISTINCT CASE WHEN f.user_id = ? THEN f.friend_id ELSE f.user_id END as friend_user_id
+    FROM friendships f
+    WHERE (f.user_id = ? OR f.friend_id = ?) AND f.status = 'ACCEPTED'
+  `).all(userId, userId, userId) as { friend_user_id: string }[];
+
+  // Recalculate lifetime stats for user and each friend from finalized games
+  try {
+    recalculateUserLifetimeStats(userId);
+    for (const fr of friendIdRows) {
+      recalculateUserLifetimeStats(fr.friend_user_id);
+    }
+  } catch (_) {}
+
   const rows = db.prepare(`
     SELECT f.id as friendship_id, f.status, f.created_at as friendship_created_at,
       u.id, u.display_name, u.friend_code, u.phone_number, u.avatar_url,
@@ -120,13 +137,20 @@ export function getFriendsList(userId: string) {
         JOIN games g ON gp.game_id = g.id
         WHERE gp.user_id = u.id AND g.status IN ('WAITING', 'ACTIVE', 'SETTLING')
         LIMIT 1
-      ) as active_game_id
+      ) as active_game_id,
+      (
+        SELECT COUNT(DISTINCT g.id)
+        FROM games g
+        JOIN game_players gp1 ON (g.id = gp1.game_id AND gp1.user_id = ?)
+        JOIN game_players gp2 ON (g.id = gp2.game_id AND gp2.user_id = u.id)
+        WHERE g.status = 'FINALIZED'
+      ) as games_together
     FROM friendships f
     JOIN users u ON (CASE WHEN f.user_id = ? THEN f.friend_id ELSE f.user_id END) = u.id
     LEFT JOIN player_lifetime_stats s ON s.user_id = u.id
     WHERE (f.user_id = ? OR f.friend_id = ?) AND f.status = 'ACCEPTED'
     ORDER BY u.display_name ASC
-  `).all(userId, userId, userId) as any[];
+  `).all(userId, userId, userId, userId) as any[];
 
   return rows.map(r => ({
     friendshipId: r.friendship_id,
@@ -137,6 +161,7 @@ export function getFriendsList(userId: string) {
     avatarUrl: r.avatar_url,
     netWinnings: r.net_winnings || 0,
     gamesPlayed: r.games_played || 0,
+    gamesTogether: r.games_together || 0,
     winRate: r.win_rate || 0,
     isInActiveGame: Boolean(r.active_game_id),
     activeGameName: r.active_game_name || null,

@@ -196,6 +196,14 @@ export function getFriendLeaderboard(userId: string, sortBy: 'NET_WINNINGS' | 'W
   `).all(userId, userId, userId) as { friend_user_id: string }[];
 
   const userIds = [userId, ...friendRows.map(r => r.friend_user_id)];
+
+  // Ensure lifetime stats are freshly recalculated from actual finalized games
+  for (const uid of userIds) {
+    try {
+      recalculateUserLifetimeStats(uid);
+    } catch (_) {}
+  }
+
   const placeholders = userIds.map(() => '?').join(',');
 
   let orderClause = 's.net_winnings DESC';

@@ -42,7 +42,7 @@ type ScreenType =
   | 'HEAD_TO_HEAD';
 
 function MainNavigator() {
-  const { user, token, isLoading } = useAuth();
+  const { user, token, isLoading, refreshUser } = useAuth();
 
   // Auth screen state
   const [authStep, setAuthStep] = useState<'LOGIN' | 'OTP'>('LOGIN');
@@ -168,7 +168,10 @@ function MainNavigator() {
             <SettlementScreen
               tableId={activeTableId}
               onBack={() => setCurrentScreen('LIVE_TABLE')}
-              onGameFinalized={tableId => openSummary(tableId)}
+              onGameFinalized={tableId => {
+                refreshUser();
+                openSummary(tableId);
+              }}
             />
           )}
 

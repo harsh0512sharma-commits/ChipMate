@@ -551,22 +551,6 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
               </TouchableOpacity>
             </View>
 
-            <View style={styles.secondaryActionRow}>
-              <TouchableOpacity
-                style={[styles.actionBtnSec, { marginRight: 6 }]}
-                onPress={() => setActiveSheet('RETURN')}
-              >
-                <Text style={styles.actionBtnSecText}>↩ RETURN</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.actionBtnSec, { marginLeft: 6 }]}
-                onPress={() => setActiveSheet('TRANSFER')}
-              >
-                <Text style={styles.actionBtnSecText}>↔ TRANSFER</Text>
-              </TouchableOpacity>
-            </View>
-
             {/* Additional host options */}
             <View style={styles.hostMenuRow}>
               {lastTx && (

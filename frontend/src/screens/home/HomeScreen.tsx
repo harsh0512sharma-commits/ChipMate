@@ -53,7 +53,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     try {
       const [activeRes, histRes] = await Promise.all([
         apiRequest('/tables/active'),
-        apiRequest('/tables/history')
+        apiRequest('/tables/history'),
+        refreshUser()
       ]);
 
       if (activeRes.success) setActiveTables(activeRes.tables || []);

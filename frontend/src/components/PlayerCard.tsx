@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Crown, UserCheck, Clock, UserPlus, HandCoins, TrendingUp, TrendingDown } from 'lucide-react-native';
+import { Crown, UserCheck, Clock, UserPlus, TrendingUp, TrendingDown } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 
 export interface PlayerCardData {
@@ -133,20 +133,6 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
           </View>
         </View>
       </View>
-
-      {/* Active Loans summary if any */}
-      {loansDescription.length > 0 && (
-        <View style={styles.loanContainer}>
-          <HandCoins size={13} color={colors.warningText} style={{ marginTop: 2, marginRight: 6 }} />
-          <View style={{ flex: 1 }}>
-            {loansDescription.map((desc, idx) => (
-              <Text key={idx} style={styles.loanText} numberOfLines={2}>
-                {desc}
-              </Text>
-            ))}
-          </View>
-        </View>
-      )}
     </TouchableOpacity>
   );
 };
@@ -365,21 +351,5 @@ const styles = StyleSheet.create({
   buyinSubText: {
     fontSize: 10,
     color: colors.textMuted
-  },
-  loanContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.warningLight,
-    borderRadius: 8,
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: colors.warningBorder
-  },
-  loanText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.warningText
   }
 });

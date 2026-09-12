@@ -243,7 +243,7 @@ export function optimizeDebts(players: SettlementPlayerBalance[]): OptimizedPaym
 export function submitFinalChipCounts(
   hostUserId: string,
   gameId: string,
-  finalChipCounts: Record<string, number>
+  finalChipCounts: Record<string, number> | Array<{ playerId: string; finalChips: number }>
 ): SettlementReview {
   const db = getDb();
   const table = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId) as GameTableRecord | undefined;
@@ -251,6 +251,18 @@ export function submitFinalChipCounts(
   if (table.host_user_id !== hostUserId) throw new Error('Only the host can submit final chip counts');
   if (table.status === 'FINALIZED' || table.status === 'ARCHIVED') {
     throw new Error('Game is already finalized');
+  }
+
+  // Normalize finalChipCounts to Record<string, number>
+  let countsMap: Record<string, number> = {};
+  if (Array.isArray(finalChipCounts)) {
+    for (const item of finalChipCounts) {
+      if (item && item.playerId) {
+        countsMap[item.playerId] = Number(item.finalChips);
+      }
+    }
+  } else if (finalChipCounts && typeof finalChipCounts === 'object') {
+    countsMap = { ...finalChipCounts };
   }
 
   const players = db.prepare('SELECT * FROM game_players WHERE game_id = ?').all(gameId) as any[];
@@ -263,7 +275,7 @@ export function submitFinalChipCounts(
 
   let totalEntered = 0;
   for (const p of players) {
-    const entered = finalChipCounts[p.id];
+    const entered = countsMap[p.id];
     if (entered === undefined || entered === null || typeof entered !== 'number' || isNaN(entered)) {
       throw new Error(`Please enter valid chip count for ${p.guest_name || 'all players'}`);
     }
@@ -280,7 +292,7 @@ export function submitFinalChipCounts(
   const submitTx = db.transaction(() => {
     const now = new Date().toISOString();
     for (const p of players) {
-      const count = finalChipCounts[p.id];
+      const count = countsMap[p.id];
       db.prepare('UPDATE game_players SET current_chips = ? WHERE id = ?').run(count, p.id);
     }
     db.prepare(`UPDATE games SET status = 'SETTLING', ended_at = ? WHERE id = ?`).run(now, gameId);

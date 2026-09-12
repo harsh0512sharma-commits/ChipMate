@@ -81,14 +81,14 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
     setSubmittingChips(true);
     setEditChipError(null);
     try {
-      const finalCounts = Object.entries(editChipInputs).map(([playerId, countStr]) => ({
-        playerId,
-        finalChips: parseInt(countStr || '0', 10) || 0
-      }));
+      const countsPayload: Record<string, number> = {};
+      for (const [playerId, countStr] of Object.entries(editChipInputs)) {
+        countsPayload[playerId] = parseInt(countStr || '0', 10) || 0;
+      }
 
       const res = await apiRequest(`/tables/${tableId}/settle/chips`, {
         method: 'POST',
-        body: { finalChipCounts: finalCounts }
+        body: { finalChipCounts: countsPayload }
       });
 
       if (res.success) {

@@ -222,7 +222,7 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead }
                   <Text style={styles.friendName}>{friend.displayName}</Text>
                   <Text style={styles.friendCode}>📱 {friend.friendCode}</Text>
                   <Text style={styles.friendStats}>
-                    Games: {friend.gamesPlayed} • Win Rate: {friend.winRate}%
+                    Games: {friend.gamesPlayed} (Together: {friend.gamesTogether || 0}) • Win Rate: {friend.winRate}%
                   </Text>
                 </View>
 
