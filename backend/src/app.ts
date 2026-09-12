@@ -15,8 +15,19 @@ export function createApp() {
 
   // Health check
   app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'chipmate-backend', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.7', timestamp: new Date().toISOString() });
   });
+
+  // Version check for PWA / native client updates
+  const versionHandler = (_req: Request, res: Response) => {
+    res.json({
+      version: '1.0.7',
+      buildTime: 1789234000000,
+      releaseNotes: 'Automatic cloud data sync, persistent game records, improved update reliability, and security enhancements.'
+    });
+  };
+  app.get('/version', versionHandler);
+  app.get('/api/version', versionHandler);
 
   // API router
   app.use('/api', routes);

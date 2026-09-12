@@ -5,11 +5,8 @@ const TOKEN_KEY = 'chipmate_token';
 const API_URL_KEY = 'chipmate_api_url';
 
 let cachedToken: string | null = null;
-let customApiBase: string | null = null;
 
 export function getDefaultApiBase(): string {
-  if (customApiBase) return customApiBase;
-
   // 1. Environment variable (configured in Vercel or local .env)
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
   if (envUrl && envUrl.trim().length > 0) {
@@ -29,18 +26,10 @@ export function getDefaultApiBase(): string {
   return 'https://chipmate.onrender.com/api';
 }
 
-export async function setCustomApiBase(url: string) {
-  customApiBase = url.trim();
-  await AsyncStorage.setItem(API_URL_KEY, customApiBase);
-}
-
 export async function loadSavedApiBase(): Promise<string> {
   try {
-    const saved = await AsyncStorage.getItem(API_URL_KEY);
-    if (saved) {
-      customApiBase = saved;
-      return saved;
-    }
+    // Security & reliability cleanup: remove any legacy stored custom URL
+    await AsyncStorage.removeItem(API_URL_KEY);
   } catch (_) {}
   return getDefaultApiBase();
 }
@@ -71,7 +60,7 @@ export async function apiRequest<T = any>(
   } = {}
 ): Promise<T> {
   const token = await getAuthToken();
-  const baseUrl = customApiBase || getDefaultApiBase();
+  const baseUrl = getDefaultApiBase();
   const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
 
   const headers: Record<string, string> = {

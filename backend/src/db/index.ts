@@ -22,6 +22,8 @@ export function getTursoClient(): LibsqlClient | null {
   return tursoClient;
 }
 
+let isSyncing = false;
+
 function wrapDatabaseWithReplication(db: Database.Database): Database.Database {
   const client = getTursoClient();
   if (!client) return db;
@@ -36,11 +38,13 @@ function wrapDatabaseWithReplication(db: Database.Database): Database.Database {
       const origRun = stmt.run.bind(stmt);
       stmt.run = function(...args: any[]) {
         const result = origRun(...args);
-        // Asynchronously replicate to Turso Cloud in background
-        const sanitizedArgs = args.map(arg => (arg === undefined ? null : arg));
-        client.execute({ sql, args: sanitizedArgs }).catch(err => {
-          console.warn('[Turso Cloud Replication Warning]:', err.message);
-        });
+        if (!isSyncing) {
+          // Asynchronously replicate to Turso Cloud in background
+          const sanitizedArgs = args.map(arg => (arg === undefined ? null : arg));
+          client.execute({ sql, args: sanitizedArgs }).catch(err => {
+            console.warn('[Turso Cloud Replication Warning]:', err.message);
+          });
+        }
         return result;
       };
     }
@@ -324,6 +328,8 @@ export async function syncFromTursoCloud(db: Database.Database): Promise<void> {
   const client = getTursoClient();
   if (!client) return;
 
+  isSyncing = true;
+  db.pragma('foreign_keys = OFF');
   try {
     console.log('🔄 Checking Turso Cloud database for existing data...');
     let totalRestored = 0;
@@ -349,6 +355,9 @@ export async function syncFromTursoCloud(db: Database.Database): Promise<void> {
     }
   } catch (err: any) {
     console.warn('[Turso Cloud Hydration Warning]:', err.message);
+  } finally {
+    db.pragma('foreign_keys = ON');
+    isSyncing = false;
   }
 }
 

@@ -11,43 +11,26 @@ import {
 import { Sparkles, X, ArrowUpCircle } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { APP_BUILD_VERSION } from '../version';
+import { getDefaultApiBase } from '../api/client';
 
-const STORAGE_KEY_INSTALLED = 'chipmate_installed_version';
-const STORAGE_KEY_DISMISSED = 'chipmate_dismissed_version';
+const STORAGE_KEY_DISMISSED = 'chipmate_dismissed_session_version';
 
-const INITIAL_CHECK_DELAY_MS = 2500;
-const POLL_INTERVAL_MS = 60 * 1000; // Check every 60s
+const INITIAL_CHECK_DELAY_MS = 2000;
+const POLL_INTERVAL_MS = 45 * 1000; // Check every 45s
 
-const getStoredInstalledVersion = (): string => {
+const isDismissedForSession = (v: string): boolean => {
   try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      return window.localStorage.getItem(STORAGE_KEY_INSTALLED) || APP_BUILD_VERSION;
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      return window.sessionStorage.getItem(STORAGE_KEY_DISMISSED) === v;
     }
   } catch (_) {}
-  return APP_BUILD_VERSION;
+  return false;
 };
 
-const setStoredInstalledVersion = (v: string) => {
+const setDismissedForSession = (v: string) => {
   try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(STORAGE_KEY_INSTALLED, v);
-    }
-  } catch (_) {}
-};
-
-const getStoredDismissedVersion = (): string | null => {
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      return window.localStorage.getItem(STORAGE_KEY_DISMISSED);
-    }
-  } catch (_) {}
-  return null;
-};
-
-const setStoredDismissedVersion = (v: string) => {
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(STORAGE_KEY_DISMISSED, v);
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.setItem(STORAGE_KEY_DISMISSED, v);
     }
   } catch (_) {}
 };
@@ -60,11 +43,6 @@ export const UpdatePromptModal: React.FC = () => {
   const [dismissed, setDismissed] = useState<boolean>(false);
 
   const slideAnim = useRef(new Animated.Value(-120)).current;
-
-  // On initial mount, ensure current executing build is recorded as installed
-  useEffect(() => {
-    setStoredInstalledVersion(APP_BUILD_VERSION);
-  }, []);
 
   // Animate banner entry
   useEffect(() => {
@@ -87,58 +65,74 @@ export const UpdatePromptModal: React.FC = () => {
   const checkForUpdates = async () => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
+    let remoteVersion: string | null = null;
+    let notes: string = '';
+
+    // 1. First attempt: static version.json
     try {
-      // Fetch with cache busting parameter
       const res = await fetch(`/version.json?_t=${Date.now()}`, {
         cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
       });
-
-      if (!res.ok) return;
-
-      const data = await res.json();
-      if (!data || !data.version) return;
-
-      const remoteVersion = String(data.version).trim();
-      const currentInstalled = getStoredInstalledVersion();
-      const currentDismissed = getStoredDismissedVersion();
-
-      // If user is already running this version or has already updated to it:
-      if (remoteVersion === APP_BUILD_VERSION || remoteVersion === currentInstalled) {
-        setUpdateAvailable(false);
-        setStoredInstalledVersion(remoteVersion);
-        return;
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.version) {
+          remoteVersion = String(data.version).trim();
+          notes = data.releaseNotes || '';
+        }
       }
+    } catch (_) {}
 
-      // If user previously dismissed this version in this browser session:
-      if (remoteVersion === currentDismissed) {
-        setUpdateAvailable(false);
-        return;
-      }
-
-      // There is an actual new update!
-      setNewVersion(remoteVersion);
-      if (data.releaseNotes) {
-        setReleaseNotes(data.releaseNotes);
-      }
-      setUpdateAvailable(true);
-    } catch (err) {
-      // Silently fail network checks
+    // 2. Second attempt: backend /version endpoint if static check was inconclusive
+    if (!remoteVersion) {
+      try {
+        const apiBase = getDefaultApiBase();
+        const res = await fetch(`${apiBase}/version?_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.version) {
+            remoteVersion = String(data.version).trim();
+            notes = data.releaseNotes || '';
+          }
+        }
+      } catch (_) {}
     }
+
+    if (!remoteVersion) return;
+
+    // If running build already matches latest remote version
+    if (remoteVersion === APP_BUILD_VERSION) {
+      setUpdateAvailable(false);
+      return;
+    }
+
+    // If user dismissed this update during current browser session
+    if (isDismissedForSession(remoteVersion)) {
+      setUpdateAvailable(false);
+      return;
+    }
+
+    // New version detected!
+    setNewVersion(remoteVersion);
+    if (notes) {
+      setReleaseNotes(notes);
+    }
+    setUpdateAvailable(true);
   };
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
-    // 1. Listen to ServiceWorker update events - verify before showing banner!
+    // 1. Listen to ServiceWorker update events
     const handleSwUpdate = () => {
-      console.log('[ChipMate PWA] Service Worker update detected via event');
       checkForUpdates();
     };
-
     window.addEventListener('chipmate-update-available', handleSwUpdate);
 
-    // 2. Initial check after app mounts
+    // 2. Initial check
     const initTimer = setTimeout(() => {
       checkForUpdates();
     }, INITIAL_CHECK_DELAY_MS);
@@ -148,19 +142,21 @@ export const UpdatePromptModal: React.FC = () => {
       checkForUpdates();
     }, POLL_INTERVAL_MS);
 
-    // 4. Check on tab focus / visibility change
+    // 4. Check on tab visibility / focus
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         checkForUpdates();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
 
     return () => {
       window.removeEventListener('chipmate-update-available', handleSwUpdate);
       clearTimeout(initTimer);
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
     };
   }, []);
 
@@ -168,23 +164,23 @@ export const UpdatePromptModal: React.FC = () => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
     setIsUpdating(true);
-    setStoredInstalledVersion(newVersion);
-    setStoredDismissedVersion(newVersion);
     setUpdateAvailable(false);
 
     try {
-      // 1. Tell all service workers to skip waiting
+      // 1. Tell all service workers to skip waiting and unregister them
       if ('serviceWorker' in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();
         for (const reg of registrations) {
-          if (reg.waiting) {
-            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-          }
-          await reg.update().catch(() => {});
+          try {
+            if (reg.waiting) {
+              reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+            await reg.unregister();
+          } catch (_) {}
         }
       }
 
-      // 2. Clear browser cache storage
+      // 2. Clear all browser cache storage
       if ('caches' in window) {
         const cacheNames = await caches.keys();
         await Promise.all(cacheNames.map(name => caches.delete(name)));
@@ -193,16 +189,16 @@ export const UpdatePromptModal: React.FC = () => {
       console.warn('[ChipMate PWA] Cache flush warning:', err);
     }
 
-    // 3. Hard reload with cache-bust so browser pulls the fresh bundle
+    // 3. Hard reload without any stale cache
     setTimeout(() => {
-      window.location.href = window.location.origin + window.location.pathname + '?_v=' + Date.now();
-    }, 400);
+      window.location.replace(window.location.origin + window.location.pathname + '?_update=' + Date.now());
+    }, 300);
   };
 
   const handleDismiss = () => {
     setDismissed(true);
     setUpdateAvailable(false);
-    setStoredDismissedVersion(newVersion);
+    setDismissedForSession(newVersion);
   };
 
   if (!updateAvailable || dismissed) return null;
