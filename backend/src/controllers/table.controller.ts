@@ -6,7 +6,7 @@ import { broadcastTableUpdate } from '../socket';
 export function createTable(req: AuthenticatedRequest, res: Response): void {
   try {
     const hostUserId = req.user!.userId;
-    const { name, gameType, totalChips, chipValue, initialFriendUserIds } = req.body;
+    const { name, gameType, totalChips, chipValue, chipMode, denominations, initialFriendUserIds } = req.body;
 
     if (!name) {
       res.status(400).json({ success: false, error: 'Table name is required' });
@@ -23,6 +23,8 @@ export function createTable(req: AuthenticatedRequest, res: Response): void {
       gameType,
       totalChips: totalChips ? parseInt(totalChips, 10) : 100,
       chipValue: chipValue ? parseFloat(chipValue) : 10,
+      chipMode: chipMode === 'DENOMINATION' ? 'DENOMINATION' : 'EQUAL',
+      denominations: denominations || undefined,
       initialFriendUserIds: Array.isArray(initialFriendUserIds) ? initialFriendUserIds : undefined
     });
 

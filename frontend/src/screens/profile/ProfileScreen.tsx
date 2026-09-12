@@ -16,7 +16,6 @@ import {
   Check,
   Trophy,
   Flame,
-  Coins,
   TrendingUp,
   LogOut,
   Sparkles,
@@ -41,7 +40,6 @@ export const ProfileScreen: React.FC = () => {
 
   const stats = user?.stats || {};
   const netWinnings = stats.net_winnings || 0;
-  const netChips = stats.net_chips || 0;
 
   const handleCopyCode = () => {
     const codeToCopy = user?.phone_number || user?.friend_code || '';
@@ -239,34 +237,6 @@ export const ProfileScreen: React.FC = () => {
                 ? `❄️ ${Math.abs(stats.current_streak)} Loss Streak`
                 : 'Even'}
             </Text>
-          </View>
-        </View>
-
-        {/* CHIP STATISTICS (Separately tracked from ₹) */}
-        <View style={styles.card}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-            <Coins size={16} color={colors.chipGold} style={{ marginRight: 6 }} />
-            <Text style={styles.sectionTitle}>LIFETIME CHIP STATS</Text>
-          </View>
-          <Text style={styles.sectionSubtitle}>
-            Separately tracked because chip rupee value varies across tables
-          </Text>
-
-          <View style={styles.gridRow}>
-            <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Net Chips</Text>
-              <Text style={[styles.gridVal, { color: netChips >= 0 ? colors.successText : colors.dangerText }]}>
-                {netChips >= 0 ? `+${netChips}` : netChips}
-              </Text>
-            </View>
-            <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Won Chips</Text>
-              <Text style={styles.gridVal}>+{stats.total_chips_won || 0}</Text>
-            </View>
-            <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Lost Chips</Text>
-              <Text style={styles.gridVal}>-{stats.total_chips_lost || 0}</Text>
-            </View>
           </View>
         </View>
 

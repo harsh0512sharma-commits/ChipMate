@@ -12,6 +12,8 @@ export interface GameTableRecord {
   total_chips: number;
   chip_value: number;
   bank_chips: number;
+  chip_mode?: 'EQUAL' | 'DENOMINATION';
+  denominations?: string | null;
   status: 'WAITING' | 'ACTIVE' | 'SETTLING' | 'FINALIZED' | 'ARCHIVED';
   created_at: string;
   started_at?: string | null;
@@ -59,6 +61,8 @@ export function createTable(params: {
   gameType: 'TEEN_PATTI' | 'POKER';
   totalChips?: number;
   chipValue?: number;
+  chipMode?: 'EQUAL' | 'DENOMINATION';
+  denominations?: number[] | string;
   initialFriendUserIds?: string[];
 }): { table: GameTableRecord; hostPlayerId: string; seatedFriendsCount: number } {
   const db = getDb();
@@ -74,15 +78,19 @@ export function createTable(params: {
   const joinCode = generateJoinCode();
   const totalChips = params.totalChips && params.totalChips > 0 ? params.totalChips : 100;
   const chipValue = params.chipValue && params.chipValue > 0 ? params.chipValue : 10;
+  const chipMode = params.chipMode || 'EQUAL';
+  const denominationsJson = params.denominations
+    ? (typeof params.denominations === 'string' ? params.denominations : JSON.stringify(params.denominations))
+    : null;
   const now = new Date().toISOString();
 
   let seatedFriendsCount = 0;
 
   const insertGame = db.transaction(() => {
     db.prepare(`
-      INSERT INTO games (id, name, game_type, host_user_id, join_code, total_chips, chip_value, bank_chips, status, created_at, started_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?)
-    `).run(id, params.name.trim(), params.gameType, params.hostUserId, joinCode, totalChips, chipValue, totalChips, now, now);
+      INSERT INTO games (id, name, game_type, host_user_id, join_code, total_chips, chip_value, bank_chips, chip_mode, denominations, status, created_at, started_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?)
+    `).run(id, params.name.trim(), params.gameType, params.hostUserId, joinCode, totalChips, chipValue, totalChips, chipMode, denominationsJson, now, now);
 
     db.prepare(`
       INSERT INTO game_players (id, game_id, user_id, role, current_chips, total_buyin_amount, total_buyin_chips, joined_at)

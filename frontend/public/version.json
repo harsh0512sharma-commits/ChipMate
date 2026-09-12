@@ -1,5 +1,5 @@
 {
-  "version": "1.0.7",
-  "buildTime": 1789234000000,
-  "releaseNotes": "Automatic cloud data sync, persistent game records, improved update reliability, and security enhancements."
+  "version": "1.0.8",
+  "buildTime": 1789236000000,
+  "releaseNotes": "Chip denomination mode for table creation, profile stats cleanup, and player card UI refinement."
 }

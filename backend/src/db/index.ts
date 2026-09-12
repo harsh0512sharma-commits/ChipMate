@@ -158,6 +158,8 @@ export function initSchema(db: Database.Database) {
       total_chips INTEGER NOT NULL DEFAULT 100,
       chip_value REAL NOT NULL DEFAULT 10,
       bank_chips INTEGER NOT NULL DEFAULT 100,
+      chip_mode TEXT NOT NULL DEFAULT 'EQUAL', -- EQUAL, DENOMINATION
+      denominations TEXT, -- JSON array of active chip denominations e.g. [1, 2, 5, 10]
       status TEXT NOT NULL, -- WAITING, ACTIVE, SETTLING, FINALIZED, ARCHIVED
       created_at TEXT NOT NULL,
       started_at TEXT,
@@ -307,6 +309,8 @@ export function initSchema(db: Database.Database) {
   try { db.exec("ALTER TABLE pending_registrations ADD COLUMN display_name TEXT"); } catch (_) {}
   try { db.exec("ALTER TABLE game_players ADD COLUMN is_guest INTEGER DEFAULT 0"); } catch (_) {}
   try { db.exec("ALTER TABLE game_players ADD COLUMN guest_name TEXT"); } catch (_) {}
+  try { db.exec("ALTER TABLE games ADD COLUMN chip_mode TEXT DEFAULT 'EQUAL'"); } catch (_) {}
+  try { db.exec("ALTER TABLE games ADD COLUMN denominations TEXT"); } catch (_) {}
 }
 
 const SYNC_TABLES = [

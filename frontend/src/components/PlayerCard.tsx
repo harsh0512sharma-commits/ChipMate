@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Crown, UserCheck, Clock, UserPlus, TrendingUp, TrendingDown } from 'lucide-react-native';
+import { Crown, UserCheck, Clock, UserPlus } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 
 export interface PlayerCardData {
@@ -118,12 +118,10 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
           <View style={styles.pnlRow}>
             {isProfit ? (
               <View style={styles.pnlPillGreen}>
-                <TrendingUp size={11} color={colors.successText} style={{ marginRight: 3 }} />
                 <Text style={styles.pnlTextGreen}>+₹{netPnL.toLocaleString('en-IN')}</Text>
               </View>
             ) : isLoss ? (
               <View style={styles.pnlPillRed}>
-                <TrendingDown size={11} color={colors.dangerText} style={{ marginRight: 3 }} />
                 <Text style={styles.pnlTextRed}>-₹{Math.abs(netPnL).toLocaleString('en-IN')}</Text>
               </View>
             ) : (

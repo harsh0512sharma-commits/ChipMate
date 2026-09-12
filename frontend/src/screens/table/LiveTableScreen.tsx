@@ -525,6 +525,8 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
           playerChips={reconciliation.playerChips}
           bankChips={reconciliation.bankChips}
           chipValue={table.chip_value}
+          chipMode={table.chip_mode}
+          denominations={table.denominations}
           isReconciled={reconciliation.isReconciled}
           discrepancy={reconciliation.discrepancy}
           onReviewActivity={() => setShowActivity(true)}

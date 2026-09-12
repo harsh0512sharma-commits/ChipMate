@@ -8,6 +8,8 @@ interface ChipCardProps {
   playerChips: number;
   bankChips: number;
   chipValue: number;
+  chipMode?: 'EQUAL' | 'DENOMINATION';
+  denominations?: number[] | string | null;
   isReconciled?: boolean;
   discrepancy?: number;
   onReviewActivity?: () => void;
@@ -17,11 +19,20 @@ export const ChipCard: React.FC<ChipCardProps> = ({
   totalChips,
   playerChips,
   bankChips,
-  chipValue
+  chipValue,
+  chipMode,
+  denominations
 }) => {
   const totalPotMoney = totalChips * chipValue;
   const inPlayMoney = playerChips * chipValue;
   const bankMoney = bankChips * chipValue;
+
+  let parsedDenoms: number[] | null = null;
+  if (denominations) {
+    try {
+      parsedDenoms = typeof denominations === 'string' ? JSON.parse(denominations) : denominations;
+    } catch (_) {}
+  }
 
   return (
     <View style={styles.card}>
@@ -33,9 +44,17 @@ export const ChipCard: React.FC<ChipCardProps> = ({
           </View>
           <Text style={styles.badgeLabel}>CHIP INVENTORY</Text>
         </View>
-        <View style={styles.ratePill}>
-          <Text style={styles.ratePillText}>₹{chipValue} / chip</Text>
-        </View>
+        {chipMode === 'DENOMINATION' && Array.isArray(parsedDenoms) && parsedDenoms.length > 0 ? (
+          <View style={styles.ratePill}>
+            <Text style={styles.ratePillText}>
+              Set: {parsedDenoms.map(d => `₹${d}`).join(' • ')}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.ratePill}>
+            <Text style={styles.ratePillText}>₹{chipValue} / chip</Text>
+          </View>
+        )}
       </View>
 
       {/* 3 Metrics Horizontally Side-by-Side */}
