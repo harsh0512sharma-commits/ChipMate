@@ -8,7 +8,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  ScrollView
+  ScrollView,
+  Image
 } from 'react-native';
 import {
   User,
@@ -178,14 +179,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
         <View style={styles.card}>
           {/* Brand Logo & Header */}
           <View style={styles.logoRow}>
-            <View style={styles.logoIcon}>
-              <Coins size={32} color="#FFF" />
-            </View>
+            <Image
+              source={require('../../../assets/chip_icon.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
 
           <Text style={styles.title}>ChipMate</Text>
           <Text style={styles.subtitle}>
-            Private Home Game Chip Ledger & Settlement
+            Poker Chip Calculator & Records
           </Text>
 
           <View style={styles.badgeRow}>
@@ -546,17 +549,11 @@ const styles = StyleSheet.create({
   },
   logoRow: {
     alignItems: 'center',
-    marginBottom: 14
+    marginBottom: 12
   },
-  logoIcon: {
-    width: 58,
-    height: 58,
-    borderRadius: 18,
-    backgroundColor: colors.primaryLight,
-    borderWidth: 1,
-    borderColor: colors.primaryBorder,
-    justifyContent: 'center',
-    alignItems: 'center'
+  logoImage: {
+    width: 78,
+    height: 78
   },
   title: {
     fontSize: 26,

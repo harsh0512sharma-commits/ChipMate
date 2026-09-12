@@ -904,8 +904,8 @@ const styles = StyleSheet.create({
   },
   modalCancelBtnText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary
+    fontWeight: '700',
+    color: '#F8FAFC'
   },
   modalConfirmBtn: {
     flex: 1.3,

@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   TextInput,
   RefreshControl,
-  Platform
+  Platform,
+  Image
 } from 'react-native';
 import {
   Plus,
@@ -103,9 +104,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       >
         {/* Welcome Header */}
         <View style={styles.welcomeRow}>
-          <View>
-            <Text style={styles.greetingText}>Welcome,</Text>
-            <Text style={styles.userName}>{user?.display_name || 'Player'}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Image
+              source={require('../../../assets/chip_icon.png')}
+              style={styles.headerChipIcon}
+              resizeMode="contain"
+            />
+            <View style={{ marginLeft: 10 }}>
+              <Text style={styles.greetingText}>Welcome,</Text>
+              <Text style={styles.userName}>{user?.display_name || 'Player'}</Text>
+            </View>
           </View>
         </View>
 
@@ -329,6 +337,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     paddingTop: 8
+  },
+  headerChipIcon: {
+    width: 42,
+    height: 42
   },
   greetingText: {
     fontSize: 12,

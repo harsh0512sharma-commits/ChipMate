@@ -154,10 +154,11 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 10,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginHorizontal: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.borderSubtle
   },
@@ -165,7 +166,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12
+    marginBottom: 8
   },
   nameSection: {
     flexDirection: 'row',
@@ -173,18 +174,18 @@ const styles = StyleSheet.create({
     flex: 1
   },
   avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
+    width: 32,
+    height: 32,
+    borderRadius: 9,
     backgroundColor: colors.cardRaised,
     borderWidth: 1,
     borderColor: colors.borderSubtle,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10
+    marginRight: 8
   },
   avatarText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
     color: colors.primary
   },
@@ -196,12 +197,12 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   playerName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.text
   },
   friendCodeText: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textMuted,
     marginTop: 1,
     fontWeight: '500'
@@ -291,52 +292,55 @@ const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     backgroundColor: colors.cardInset,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: colors.borderDark
   },
   chipSection: {
-    justifyContent: 'flex-end'
+    justifyContent: 'center'
   },
   bigChipNumber: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '800',
     color: colors.text,
-    lineHeight: 32,
+    lineHeight: 24,
     letterSpacing: -0.5
   },
   chipLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     color: colors.textMuted,
-    letterSpacing: 0.8,
-    marginTop: 2
+    letterSpacing: 0.6,
+    marginTop: 1
   },
   moneySection: {
     alignItems: 'flex-end'
   },
   moneyAmount: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700',
     color: colors.text
   },
   pnlRow: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginTop: 2
   },
   pnlPillGreen: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.successLight,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 5
   },
   pnlTextGreen: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: colors.successText
   },
@@ -344,36 +348,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.dangerLight,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 5
   },
   pnlTextRed: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: colors.dangerText
   },
   pnlNeutral: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textMuted,
     fontWeight: '500'
   },
   buyinSubText: {
     fontSize: 10,
-    color: colors.textMuted,
-    marginTop: 2
+    color: colors.textMuted
   },
   loanContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.warningLight,
-    borderRadius: 10,
-    padding: 8,
-    marginTop: 8,
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    marginTop: 6,
     borderWidth: 1,
     borderColor: colors.warningBorder
   },
   loanText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: colors.warningText
   }

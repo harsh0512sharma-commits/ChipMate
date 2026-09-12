@@ -569,13 +569,6 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
 
             {/* Additional host options */}
             <View style={styles.hostMenuRow}>
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => setActiveSheet('CORRECTION')}
-              >
-                <Text style={styles.menuItemText}>Correction</Text>
-              </TouchableOpacity>
-
               {lastTx && (
                 <TouchableOpacity
                   style={styles.menuItem}
@@ -848,32 +841,6 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
               >
                 <Text style={styles.quickActionOptionTitle}>🤝 Lend Chips (Loan)</Text>
                 <Text style={styles.quickActionOptionDesc}>Record a loan with {selectedPlayerForMenu?.display_name} as the lender</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickActionOption}
-                onPress={() => {
-                  setInitialActionPlayerId(selectedPlayerForMenu?.id);
-                  setActiveSheet('TRANSFER');
-                  setSelectedPlayerForMenu(null);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.quickActionOptionTitle}>↔️ Transfer Chips</Text>
-                <Text style={styles.quickActionOptionDesc}>Transfer chips from {selectedPlayerForMenu?.display_name} to another player</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickActionOption}
-                onPress={() => {
-                  setInitialActionPlayerId(selectedPlayerForMenu?.id);
-                  setActiveSheet('CORRECTION');
-                  setSelectedPlayerForMenu(null);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.quickActionOptionTitle}>✏️ Chip Count Correction</Text>
-                <Text style={styles.quickActionOptionDesc}>Adjust miscounted chips</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1890,5 +1857,68 @@ const styles = StyleSheet.create({
     color: colors.dangerText,
     fontWeight: '600',
     textAlign: 'center'
+  },
+  hostBadge: {
+    backgroundColor: 'rgba(234, 88, 12, 0.22)',
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    marginLeft: 6
+  },
+  hostBadgeText: {
+    color: '#FF8A4C',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5
+  },
+  guestBadge: {
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    marginLeft: 6
+  },
+  guestBadgeText: {
+    color: '#E2E8F0',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 14
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  modalCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#F8FAFC'
+  },
+  modalConfirmBtn: {
+    flex: 1.6,
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  modalConfirmBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF'
   }
 });
