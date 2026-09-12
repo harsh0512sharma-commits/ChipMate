@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
-  Alert
+  Alert,
+  TextInput
 } from 'react-native';
 import {
   CheckCircle2,
@@ -17,7 +18,8 @@ import {
   Check,
   Lock,
   RotateCcw,
-  X
+  X,
+  Edit3
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
@@ -42,6 +44,12 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
 
+  // Edit final chip counts modal
+  const [showEditChipsModal, setShowEditChipsModal] = useState(false);
+  const [editChipInputs, setEditChipInputs] = useState<Record<string, string>>({});
+  const [submittingChips, setSubmittingChips] = useState(false);
+  const [editChipError, setEditChipError] = useState<string | null>(null);
+
   const loadSettlement = async () => {
     try {
       const res = await apiRequest(`/tables/${tableId}/settle`);
@@ -59,6 +67,43 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
     loadSettlement();
   }, [tableId]);
 
+  const handleOpenEditChips = () => {
+    const initial: Record<string, string> = {};
+    (data?.players || []).forEach((p: any) => {
+      initial[p.playerId] = String(p.finalChips ?? 0);
+    });
+    setEditChipInputs(initial);
+    setEditChipError(null);
+    setShowEditChipsModal(true);
+  };
+
+  const handleSaveEditChips = async () => {
+    setSubmittingChips(true);
+    setEditChipError(null);
+    try {
+      const finalCounts = Object.entries(editChipInputs).map(([playerId, countStr]) => ({
+        playerId,
+        finalChips: parseInt(countStr || '0', 10) || 0
+      }));
+
+      const res = await apiRequest(`/tables/${tableId}/settle/chips`, {
+        method: 'POST',
+        body: { finalChipCounts: finalCounts }
+      });
+
+      if (res.success) {
+        setShowEditChipsModal(false);
+        loadSettlement();
+      } else {
+        setEditChipError(res.error || 'Failed to update final chip counts');
+      }
+    } catch (err: any) {
+      setEditChipError(err.message || 'Failed to update final chip counts');
+    } finally {
+      setSubmittingChips(false);
+    }
+  };
+
   const handleMarkPayment = async (itemId: string, currentStatus: string) => {
     try {
       const newStatus = currentStatus === 'PAID' ? 'UNPAID' : 'PAID';
@@ -73,6 +118,13 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
   };
 
   const handleFinalizePress = () => {
+    if (!data.isReconciled) {
+      Alert.alert(
+        'Cannot Finalize',
+        `Chip count mismatch: ${data.discrepancy} chip discrepancy. Final chip count must equal expected chips before finalizing.`
+      );
+      return;
+    }
     setFinalizeError(null);
     setShowConfirmModal(true);
   };
@@ -111,6 +163,14 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
   const players = data.players || [];
   const optimized = data.optimizedSettlements || [];
   const loans = data.outstandingLoans || [];
+  const allGenuinelyZero = players.length > 0 && players.every((p: any) => Math.round(Math.abs(p.netPosition || 0) * 100) === 0);
+
+  const totalEditEnteredChips = Object.values(editChipInputs).reduce(
+    (acc, val) => acc + (parseInt(val || '0', 10) || 0),
+    0
+  );
+  const expectedTotalChips = data.expectedTotalChips || data.totalChips || 0;
+  const isEditMatched = totalEditEnteredChips === expectedTotalChips;
 
   return (
     <View style={styles.container}>
@@ -139,11 +199,18 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
           </View>
 
           <Text style={styles.reconcileCount}>
-            {data.totalAccountedChips} / {data.totalChips} Chips
+            {data.totalAccountedChips} / {expectedTotalChips} Chips
           </Text>
           <Text style={styles.reconcileSub}>
-            Bank holds {data.bankChips} chips • Players hold {data.totalChips - data.bankChips} chips
+            Total Accounted: {data.totalAccountedChips} chips • Total Expected: {expectedTotalChips} chips (₹{data.chipValue || 1}/chip)
           </Text>
+
+          {isHost && !isFinalized && (
+            <TouchableOpacity style={styles.recountBtn} onPress={handleOpenEditChips}>
+              <Edit3 size={14} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.recountBtnText}>Edit Final Chip Counts</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* OUTSTANDING LOANS REVIEW */}
@@ -154,7 +221,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
               <Text style={styles.cardTitle}>Outstanding Loans Handled in Net</Text>
             </View>
             <Text style={styles.loanExplain}>
-              These loans were automatically merged into the final settlement to avoid double payments.
+              These loans were automatically factored into each player's net position.
             </Text>
 
             {loans.map((l: any) => (
@@ -172,8 +239,18 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
 
         {/* FINAL PLAYER NET POSITIONS */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Player Final Positions</Text>
-          <Text style={styles.cardSubtitle}>Based on physical chips, buy-ins, and loan debts</Text>
+          <View style={styles.cardTitleRow}>
+            <View>
+              <Text style={styles.cardTitle}>Player Final Positions</Text>
+              <Text style={styles.cardSubtitle}>Unified zero-sum net formula: In-Hand Value − Buy-ins − Borrowed + Lent</Text>
+            </View>
+            {isHost && !isFinalized && (
+              <TouchableOpacity style={styles.smallEditBtn} onPress={handleOpenEditChips}>
+                <Edit3 size={13} color={colors.primary} style={{ marginRight: 4 }} />
+                <Text style={styles.smallEditBtnText}>Edit</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           {players.map((p: any) => {
             const isWinner = p.netPosition > 0;
@@ -182,13 +259,23 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
               <View key={p.playerId} style={styles.playerResultRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.pResultName}>{p.displayName}</Text>
-                  <Text style={styles.pResultMeta}>
-                    Held: {p.finalChips} chips • Buy-in: ₹{p.totalBuyinMoney}
-                    {p.netLoanImpact !== 0 && ` • Loans: ${p.netLoanImpact > 0 ? '+' : ''}₹${p.netLoanImpact}`}
-                  </Text>
+                  <View style={styles.accountingBreakdown}>
+                    <Text style={styles.breakdownItem}>
+                      Buy-ins: <Text style={styles.negVal}>-₹{p.totalBuyinMoney}</Text>
+                    </Text>
+                    <Text style={styles.breakdownItem}>
+                      Borrowed: <Text style={p.loanDebtOwed > 0 ? styles.loanDebtVal : styles.zeroVal}>₹{p.loanDebtOwed || 0}</Text>
+                    </Text>
+                    <Text style={styles.breakdownItem}>
+                      Lent: <Text style={p.loanCreditOwed > 0 ? styles.loanCreditVal : styles.zeroVal}>₹{p.loanCreditOwed || 0}</Text>
+                    </Text>
+                    <Text style={styles.breakdownItem}>
+                      Final chips: {p.finalChips} chips (<Text style={styles.posVal}>+₹{p.finalChipsMoney}</Text>)
+                    </Text>
+                  </View>
                 </View>
 
-                <View style={{ alignItems: 'flex-end' }}>
+                <View style={{ alignItems: 'flex-end', justifyContent: 'center', minWidth: 80 }}>
                   <Text
                     style={[
                       styles.pResultNet,
@@ -196,6 +283,9 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                     ]}
                   >
                     {isWinner ? `+₹${p.netPosition}` : isLoser ? `-₹${Math.abs(p.netPosition)}` : '₹0'}
+                  </Text>
+                  <Text style={styles.netLabelText}>
+                    {isWinner ? 'Profit' : isLoser ? 'Loss' : 'Even'}
                   </Text>
                 </View>
               </View>
@@ -205,26 +295,34 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
 
         {/* OPTIMIZED SETTLEMENT PAYMENTS */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Minimal Settlement Transfers</Text>
+          <Text style={styles.cardTitle}>Final Settlement</Text>
           <Text style={styles.cardSubtitle}>
-            Mathematical optimization eliminates circular debt.
+            Direct transfers minimizing transactions. Circular debts cancel out completely.
           </Text>
 
           {optimized.length === 0 ? (
-            <Text style={styles.emptySettlementText}>All balances are even! No transfers required.</Text>
+            <View style={styles.allEvenContainer}>
+              <CheckCircle2 size={24} color={allGenuinelyZero ? colors.successText : colors.warningText} style={{ marginBottom: 6 }} />
+              <Text style={[styles.emptySettlementText, allGenuinelyZero && { color: colors.successText, fontWeight: '700' }]}>
+                {allGenuinelyZero ? 'Settled / Nobody owes anyone' : 'No transfers calculated (reconciliation pending)'}
+              </Text>
+            </View>
           ) : (
             optimized.map((item: any, idx: number) => {
               const isPaid = item.status === 'PAID';
               return (
                 <View key={idx} style={styles.settleTransferItem}>
                   <View style={styles.transferFlow}>
-                    <Text style={styles.transferPayer}>{item.fromDisplayName}</Text>
-                    <ArrowRight size={16} color={colors.textSecondary} style={{ marginHorizontal: 8 }} />
-                    <Text style={styles.transferPayee}>{item.toDisplayName}</Text>
+                    <Text style={styles.transferStatement}>
+                      <Text style={styles.transferPayer}>{item.fromDisplayName}</Text>
+                      {' pays '}
+                      <Text style={styles.transferPayee}>{item.toDisplayName}</Text>
+                      {' '}
+                      <Text style={styles.transferAmountHighlight}>₹{item.amount}</Text>
+                    </Text>
                   </View>
 
                   <View style={styles.transferRight}>
-                    <Text style={styles.transferAmount}>₹{item.amount}</Text>
                     {!isFinalized && (
                       <TouchableOpacity
                         onPress={() => item.id && handleMarkPayment(item.id, item.status)}
@@ -248,7 +346,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
           <View style={styles.actionsContainer}>
             {isHost ? (
               <TouchableOpacity
-                style={[styles.finalizeBtn, isFinalizing && { opacity: 0.7 }]}
+                style={[styles.finalizeBtn, (isFinalizing || !data.isReconciled) && { opacity: 0.7 }]}
                 onPress={handleFinalizePress}
                 disabled={isFinalizing}
               >
@@ -283,6 +381,110 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
           </View>
         )}
       </ScrollView>
+
+      {/* Edit Final Chips Modal */}
+      <Modal
+        visible={showEditChipsModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          if (!submittingChips) setShowEditChipsModal(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Edit Final In-Hand Chips</Text>
+              <TouchableOpacity
+                onPress={() => setShowEditChipsModal(false)}
+                disabled={submittingChips}
+              >
+                <X size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSub}>
+              Enter the exact count of physical chips each player has right now. Total must equal {expectedTotalChips} chips.
+            </Text>
+
+            <View style={styles.countSummaryBox}>
+              <Text style={styles.countSummaryText}>
+                Entered: <Text style={{ fontWeight: '800', color: colors.text }}>{totalEditEnteredChips}</Text> / {expectedTotalChips} chips
+              </Text>
+              {isEditMatched ? (
+                <View style={styles.matchedBadge}>
+                  <CheckCircle2 size={12} color={colors.successText} />
+                  <Text style={styles.matchedBadgeText}>Exact Match</Text>
+                </View>
+              ) : (
+                <View style={styles.mismatchBadge}>
+                  <AlertTriangle size={12} color={colors.dangerText} />
+                  <Text style={styles.mismatchBadgeText}>
+                    {Math.abs(expectedTotalChips - totalEditEnteredChips)}{' '}
+                    {totalEditEnteredChips > expectedTotalChips ? 'over' : 'short'}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <ScrollView style={{ maxHeight: 260, marginVertical: 10 }}>
+              {players.map((p: any) => (
+                <View key={p.playerId} style={styles.chipInputRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.chipInputName}>{p.displayName}</Text>
+                    <Text style={styles.chipInputSub}>Buy-in: ₹{p.totalBuyinMoney}</Text>
+                  </View>
+                  <View style={styles.chipInputBoxContainer}>
+                    <TextInput
+                      style={styles.chipInputBox}
+                      keyboardType="numeric"
+                      value={editChipInputs[p.playerId] ?? ''}
+                      onChangeText={(val) => {
+                        const sanitized = val.replace(/[^0-9]/g, '');
+                        setEditChipInputs((prev) => ({ ...prev, [p.playerId]: sanitized }));
+                      }}
+                      placeholder="0"
+                      placeholderTextColor={colors.textMuted}
+                    />
+                    <Text style={styles.chipsSuffix}>chips</Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+
+            {editChipError && (
+              <View style={styles.modalErrorBox}>
+                <Text style={styles.modalErrorText}>{editChipError}</Text>
+              </View>
+            )}
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowEditChipsModal(false)}
+                disabled={submittingChips}
+              >
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalConfirmBtn,
+                  (!isEditMatched || submittingChips) && { opacity: 0.6 }
+                ]}
+                onPress={handleSaveEditChips}
+                disabled={!isEditMatched || submittingChips}
+              >
+                {submittingChips ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.modalConfirmBtnText}>Update & Recalculate</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Finalize Confirmation Modal */}
       <Modal
@@ -732,5 +934,181 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textMuted,
     textAlign: 'center'
+  },
+  recountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: colors.primaryLight,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  recountBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8
+  },
+  smallEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: colors.cardRaised,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  smallEditBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary
+  },
+  accountingBreakdown: {
+    marginTop: 4,
+    gap: 2
+  },
+  breakdownItem: {
+    fontSize: 12,
+    color: colors.textSecondary
+  },
+  negVal: {
+    color: colors.dangerText,
+    fontWeight: '600'
+  },
+  posVal: {
+    color: colors.successText,
+    fontWeight: '600'
+  },
+  zeroVal: {
+    color: colors.textMuted
+  },
+  loanDebtVal: {
+    color: colors.dangerText,
+    fontWeight: '600'
+  },
+  loanCreditVal: {
+    color: colors.successText,
+    fontWeight: '600'
+  },
+  netLabelText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted,
+    marginTop: 2,
+    textTransform: 'uppercase'
+  },
+  allEvenContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16
+  },
+  transferStatement: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text
+  },
+  transferAmountHighlight: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.primary
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  countSummaryBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.cardInset,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    marginVertical: 10
+  },
+  countSummaryText: {
+    fontSize: 13,
+    color: colors.textSecondary
+  },
+  matchedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.successLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8
+  },
+  matchedBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.successText,
+    marginLeft: 4
+  },
+  mismatchBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.dangerLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8
+  },
+  mismatchBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.dangerText,
+    marginLeft: 4
+  },
+  chipInputRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderDark
+  },
+  chipInputName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text
+  },
+  chipInputSub: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2
+  },
+  chipInputBoxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  chipInputBox: {
+    width: 72,
+    backgroundColor: colors.cardInset,
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  chipsSuffix: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginLeft: 6
   }
 });

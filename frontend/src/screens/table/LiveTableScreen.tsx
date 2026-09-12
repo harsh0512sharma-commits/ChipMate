@@ -18,6 +18,7 @@ import {
   Users,
   Play,
   CheckCircle2,
+  AlertTriangle,
   HandCoins,
   History,
   Settings,
@@ -135,6 +136,10 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const [deletingTable, setDeletingTable] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [leavingTable, setLeavingTable] = useState(false);
+  const [showFinalChipsModal, setShowFinalChipsModal] = useState(false);
+  const [finalChipInputs, setFinalChipInputs] = useState<Record<string, string>>({});
+  const [submittingFinalChips, setSubmittingFinalChips] = useState(false);
+  const [finalChipError, setFinalChipError] = useState<string | null>(null);
 
   const fetchTableData = useCallback(async () => {
     try {
@@ -397,6 +402,62 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const otherRegisteredPlayers = (players || []).filter((p: any) => p.user_id !== user?.id && !p.is_guest);
   const nextHostName = otherRegisteredPlayers.length > 0 ? otherRegisteredPlayers[0].display_name : 'the next player';
 
+  // Expected chips calculation for final settlement
+  const totalBuyinChips = (players || []).reduce((sum: number, p: any) => sum + (p.total_buyin_chips || 0), 0);
+  const expectedTotalChips = totalBuyinChips > 0 ? totalBuyinChips : (table.total_chips || 100);
+  const chipValue = table.chip_value || 10;
+  const expectedTotalValue = expectedTotalChips * chipValue;
+
+  const totalEnteredChips = (players || []).reduce((sum: number, p: any) => {
+    const raw = finalChipInputs[p.id];
+    const val = raw !== undefined ? parseInt(raw, 10) : p.current_chips;
+    return sum + (isNaN(val) || val < 0 ? 0 : val);
+  }, 0);
+
+  const chipDiscrepancy = expectedTotalChips - totalEnteredChips;
+  const isCountsMatched = totalEnteredChips === expectedTotalChips;
+
+  const handleOpenFinalChipsModal = () => {
+    const initialCounts: Record<string, string> = {};
+    for (const p of (players || [])) {
+      initialCounts[p.id] = String(p.current_chips ?? 0);
+    }
+    setFinalChipInputs(initialCounts);
+    setFinalChipError(null);
+    setShowFinalChipsModal(true);
+  };
+
+  const handleFinalChipsSubmit = async () => {
+    if (!isCountsMatched) {
+      setFinalChipError(`Chip count mismatch: ${totalEnteredChips} chips entered, but ${expectedTotalChips} chips are expected.`);
+      return;
+    }
+    setSubmittingFinalChips(true);
+    setFinalChipError(null);
+    try {
+      const countsPayload: Record<string, number> = {};
+      for (const p of (players || [])) {
+        const raw = finalChipInputs[p.id];
+        const val = raw !== undefined ? parseInt(raw, 10) : p.current_chips;
+        countsPayload[p.id] = isNaN(val) || val < 0 ? 0 : val;
+      }
+      const res = await apiRequest(`/tables/${table.id}/settle/chips`, {
+        method: 'POST',
+        body: { finalChipCounts: countsPayload }
+      });
+      if (res.success) {
+        setShowFinalChipsModal(false);
+        onProceedToSettlement(table.id);
+      } else {
+        setFinalChipError(res.error || 'Failed to submit final chip counts');
+      }
+    } catch (err: any) {
+      setFinalChipError(err.message || 'Failed to submit final chip counts');
+    } finally {
+      setSubmittingFinalChips(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Top Header */}
@@ -526,7 +587,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
 
               <TouchableOpacity
                 style={[styles.menuItem, styles.endGameMenuItem]}
-                onPress={() => onProceedToSettlement(table.id)}
+                onPress={handleOpenFinalChipsModal}
               >
                 <Flag size={14} color={colors.dangerText} />
                 <Text style={[styles.menuItemText, { color: colors.dangerText, fontWeight: '700', marginLeft: 4 }]}>
@@ -553,14 +614,24 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
             <Text style={styles.settlingTitle}>
               {isFinalized ? 'Game Finalized (Read-Only)' : 'Game is in Settlement Review'}
             </Text>
-            <TouchableOpacity
-              style={styles.viewSettlementBtn}
-              onPress={() => onProceedToSettlement(table.id)}
-            >
-              <Text style={styles.viewSettlementBtnText}>
-                {isFinalized ? 'View Final Results & Settlement' : 'Review & Finalize Settlement →'}
-              </Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              <TouchableOpacity
+                style={[styles.viewSettlementBtn, { flex: 1, marginTop: 0 }]}
+                onPress={() => onProceedToSettlement(table.id)}
+              >
+                <Text style={styles.viewSettlementBtnText}>
+                  {isFinalized ? 'View Final Results & Settlement' : 'Review & Finalize Settlement →'}
+                </Text>
+              </TouchableOpacity>
+              {isHost && isSettling && !isFinalized && (
+                <TouchableOpacity
+                  style={styles.recountBtn}
+                  onPress={handleOpenFinalChipsModal}
+                >
+                  <Text style={styles.recountBtnText}>Re-count</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
 
@@ -968,6 +1039,161 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                 activeOpacity={0.7}
               >
                 <Text style={styles.cancelModalBtnText}>Stay at Table</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* FINAL CHIP COUNT ENTRY MODAL (End Game Step) */}
+      <Modal
+        visible={showFinalChipsModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!submittingFinalChips) setShowFinalChipsModal(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '90%' }]}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>End Game — Final Chip Count</Text>
+                <Text style={styles.modalSubtitle}>
+                  Enter the physical in-hand chips held by each player to compute the zero-sum settlement.
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowFinalChipsModal(false)}
+                style={styles.modalCloseBtn}
+                disabled={submittingFinalChips}
+                activeOpacity={0.7}
+              >
+                <X size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Expected chips summary */}
+            <View style={styles.finalChipsExpectCard}>
+              <View style={styles.finalChipsExpectRow}>
+                <Text style={styles.finalChipsExpectLabel}>Total chips in game:</Text>
+                <Text style={styles.finalChipsExpectVal}>{expectedTotalChips}</Text>
+              </View>
+              <View style={styles.finalChipsExpectRow}>
+                <Text style={styles.finalChipsExpectLabel}>Chip value:</Text>
+                <Text style={styles.finalChipsExpectVal}>₹{chipValue}</Text>
+              </View>
+              <View style={[styles.finalChipsExpectRow, { marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: colors.borderDark }]}>
+                <Text style={[styles.finalChipsExpectLabel, { fontWeight: '700', color: colors.text }]}>Expected total value:</Text>
+                <Text style={[styles.finalChipsExpectVal, { fontWeight: '800', color: colors.primary }]}>₹{expectedTotalValue.toLocaleString('en-IN')}</Text>
+              </View>
+            </View>
+
+            {/* Dynamic Reconciliation Status */}
+            <View style={[
+              styles.finalChipsTallyCard,
+              isCountsMatched ? styles.finalChipsTallyMatch : styles.finalChipsTallyMismatch
+            ]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {isCountsMatched ? (
+                  <CheckCircle2 size={16} color={colors.successText} style={{ marginRight: 6 }} />
+                ) : (
+                  <AlertTriangle size={16} color={colors.dangerText} style={{ marginRight: 6 }} />
+                )}
+                <Text style={[
+                  styles.finalChipsTallyTitle,
+                  { color: isCountsMatched ? colors.successText : colors.dangerText }
+                ]}>
+                  {isCountsMatched
+                    ? `Chip count matches perfectly (${expectedTotalChips} chips / ₹${expectedTotalValue.toLocaleString('en-IN')})`
+                    : `Chip count mismatch: ${totalEnteredChips} chips entered, but ${expectedTotalChips} chips are expected.`}
+                </Text>
+              </View>
+              {!isCountsMatched && (
+                <Text style={styles.finalChipsTallyDiff}>
+                  {chipDiscrepancy > 0
+                    ? `Missing ${chipDiscrepancy} chip${chipDiscrepancy === 1 ? '' : 's'}`
+                    : `${Math.abs(chipDiscrepancy)} extra chip${Math.abs(chipDiscrepancy) === 1 ? '' : 's'}`}
+                </Text>
+              )}
+            </View>
+
+            {/* Players in-hand chips entry list */}
+            <ScrollView style={{ maxHeight: 260, marginVertical: 8 }}>
+              {players.map((p: any) => {
+                const isHostPlayer = p.role === 'HOST';
+                const isGuestPlayer = Boolean(p.is_guest || p.friend_code === 'GUEST' || (p.user_id && p.user_id.startsWith('guest_')));
+                const rawVal = finalChipInputs[p.id];
+                const enteredChips = rawVal !== undefined ? (parseInt(rawVal, 10) || 0) : (p.current_chips ?? 0);
+                const enteredMoney = enteredChips * chipValue;
+
+                return (
+                  <View key={p.id} style={styles.finalChipPlayerRow}>
+                    <View style={{ flex: 1, paddingRight: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={styles.finalChipPlayerName} numberOfLines={1}>{p.display_name}</Text>
+                        {isHostPlayer && (
+                          <View style={styles.hostBadge}>
+                            <Text style={styles.hostBadgeText}>HOST</Text>
+                          </View>
+                        )}
+                        {isGuestPlayer && (
+                          <View style={styles.guestBadge}>
+                            <Text style={styles.guestBadgeText}>GUEST</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.finalChipPlayerMeta}>
+                        Buy-in: ₹{p.total_buyin_amount} ({p.total_buyin_chips} chips)
+                      </Text>
+                    </View>
+
+                    <View style={styles.finalChipInputWrapper}>
+                      <TextInput
+                        style={styles.finalChipInput}
+                        keyboardType="number-pad"
+                        value={finalChipInputs[p.id] !== undefined ? finalChipInputs[p.id] : String(p.current_chips ?? 0)}
+                        onChangeText={(val) => {
+                          const clean = val.replace(/[^0-9]/g, '');
+                          setFinalChipInputs(prev => ({ ...prev, [p.id]: clean }));
+                        }}
+                        selectTextOnFocus
+                      />
+                      <Text style={styles.finalChipMoneySub}>= ₹{enteredMoney.toLocaleString('en-IN')}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            {finalChipError && (
+              <View style={styles.finalChipErrorBox}>
+                <Text style={styles.finalChipErrorText}>{finalChipError}</Text>
+              </View>
+            )}
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowFinalChipsModal(false)}
+                disabled={submittingFinalChips}
+              >
+                <Text style={styles.modalCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalConfirmBtn,
+                  (!isCountsMatched || submittingFinalChips) && { opacity: 0.5 }
+                ]}
+                onPress={handleFinalChipsSubmit}
+                disabled={!isCountsMatched || submittingFinalChips}
+              >
+                {submittingFinalChips ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.modalConfirmBtnText}>Proceed to Settlement →</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -1543,5 +1769,126 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '600'
+  },
+  recountBtn: {
+    backgroundColor: colors.cardRaised,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  recountBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary
+  },
+  finalChipsExpectCard: {
+    backgroundColor: colors.cardInset,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    marginTop: 12,
+    marginBottom: 8
+  },
+  finalChipsExpectRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2
+  },
+  finalChipsExpectLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500'
+  },
+  finalChipsExpectVal: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text
+  },
+  finalChipsTallyCard: {
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 8,
+    borderWidth: 1
+  },
+  finalChipsTallyMatch: {
+    backgroundColor: colors.successLight,
+    borderColor: colors.successBorder
+  },
+  finalChipsTallyMismatch: {
+    backgroundColor: colors.dangerLight,
+    borderColor: colors.dangerBorder
+  },
+  finalChipsTallyTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    flex: 1
+  },
+  finalChipsTallyDiff: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.dangerText,
+    marginTop: 3,
+    marginLeft: 22
+  },
+  finalChipPlayerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderDark
+  },
+  finalChipPlayerName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text
+  },
+  finalChipPlayerMeta: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2
+  },
+  finalChipInputWrapper: {
+    alignItems: 'flex-end',
+    width: 90
+  },
+  finalChipInput: {
+    backgroundColor: colors.cardInset,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    borderRadius: 8,
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    width: '100%'
+  },
+  finalChipMoneySub: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 2,
+    fontWeight: '600'
+  },
+  finalChipErrorBox: {
+    backgroundColor: colors.dangerLight,
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.dangerBorder
+  },
+  finalChipErrorText: {
+    fontSize: 12,
+    color: colors.dangerText,
+    fontWeight: '600',
+    textAlign: 'center'
   }
 });

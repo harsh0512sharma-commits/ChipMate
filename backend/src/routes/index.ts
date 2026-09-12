@@ -53,6 +53,7 @@ router.post('/tables/:tableId/undo', requireAuth, ledgerCtrl.undo);
 router.post('/tables/:tableId/correction', requireAuth, ledgerCtrl.correct);
 
 // Settlement routes
+router.post('/tables/:tableId/settle/chips', requireAuth, settleCtrl.submitFinalChips);
 router.post('/tables/:tableId/settle/proceed', requireAuth, settleCtrl.proceedToSettle);
 router.get('/tables/:tableId/settle', requireAuth, settleCtrl.getSettlement);
 router.post('/tables/:tableId/settle/finalize', requireAuth, settleCtrl.finalizeTable);

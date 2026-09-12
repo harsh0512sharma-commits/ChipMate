@@ -42,6 +42,9 @@ export interface SettlementReview {
   totalChips: number;
   chipValue: number;
   bankChips: number;
+  expectedTotalChips: number;
+  expectedTotalValue: number;
+  totalBuyinChips: number;
   totalAccountedChips: number;
   isReconciled: boolean;
   discrepancy: number;
@@ -93,18 +96,24 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
   let totalPotMoney = 0;
   let sumPlayerChips = 0;
 
+  const totalBuyinChips = players.reduce((sum, p) => sum + (p.total_buyin_chips || 0), 0);
+  const expectedTotalChips = totalBuyinChips > 0 ? totalBuyinChips : table.total_chips;
+  const expectedTotalValue = Math.round(expectedTotalChips * table.chip_value * 100) / 100;
+
   const playerBalances: SettlementPlayerBalance[] = players.map(p => {
     const finalChips = p.current_chips;
     sumPlayerChips += finalChips;
-    const finalChipsMoney = finalChips * table.chip_value;
-    const totalBuyinMoney = p.total_buyin_amount;
+    const finalChipsMoney = Math.round(finalChips * table.chip_value * 100) / 100;
+    const totalBuyinMoney = Math.round(p.total_buyin_amount * 100) / 100;
     totalPotMoney += totalBuyinMoney;
 
-    const gameGrossPnl = finalChipsMoney - totalBuyinMoney;
-    const loanDebtOwed = loanDebtMap.get(p.id) || 0;
-    const loanCreditOwed = loanCreditMap.get(p.id) || 0;
-    const netLoanImpact = loanCreditOwed - loanDebtOwed;
-    const netPosition = Math.round((gameGrossPnl + netLoanImpact) * 100) / 100;
+    const gameGrossPnl = Math.round((finalChipsMoney - totalBuyinMoney) * 100) / 100;
+    const loanDebtOwed = Math.round((loanDebtMap.get(p.id) || 0) * 100) / 100;
+    const loanCreditOwed = Math.round((loanCreditMap.get(p.id) || 0) * 100) / 100;
+    const netLoanImpact = Math.round((loanCreditOwed - loanDebtOwed) * 100) / 100;
+    // Authoritative Zero-Sum Unified Formula:
+    // Final Net Position = Final In-Hand Chip Value - Total Buy-in Value - Total Borrowed Value + Total Lent Value
+    const netPosition = Math.round((finalChipsMoney - totalBuyinMoney - loanDebtOwed + loanCreditOwed) * 100) / 100;
 
     return {
       playerId: p.id,
@@ -124,13 +133,13 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
     };
   });
 
-  // Calculate settlement optimization (minimize peer payments)
+  // Calculate settlement optimization (minimize peer payments via integer paise)
   const optimizedSettlements = optimizeDebts(playerBalances);
 
-  // Check reconciliation
-  const totalAccounted = sumPlayerChips + table.bank_chips;
-  const isReconciled = totalAccounted === table.total_chips;
-  const discrepancy = table.total_chips - totalAccounted;
+  // Check reconciliation against expected chips
+  const totalAccounted = sumPlayerChips;
+  const isReconciled = totalAccounted === expectedTotalChips;
+  const discrepancy = expectedTotalChips - totalAccounted;
 
   // Identify biggest winner & loser
   let biggestWinner: { displayName: string; amount: number } | undefined;
@@ -154,17 +163,20 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
     totalChips: table.total_chips,
     chipValue: table.chip_value,
     bankChips: table.bank_chips,
+    expectedTotalChips,
+    expectedTotalValue,
+    totalBuyinChips,
     totalAccountedChips: totalAccounted,
     isReconciled,
     discrepancy,
     players: playerBalances,
     outstandingLoans: loans.map(l => ({
       ...l,
-      moneyEquivalent: l.remaining_chip_amount * table.chip_value
+      moneyEquivalent: Math.round(l.remaining_chip_amount * table.chip_value * 100) / 100
     })),
     optimizedSettlements,
     summary: {
-      totalPotMoney,
+      totalPotMoney: Math.round(totalPotMoney * 100) / 100,
       biggestWinner,
       biggestLoser
     }
@@ -172,17 +184,22 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
 }
 
 export function optimizeDebts(players: SettlementPlayerBalance[]): OptimizedPayment[] {
-  // Creditors: netPosition > 0
-  // Debtors: netPosition < 0
+  // Convert to integer paise to strictly eliminate floating-point penny roundoff errors
   const creditors = players
-    .filter(p => p.netPosition > 0.01)
-    .map(p => ({ ...p, remaining: p.netPosition }))
-    .sort((a, b) => b.remaining - a.remaining);
+    .map(p => ({
+      ...p,
+      remainingPaise: Math.round(p.netPosition * 100)
+    }))
+    .filter(p => p.remainingPaise > 0)
+    .sort((a, b) => b.remainingPaise - a.remainingPaise);
 
   const debtors = players
-    .filter(p => p.netPosition < -0.01)
-    .map(p => ({ ...p, remaining: Math.abs(p.netPosition) }))
-    .sort((a, b) => b.remaining - a.remaining);
+    .map(p => ({
+      ...p,
+      remainingPaise: Math.abs(Math.round(p.netPosition * 100))
+    }))
+    .filter(p => Math.round(p.netPosition * 100) < 0)
+    .sort((a, b) => b.remainingPaise - a.remainingPaise);
 
   const payments: OptimizedPayment[] = [];
 
@@ -193,10 +210,9 @@ export function optimizeDebts(players: SettlementPlayerBalance[]): OptimizedPaym
     const creditor = creditors[cIdx];
     const debtor = debtors[dIdx];
 
-    const settleAmount = Math.min(creditor.remaining, debtor.remaining);
-    const roundedAmount = Math.round(settleAmount * 100) / 100;
+    const settlePaise = Math.min(creditor.remainingPaise, debtor.remainingPaise);
 
-    if (roundedAmount > 0) {
+    if (settlePaise > 0) {
       payments.push({
         fromPlayerId: debtor.playerId,
         fromUserId: debtor.userId,
@@ -204,24 +220,75 @@ export function optimizeDebts(players: SettlementPlayerBalance[]): OptimizedPaym
         toPlayerId: creditor.playerId,
         toUserId: creditor.userId,
         toDisplayName: creditor.displayName,
-        amount: roundedAmount,
+        amount: settlePaise / 100,
         status: 'UNPAID',
         paidAmount: 0
       });
+
+      creditor.remainingPaise -= settlePaise;
+      debtor.remainingPaise -= settlePaise;
     }
 
-    creditor.remaining = Math.round((creditor.remaining - settleAmount) * 100) / 100;
-    debtor.remaining = Math.round((debtor.remaining - settleAmount) * 100) / 100;
-
-    if (creditor.remaining <= 0.01) {
+    if (creditor.remainingPaise <= 0) {
       cIdx++;
     }
-    if (debtor.remaining <= 0.01) {
+    if (debtor.remainingPaise <= 0) {
       dIdx++;
     }
   }
 
   return payments;
+}
+
+export function submitFinalChipCounts(
+  hostUserId: string,
+  gameId: string,
+  finalChipCounts: Record<string, number>
+): SettlementReview {
+  const db = getDb();
+  const table = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId) as GameTableRecord | undefined;
+  if (!table) throw new Error('Game not found');
+  if (table.host_user_id !== hostUserId) throw new Error('Only the host can submit final chip counts');
+  if (table.status === 'FINALIZED' || table.status === 'ARCHIVED') {
+    throw new Error('Game is already finalized');
+  }
+
+  const players = db.prepare('SELECT * FROM game_players WHERE game_id = ?').all(gameId) as any[];
+  if (!players || players.length === 0) {
+    throw new Error('No players found in this game');
+  }
+
+  const totalBuyinChips = players.reduce((sum, p) => sum + (p.total_buyin_chips || 0), 0);
+  const expectedTotalChips = totalBuyinChips > 0 ? totalBuyinChips : table.total_chips;
+
+  let totalEntered = 0;
+  for (const p of players) {
+    const entered = finalChipCounts[p.id];
+    if (entered === undefined || entered === null || typeof entered !== 'number' || isNaN(entered)) {
+      throw new Error(`Please enter valid chip count for ${p.guest_name || 'all players'}`);
+    }
+    if (!Number.isInteger(entered) || entered < 0) {
+      throw new Error('Chip counts must be non-negative integers');
+    }
+    totalEntered += entered;
+  }
+
+  if (totalEntered !== expectedTotalChips) {
+    throw new Error(`Chip count mismatch: ${totalEntered} chips entered, but ${expectedTotalChips} chips are expected.`);
+  }
+
+  const submitTx = db.transaction(() => {
+    const now = new Date().toISOString();
+    for (const p of players) {
+      const count = finalChipCounts[p.id];
+      db.prepare('UPDATE game_players SET current_chips = ? WHERE id = ?').run(count, p.id);
+    }
+    db.prepare(`UPDATE games SET status = 'SETTLING', ended_at = ? WHERE id = ?`).run(now, gameId);
+  });
+
+  submitTx();
+
+  return calculateSettlementPreview(gameId);
 }
 
 export function proceedToSettlement(hostUserId: string, gameId: string): SettlementReview {
@@ -247,6 +314,16 @@ export function finalizeGame(hostUserId: string, gameId: string): { success: boo
   if (table.status === 'FINALIZED') throw new Error('Game is already finalized');
 
   const preview = calculateSettlementPreview(gameId);
+
+  // Enforce zero-sum and reconciliation invariants before finalizing
+  if (!preview.isReconciled) {
+    throw new Error(`Chip count mismatch: ${preview.totalAccountedChips} chips entered, but ${preview.expectedTotalChips} chips are expected.`);
+  }
+
+  const sumNetPaise = preview.players.reduce((sum, p) => sum + Math.round(p.netPosition * 100), 0);
+  if (Math.abs(sumNetPaise) > 0) {
+    throw new Error(`Zero-sum invariant violated: Sum of net positions is ₹${sumNetPaise / 100}`);
+  }
 
   const finalizeTx = db.transaction(() => {
     const now = new Date().toISOString();

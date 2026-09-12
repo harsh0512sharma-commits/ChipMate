@@ -53,7 +53,7 @@ export async function sendOtpEmail(options: SendOtpOptions): Promise<{ success: 
         });
 
         console.log(`[Brevo SMTP] Verification email dispatched to ${email}`);
-        return { success: true };
+        return { success: true, devOtp: config.nodeEnv !== 'production' ? code : undefined };
       } catch (smtpErr: any) {
         console.error('[Brevo SMTP Error]:', smtpErr.message);
         return {
@@ -110,7 +110,7 @@ export async function sendOtpEmail(options: SendOtpOptions): Promise<{ success: 
         }
 
         console.log(`[Brevo REST] Verification email dispatched to ${email}`);
-        return { success: true };
+        return { success: true, devOtp: config.nodeEnv !== 'production' ? code : undefined };
       } catch (err: any) {
         console.error('Failed to send email via Brevo REST:', err);
         return {

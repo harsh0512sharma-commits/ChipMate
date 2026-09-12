@@ -3,6 +3,25 @@ import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import * as settlementService from '../services/settlement.service';
 import { broadcastTableUpdate } from '../socket';
 
+export function submitFinalChips(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const hostUserId = req.user!.userId;
+    const tableId = req.params.tableId as string;
+    const { finalChipCounts } = req.body;
+
+    if (!finalChipCounts || typeof finalChipCounts !== 'object') {
+      res.status(400).json({ success: false, error: 'Final chip counts are required' });
+      return;
+    }
+
+    const review = settlementService.submitFinalChipCounts(hostUserId, tableId, finalChipCounts);
+    broadcastTableUpdate(tableId, 'SETTLING_STARTED', review);
+    res.json({ success: true, ...review });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to submit final chip counts' });
+  }
+}
+
 export function proceedToSettle(req: AuthenticatedRequest, res: Response): void {
   try {
     const hostUserId = req.user!.userId;

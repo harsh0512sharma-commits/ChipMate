@@ -1,4 +1,5 @@
 import { getDb, closeDb } from '../src/db';
+import { config } from '../src/config';
 import * as authService from '../src/services/auth.service';
 import * as friendService from '../src/services/friend.service';
 import * as tableService from '../src/services/table.service';
@@ -7,6 +8,8 @@ describe('Auth & Frictionless Seating Test Suite', () => {
   let db: any;
 
   beforeAll(() => {
+    process.env.NODE_ENV = 'test';
+    config.nodeEnv = 'test';
     db = getDb(':memory:');
   });
 
@@ -23,6 +26,7 @@ describe('Auth & Frictionless Seating Test Suite', () => {
     test('validates 10-digit mobile number, email, and password length', async () => {
       // Invalid phone length
       await expect(authService.signupRequestOtp({
+        displayName: 'Test Player',
         phoneNumber: '123',
         email: testEmail,
         password: testPassword
@@ -30,6 +34,7 @@ describe('Auth & Frictionless Seating Test Suite', () => {
 
       // Invalid email
       await expect(authService.signupRequestOtp({
+        displayName: 'Test Player',
         phoneNumber: testPhone,
         email: 'invalid-email',
         password: testPassword
@@ -37,6 +42,7 @@ describe('Auth & Frictionless Seating Test Suite', () => {
 
       // Short password
       await expect(authService.signupRequestOtp({
+        displayName: 'Test Player',
         phoneNumber: testPhone,
         email: testEmail,
         password: '123'
@@ -45,6 +51,7 @@ describe('Auth & Frictionless Seating Test Suite', () => {
 
     test('generates OTP for valid sign-up details', async () => {
       const res = await authService.signupRequestOtp({
+        displayName: 'Player One',
         phoneNumber: testPhone,
         email: testEmail,
         password: testPassword
@@ -81,12 +88,14 @@ describe('Auth & Frictionless Seating Test Suite', () => {
 
     test('prevents duplicate phone or email registration', async () => {
       await expect(authService.signupRequestOtp({
+        displayName: 'Duplicate Tester',
         phoneNumber: testPhone,
         email: 'another@email.com',
         password: 'anotherPassword'
       })).rejects.toThrow('already registered');
 
       await expect(authService.signupRequestOtp({
+        displayName: 'Duplicate Tester',
         phoneNumber: '9123456780',
         email: testEmail,
         password: 'anotherPassword'
@@ -119,6 +128,7 @@ describe('Auth & Frictionless Seating Test Suite', () => {
     beforeAll(async () => {
       // Register Host
       const hostReq = await authService.signupRequestOtp({
+        displayName: 'Host User',
         phoneNumber: '9811111111',
         email: 'host@chipmate.test',
         password: 'password123'
@@ -131,6 +141,7 @@ describe('Auth & Frictionless Seating Test Suite', () => {
 
       // Register Friend
       const friendReq = await authService.signupRequestOtp({
+        displayName: 'Friend User',
         phoneNumber: '9822222222',
         email: 'friend@chipmate.test',
         password: 'password123'
@@ -174,6 +185,7 @@ describe('Auth & Frictionless Seating Test Suite', () => {
     });
 
     test('host can also create table with initial friends seated simultaneously', () => {
+      tableService.deleteTable(hostUser.id, tableId);
       const multi = tableService.createTable({
         hostUserId: hostUser.id,
         name: 'Instant Seated Table',

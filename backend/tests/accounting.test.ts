@@ -545,20 +545,20 @@ describe('ChipMate Authoritative Ledger & Accounting Engine Tests', () => {
   test('24. Different chip values across games (Game 1 ₹10, Game 2 ₹20) correctly calculate monetary net', () => {
     const { host, rahul } = setupTestUsers();
 
-    // Game 1: ₹10/chip, Rahul buys 10 chips (₹100), ends with 40 chips (+30 chips = +₹300)
-    const { table: g1 } = tableService.createTable({ hostUserId: host.id, name: 'Game 1', gameType: 'POKER', totalChips: 100, chipValue: 10 });
+    // Game 1: ₹10/chip, Rahul buys 10 chips (₹100), ends with 40 chips (+30 chips = +₹300). Host buys 40, ends with 10 (-30 chips).
+    const { table: g1, hostPlayerId: h1 } = tableService.createTable({ hostUserId: host.id, name: 'Game 1', gameType: 'POKER', totalChips: 100, chipValue: 10 });
     const { playerId: r1 } = tableService.joinTableByCode(rahul.id, g1.join_code);
     ledgerService.recordBuyIn({ gameId: g1.id, hostUserId: host.id, playerId: r1, chipAmount: 10 });
-    ledgerService.recordCorrection({ gameId: g1.id, hostUserId: host.id, playerId: r1, newChipCount: 40 });
-    settlementService.proceedToSettlement(host.id, g1.id);
+    ledgerService.recordBuyIn({ gameId: g1.id, hostUserId: host.id, playerId: h1, chipAmount: 40 });
+    settlementService.submitFinalChipCounts(host.id, g1.id, { [r1]: 40, [h1]: 10 });
     settlementService.finalizeGame(host.id, g1.id);
 
-    // Game 2: ₹20/chip, Rahul buys 10 chips (₹200), ends with 5 chips (-5 chips = -₹100)
-    const { table: g2 } = tableService.createTable({ hostUserId: host.id, name: 'Game 2', gameType: 'POKER', totalChips: 100, chipValue: 20 });
+    // Game 2: ₹20/chip, Rahul buys 10 chips (₹200), ends with 5 chips (-5 chips = -₹100). Host buys 10, ends with 15 (+5 chips).
+    const { table: g2, hostPlayerId: h2 } = tableService.createTable({ hostUserId: host.id, name: 'Game 2', gameType: 'POKER', totalChips: 100, chipValue: 20 });
     const { playerId: r2 } = tableService.joinTableByCode(rahul.id, g2.join_code);
     ledgerService.recordBuyIn({ gameId: g2.id, hostUserId: host.id, playerId: r2, chipAmount: 10 });
-    ledgerService.recordCorrection({ gameId: g2.id, hostUserId: host.id, playerId: r2, newChipCount: 5 });
-    settlementService.proceedToSettlement(host.id, g2.id);
+    ledgerService.recordBuyIn({ gameId: g2.id, hostUserId: host.id, playerId: h2, chipAmount: 10 });
+    settlementService.submitFinalChipCounts(host.id, g2.id, { [r2]: 5, [h2]: 15 });
     settlementService.finalizeGame(host.id, g2.id);
 
     const stats = statsService.recalculateUserLifetimeStats(rahul.id);
