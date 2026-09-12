@@ -320,9 +320,10 @@ export function getHeadToHeadStats(userIdA: string, userIdB: string) {
 export function getGameInsights(gameId: string) {
   const db = getDb();
   const results = db.prepare(`
-    SELECT r.*, u.display_name, u.friend_code
+    SELECT r.*, u.display_name, u.friend_code, gp.guest_name, gp.is_guest
     FROM player_game_results r
     JOIN users u ON r.user_id = u.id
+    LEFT JOIN game_players gp ON (gp.game_id = r.game_id AND gp.user_id = r.user_id)
     WHERE r.game_id = ?
     ORDER BY r.net_winnings_money DESC
   `).all(gameId) as any[];
@@ -334,7 +335,7 @@ export function getGameInsights(gameId: string) {
 
   // Find player who borrowed most chips
   const maxBorrower = db.prepare(`
-    SELECT borrower_id, SUM(original_chip_amount) as total_borrowed, u.display_name
+    SELECT borrower_id, SUM(original_chip_amount) as total_borrowed, u.display_name, gp.guest_name, gp.is_guest
     FROM loans l
     JOIN game_players gp ON l.borrower_id = gp.id
     JOIN users u ON gp.user_id = u.id
@@ -346,6 +347,29 @@ export function getGameInsights(gameId: string) {
 
   const game = db.prepare('SELECT id, name, game_type, created_at, started_at, finalized_at FROM games WHERE id = ?').get(gameId) as any;
 
+  const players = results.map((r, idx) => {
+    const isGuest = Boolean(r.is_guest || (r.user_id && r.user_id.startsWith('guest_')));
+    const displayName = (isGuest && r.guest_name) ? r.guest_name : r.display_name;
+    return {
+      rank: idx + 1,
+      userId: r.user_id,
+      displayName,
+      friendCode: r.friend_code,
+      isGuest,
+      netWinnings: r.net_winnings_money,
+      buyinMoney: r.buyin_money,
+      finalChips: r.final_chips,
+      isWinner: Boolean(r.is_winner)
+    };
+  });
+
+  const winnerIsGuest = Boolean(winner.is_guest || (winner.user_id && winner.user_id.startsWith('guest_')));
+  const winnerName = (winnerIsGuest && winner.guest_name) ? winner.guest_name : winner.display_name;
+  const loserIsGuest = Boolean(loser.is_guest || (loser.user_id && loser.user_id.startsWith('guest_')));
+  const loserName = (loserIsGuest && loser.guest_name) ? loser.guest_name : loser.display_name;
+  const borrowerIsGuest = maxBorrower ? Boolean(maxBorrower.is_guest || (maxBorrower.user_id && maxBorrower.user_id.startsWith('guest_'))) : false;
+  const borrowerName = maxBorrower ? ((borrowerIsGuest && maxBorrower.guest_name) ? maxBorrower.guest_name : maxBorrower.display_name) : null;
+
   return {
     gameId,
     gameName: game?.name || 'Game Table',
@@ -353,18 +377,19 @@ export function getGameInsights(gameId: string) {
     createdAt: game?.created_at,
     finalizedAt: game?.finalized_at,
     winner: {
-      displayName: winner.display_name,
+      displayName: winnerName,
       netWinnings: winner.net_winnings_money,
       finalChips: winner.final_chips
     },
     loser: {
-      displayName: loser.display_name,
+      displayName: loserName,
       netLoss: Math.abs(loser.net_winnings_money),
       finalChips: loser.final_chips
     },
     mostBorrowed: maxBorrower ? {
-      displayName: maxBorrower.display_name,
+      displayName: borrowerName,
       chipsBorrowed: maxBorrower.total_borrowed
-    } : null
+    } : null,
+    players
   };
 }

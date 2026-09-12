@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator
 } from 'react-native';
-import { Trophy, TrendingDown, HandCoins, ArrowRight, Home, History } from 'lucide-react-native';
+import { Trophy, TrendingDown, HandCoins, ArrowRight, Home, History, Users } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
 import { formatTxSummary } from '../table/LiveTableScreen';
@@ -43,6 +43,7 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAllTx, setShowAllTx] = useState(false);
+  const [standingFilter, setStandingFilter] = useState<'ALL' | 'WON' | 'LOST'>('ALL');
 
   useEffect(() => {
     async function load() {
@@ -74,6 +75,16 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
       </View>
     );
   }
+
+  const playersList: any[] = insights?.players || [];
+  const wonCount = playersList.filter((p: any) => (p.netWinnings || 0) > 0).length;
+  const lostCount = playersList.filter((p: any) => (p.netWinnings || 0) < 0).length;
+
+  const filteredPlayers = playersList.filter((p: any) => {
+    if (standingFilter === 'WON') return (p.netWinnings || 0) > 0;
+    if (standingFilter === 'LOST') return (p.netWinnings || 0) < 0;
+    return true;
+  });
 
   return (
     <View style={styles.container}>
@@ -149,6 +160,177 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
             </View>
           )}
         </View>
+
+        {/* Player Standings & Gain/Loss Breakdown */}
+        {playersList.length > 0 && (
+          <View style={styles.standingsCard}>
+            <View style={styles.standingsHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Users size={16} color={colors.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.standingsTitle}>PLAYER BREAKDOWN</Text>
+              </View>
+              <View style={styles.standingsCountBadge}>
+                <Text style={styles.standingsCountText}>{playersList.length} players</Text>
+              </View>
+            </View>
+
+            <Text style={styles.standingsSubtitle}>
+              Final net profit & loss for each player in this game
+            </Text>
+
+            {/* Filter Buttons */}
+            <View style={styles.filterRow}>
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  standingFilter === 'ALL' && styles.filterPillActiveAll
+                ]}
+                onPress={() => setStandingFilter('ALL')}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    standingFilter === 'ALL' && styles.filterPillTextActiveAll
+                  ]}
+                >
+                  All ({playersList.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  standingFilter === 'WON' && styles.filterPillActiveWon
+                ]}
+                onPress={() => setStandingFilter('WON')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.filterDot, { backgroundColor: colors.success }]} />
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    standingFilter === 'WON' && styles.filterPillTextActiveWon
+                  ]}
+                >
+                  Gained ({wonCount})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  standingFilter === 'LOST' && styles.filterPillActiveLost
+                ]}
+                onPress={() => setStandingFilter('LOST')}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.filterDot, { backgroundColor: colors.danger }]} />
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    standingFilter === 'LOST' && styles.filterPillTextActiveLost
+                  ]}
+                >
+                  Lost ({lostCount})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Players List */}
+            {filteredPlayers.length === 0 ? (
+              <View style={styles.emptyFilterBox}>
+                <Text style={styles.emptyFilterText}>
+                  {standingFilter === 'WON'
+                    ? 'No players had net gains in this game.'
+                    : 'No players had net losses in this game.'}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.playerListContainer}>
+                {filteredPlayers.map((player: any) => {
+                  const net = player.netWinnings || 0;
+                  const isWinner = net > 0;
+                  const isLoser = net < 0;
+
+                  let rankBadgeBg = colors.cardInset;
+                  let rankTextColor = colors.textMuted;
+                  let rankBorderColor = colors.borderDark;
+                  if (player.rank === 1) {
+                    rankBadgeBg = colors.chipGoldBg;
+                    rankTextColor = colors.chipGoldText;
+                    rankBorderColor = 'rgba(217, 119, 6, 0.35)';
+                  } else if (player.rank === 2) {
+                    rankBadgeBg = 'rgba(148, 163, 184, 0.12)';
+                    rankTextColor = '#E2E8F0';
+                    rankBorderColor = 'rgba(148, 163, 184, 0.25)';
+                  } else if (player.rank === 3) {
+                    rankBadgeBg = 'rgba(180, 83, 9, 0.12)';
+                    rankTextColor = '#FDBA74';
+                    rankBorderColor = 'rgba(180, 83, 9, 0.25)';
+                  }
+
+                  const initial = (player.displayName || 'P').charAt(0).toUpperCase();
+
+                  return (
+                    <View key={player.userId || `${player.rank}-${player.displayName}`} style={styles.playerRow}>
+                      <View style={styles.playerRowLeft}>
+                        <View
+                          style={[
+                            styles.rankBadge,
+                            { backgroundColor: rankBadgeBg, borderColor: rankBorderColor }
+                          ]}
+                        >
+                          <Text style={[styles.rankText, { color: rankTextColor }]}>
+                            #{player.rank}
+                          </Text>
+                        </View>
+
+                        <View style={styles.playerAvatar}>
+                          <Text style={styles.playerAvatarText}>{initial}</Text>
+                        </View>
+
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <Text style={styles.playerName} numberOfLines={1}>
+                              {player.displayName}
+                            </Text>
+                            {player.isGuest && (
+                              <View style={styles.guestPill}>
+                                <Text style={styles.guestPillText}>Guest</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={styles.playerSubtext}>
+                            Buy-in ₹{(player.buyinMoney || 0).toLocaleString('en-IN')} • {player.finalChips || 0} chips
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.netBadge,
+                          isWinner && styles.netBadgeWon,
+                          isLoser && styles.netBadgeLost
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.netBadgeText,
+                            isWinner && styles.netBadgeTextWon,
+                            isLoser && styles.netBadgeTextLost
+                          ]}
+                        >
+                          {isWinner ? `+₹${net.toLocaleString('en-IN')}` : isLoser ? `-₹${Math.abs(net).toLocaleString('en-IN')}` : `₹0`}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Transaction History & Audit Card */}
         <View style={styles.auditCard}>
@@ -454,5 +636,199 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.primary
+  },
+  standingsCard: {
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  standingsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 4
+  },
+  standingsTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.textMuted,
+    letterSpacing: 0.8
+  },
+  standingsCountBadge: {
+    backgroundColor: colors.cardInset,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.borderDark
+  },
+  standingsCountText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted
+  },
+  standingsSubtitle: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 12
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12
+  },
+  filterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: colors.cardInset,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    marginRight: 8
+  },
+  filterPillActiveAll: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary
+  },
+  filterPillActiveWon: {
+    backgroundColor: colors.successLight,
+    borderColor: colors.successBorder
+  },
+  filterPillActiveLost: {
+    backgroundColor: colors.dangerLight,
+    borderColor: colors.dangerBorder
+  },
+  filterDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6
+  },
+  filterPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted
+  },
+  filterPillTextActiveAll: {
+    color: '#FFF'
+  },
+  filterPillTextActiveWon: {
+    color: colors.successText
+  },
+  filterPillTextActiveLost: {
+    color: colors.dangerText
+  },
+  emptyFilterBox: {
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  emptyFilterText: {
+    fontSize: 12,
+    color: colors.textMuted,
+    fontStyle: 'italic'
+  },
+  playerListContainer: {
+    marginTop: 4
+  },
+  playerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderDark
+  },
+  playerRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1
+  },
+  rankBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10
+  },
+  rankText: {
+    fontSize: 11,
+    fontWeight: '800'
+  },
+  playerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10
+  },
+  playerAvatarText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.text
+  },
+  playerName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text
+  },
+  guestPill: {
+    backgroundColor: colors.chipGoldBg,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    marginLeft: 6
+  },
+  guestPillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.chipGoldText
+  },
+  playerSubtext: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 2
+  },
+  netBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    backgroundColor: colors.cardInset,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 70
+  },
+  netBadgeWon: {
+    backgroundColor: colors.successLight,
+    borderColor: colors.successBorder
+  },
+  netBadgeLost: {
+    backgroundColor: colors.dangerLight,
+    borderColor: colors.dangerBorder
+  },
+  netBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.textMuted,
+    letterSpacing: -0.2
+  },
+  netBadgeTextWon: {
+    color: colors.successText
+  },
+  netBadgeTextLost: {
+    color: colors.dangerText
   }
 });
