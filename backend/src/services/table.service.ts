@@ -443,15 +443,20 @@ export function getActiveUserTables(userId: string) {
 export function getUserCompletedTables(userId: string) {
   const db = getDb();
   return db.prepare(`
-    SELECT g.*, gp.role as player_role, r.net_winnings_money, r.is_winner,
+    SELECT DISTINCT
+      g.id, g.name, g.game_type, g.status, g.host_user_id, g.total_chips, g.chip_value,
+      g.bank_chips, g.created_at, g.started_at, g.ended_at, g.finalized_at,
+      COALESCE(r.net_winnings_money, 0) as net_winnings_money,
+      COALESCE(r.is_winner, 0) as is_winner,
+      COALESCE(gp.role, CASE WHEN g.host_user_id = ? THEN 'HOST' ELSE 'PLAYER' END) as player_role,
       (SELECT display_name FROM users WHERE id = g.host_user_id) as host_name
-    FROM game_players gp
-    JOIN games g ON gp.game_id = g.id
+    FROM games g
+    LEFT JOIN game_players gp ON (gp.game_id = g.id AND gp.user_id = ?)
     LEFT JOIN player_game_results r ON (r.game_id = g.id AND r.user_id = ?)
-    WHERE gp.user_id = ? AND g.status IN ('FINALIZED', 'ARCHIVED')
-    ORDER BY g.finalized_at DESC
-    LIMIT 50
-  `).all(userId, userId) as any[];
+    WHERE (gp.user_id = ? OR r.user_id = ? OR g.host_user_id = ?)
+      AND g.status IN ('FINALIZED', 'ARCHIVED')
+    ORDER BY COALESCE(g.finalized_at, g.created_at) DESC
+  `).all(userId, userId, userId, userId, userId, userId) as any[];
 }
 
 export function seatGuestPlayer(hostUserId: string, tableId: string, guestName: string): {

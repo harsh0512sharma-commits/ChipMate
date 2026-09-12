@@ -295,7 +295,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <Text style={styles.emptyRecentText}>Your completed games will appear here.</Text>
             </View>
           ) : (
-            recentCompleted.slice(0, 5).map(game => (
+            recentCompleted.slice(0, 3).map(game => (
               <TouchableOpacity
                 key={game.id}
                 style={styles.recentGameItem}

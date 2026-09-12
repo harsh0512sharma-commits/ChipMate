@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,11 @@ import {
   Image,
   Easing,
   Dimensions,
-  StatusBar
+  StatusBar,
+  Platform,
+  TouchableOpacity
 } from 'react-native';
+import { Volume2, VolumeX } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 
 interface SplashScreenProps {
@@ -18,30 +21,53 @@ interface SplashScreenProps {
 
 const { width } = Dimensions.get('window');
 
+// HTML video element reference for React Native Web
+const HtmlVideo = 'video' as any;
+
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLoading = true }) => {
+  const [videoFailed, setVideoFailed] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const videoRef = useRef<any>(null);
+
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0.4)).current;
   const barProgress = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    // 1. Initial fade-in & pop scale
-    Animated.parallel([
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 5,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-    ]).start();
+  const hasFinishedRef = useRef(false);
 
-    // 2. Continuous smooth breathing/pulsing loop
+  const finishSplash = () => {
+    if (hasFinishedRef.current) return;
+    hasFinishedRef.current = true;
+
+    Animated.timing(opacityAnim, {
+      toValue: 0,
+      duration: 350,
+      useNativeDriver: true,
+    }).start(() => {
+      if (onAnimationEnd) {
+        onAnimationEnd();
+      }
+    });
+  };
+
+  useEffect(() => {
+    // 1. Initial fade-in
+    Animated.timing(opacityAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+
+    // 2. Animated fallback elements in case video fails or isn't used
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 5,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+
     const pulseLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -60,7 +86,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLo
     );
     pulseLoop.start();
 
-    // 3. Glow breathing loop
     const glowLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, {
@@ -79,30 +104,20 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLo
     );
     glowLoop.start();
 
-    // 4. Progress bar fill over 2.3s
     Animated.timing(barProgress, {
       toValue: 1,
-      duration: 2300,
+      duration: 2500,
       easing: Easing.out(Easing.quad),
       useNativeDriver: false,
     }).start();
 
-    // Minimum display timer of 2.5s before invoking onAnimationEnd
-    const timer = setTimeout(() => {
-      if (onAnimationEnd) {
-        // Smooth fade out
-        Animated.timing(opacityAnim, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }).start(() => {
-          onAnimationEnd();
-        });
-      }
-    }, 2500);
+    // Max display safety timer of 6 seconds before automatically transitioning
+    const maxTimer = setTimeout(() => {
+      finishSplash();
+    }, 6000);
 
     return () => {
-      clearTimeout(timer);
+      clearTimeout(maxTimer);
       pulseLoop.stop();
       glowLoop.stop();
     };
@@ -113,6 +128,67 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLo
     outputRange: ['0%', '100%'],
   });
 
+  const toggleSound = () => {
+    setIsMuted(prev => {
+      const next = !prev;
+      if (videoRef.current) {
+        videoRef.current.muted = next;
+      }
+      return next;
+    });
+  };
+
+  // 1. Web Custom Video Mode
+  if (Platform.OS === 'web' && !videoFailed) {
+    return (
+      <Animated.View style={[styles.videoContainer, { opacity: opacityAnim }]}>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+
+        <HtmlVideo
+          ref={videoRef}
+          src="/splash_video.mp4"
+          autoPlay
+          muted={isMuted}
+          playsInline
+          onEnded={finishSplash}
+          onError={() => setVideoFailed(true)}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            backgroundColor: '#000000'
+          }}
+        />
+
+        {/* Skip button in top-right */}
+        <TouchableOpacity
+          style={styles.skipButton}
+          onPress={finishSplash}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.skipButtonText}>Skip ›</Text>
+        </TouchableOpacity>
+
+        {/* Sound toggle button in bottom-right */}
+        <TouchableOpacity
+          style={styles.soundButton}
+          onPress={toggleSound}
+          activeOpacity={0.7}
+        >
+          {isMuted ? (
+            <VolumeX size={18} color="#FFFFFF" />
+          ) : (
+            <Volume2 size={18} color="#FFFFFF" />
+          )}
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }
+
+  // 2. Animated Brand Chip Fallback Mode
   return (
     <Animated.View style={[styles.container, { opacity: opacityAnim }]}>
       <StatusBar barStyle="light-content" backgroundColor="#0A0F1D" />
@@ -165,13 +241,58 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLo
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.versionText}>v1.0.9 • Zero-Sum Real-Time Ledger</Text>
+        <Text style={styles.versionText}>v1.0.12 • Zero-Sum Real-Time Ledger</Text>
       </View>
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
+  videoContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999
+  },
+  skipButton: {
+    position: 'absolute',
+    top: 24,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 18,
+    zIndex: 10000
+  },
+  skipButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5
+  },
+  soundButton: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10000
+  },
   container: {
     flex: 1,
     backgroundColor: '#0A0F1D',

@@ -15,15 +15,15 @@ export function createApp() {
 
   // Health check
   app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.11', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.12', timestamp: new Date().toISOString() });
   });
 
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.11',
-      buildTime: 1789251000000,
-      releaseNotes: 'Player results breakdown with gain and loss filters in game history summary.'
+      version: '1.0.12',
+      buildTime: 1789254000000,
+      releaseNotes: 'Custom video splash screen with skip and sound controls, comprehensive game history tracking, and maximum 3 recent games on home screen.'
     });
   };
   app.get('/version', versionHandler);

@@ -34,3 +34,6 @@ yarn-error.*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Raw uploaded video files in root
+InShot_*.mp4
