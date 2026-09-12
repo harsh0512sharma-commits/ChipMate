@@ -278,6 +278,10 @@ export const VerifyOtpScreen: React.FC<VerifyOtpScreenProps> = ({
             </TouchableOpacity>
           </>
         )}
+
+        <Text style={styles.madeWithLoveText}>
+          Made with ❤️ by HRVS Solutions
+        </Text>
       </View>
     </KeyboardAvoidingView>
   );
@@ -451,5 +455,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.primary
+  },
+  madeWithLoveText: {
+    fontSize: 11,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: 20,
+    fontWeight: '600',
+    letterSpacing: 0.3
   }
 });

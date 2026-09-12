@@ -15,15 +15,15 @@ export function createApp() {
 
   // Health check
   app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.12', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.13', timestamp: new Date().toISOString() });
   });
 
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.12',
-      buildTime: 1789254000000,
-      releaseNotes: 'Custom video splash screen with skip and sound controls, comprehensive game history tracking, and maximum 3 recent games on home screen.'
+      version: '1.0.13',
+      buildTime: 1789257000000,
+      releaseNotes: 'Full uncropped 16:9 video splash screen with smooth instant playback, HRVS Solutions branding on auth and profile footers.'
     });
   };
   app.get('/version', versionHandler);

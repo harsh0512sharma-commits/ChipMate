@@ -447,6 +447,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
           <Text style={styles.footerNote}>
             ChipMate records physical chips, loans, and final settlements. It does not process real-money payments.
           </Text>
+
+          <Text style={styles.madeWithLoveText}>
+            Made with ❤️ by HRVS Solutions
+          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -674,5 +678,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFF'
+  },
+  madeWithLoveText: {
+    fontSize: 11,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: 14,
+    fontWeight: '600',
+    letterSpacing: 0.3
   }
 });

@@ -364,6 +364,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary }) =
         <View style={styles.versionFooter}>
           <Text style={styles.versionFooterText}>ChipMate v{APP_BUILD_VERSION}</Text>
           <Text style={styles.versionSubText}>Zero-Sum Card Ledger • Real-Time Offline Sync</Text>
+          <Text style={styles.madeWithLoveText}>Made with ❤️ by HRVS Solutions</Text>
         </View>
       </ScrollView>
     </View>
@@ -719,5 +720,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.textMuted,
     marginTop: 3
+  },
+  madeWithLoveText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    marginTop: 6,
+    letterSpacing: 0.3
   }
 });

@@ -8,10 +8,8 @@ import {
   Easing,
   Dimensions,
   StatusBar,
-  Platform,
-  TouchableOpacity
+  Platform
 } from 'react-native';
-import { Volume2, VolumeX } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 
 interface SplashScreenProps {
@@ -26,11 +24,11 @@ const HtmlVideo = 'video' as any;
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLoading = true }) => {
   const [videoFailed, setVideoFailed] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef<any>(null);
 
+  // Start with full opacity (1) so video is shown immediately with zero blank delay or flash
+  const opacityAnim = useRef(new Animated.Value(1)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0.4)).current;
   const barProgress = useRef(new Animated.Value(0)).current;
@@ -41,6 +39,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLo
     if (hasFinishedRef.current) return;
     hasFinishedRef.current = true;
 
+    // Smooth, professional fade out into the application
     Animated.timing(opacityAnim, {
       toValue: 0,
       duration: 350,
@@ -53,14 +52,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLo
   };
 
   useEffect(() => {
-    // 1. Initial fade-in
-    Animated.timing(opacityAnim, {
-      toValue: 1,
-      duration: 400,
-      useNativeDriver: true,
-    }).start();
-
-    // 2. Animated fallback elements in case video fails or isn't used
+    // Continuous smooth animations for fallback mode
     Animated.spring(scaleAnim, {
       toValue: 1,
       friction: 5,
@@ -111,13 +103,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLo
       useNativeDriver: false,
     }).start();
 
-    // Max display safety timer of 6 seconds before automatically transitioning
-    const maxTimer = setTimeout(() => {
+    // Safety timer (7 seconds) to ensure app always transitions smoothly if onEnded doesn't fire
+    const safetyTimer = setTimeout(() => {
       finishSplash();
-    }, 6000);
+    }, 7000);
 
     return () => {
-      clearTimeout(maxTimer);
+      clearTimeout(safetyTimer);
       pulseLoop.stop();
       glowLoop.stop();
     };
@@ -128,17 +120,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLo
     outputRange: ['0%', '100%'],
   });
 
-  const toggleSound = () => {
-    setIsMuted(prev => {
-      const next = !prev;
-      if (videoRef.current) {
-        videoRef.current.muted = next;
-      }
-      return next;
-    });
-  };
-
-  // 1. Web Custom Video Mode
+  // 1. Web Custom Video Mode: Shows 100% complete unzoomed video (contain) with zero clutter
   if (Platform.OS === 'web' && !videoFailed) {
     return (
       <Animated.View style={[styles.videoContainer, { opacity: opacityAnim }]}>
@@ -148,8 +130,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLo
           ref={videoRef}
           src="/splash_video.mp4"
           autoPlay
-          muted={isMuted}
+          muted={true}
           playsInline
+          preload="auto"
+          onCanPlay={() => {
+            if (videoRef.current) {
+              videoRef.current.play().catch(() => {});
+            }
+          }}
           onEnded={finishSplash}
           onError={() => setVideoFailed(true)}
           style={{
@@ -158,32 +146,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLo
             left: 0,
             width: '100%',
             height: '100%',
-            objectFit: 'cover',
+            objectFit: 'contain',
             backgroundColor: '#000000'
           }}
         />
-
-        {/* Skip button in top-right */}
-        <TouchableOpacity
-          style={styles.skipButton}
-          onPress={finishSplash}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.skipButtonText}>Skip ›</Text>
-        </TouchableOpacity>
-
-        {/* Sound toggle button in bottom-right */}
-        <TouchableOpacity
-          style={styles.soundButton}
-          onPress={toggleSound}
-          activeOpacity={0.7}
-        >
-          {isMuted ? (
-            <VolumeX size={18} color="#FFFFFF" />
-          ) : (
-            <Volume2 size={18} color="#FFFFFF" />
-          )}
-        </TouchableOpacity>
       </Animated.View>
     );
   }
@@ -241,7 +207,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLo
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.versionText}>v1.0.12 • Zero-Sum Real-Time Ledger</Text>
+        <Text style={styles.versionText}>v1.0.13 • Zero-Sum Real-Time Ledger</Text>
       </View>
     </Animated.View>
   );
@@ -260,38 +226,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999
-  },
-  skipButton: {
-    position: 'absolute',
-    top: 24,
-    right: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 18,
-    zIndex: 10000
-  },
-  skipButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.5
-  },
-  soundButton: {
-    position: 'absolute',
-    bottom: 24,
-    right: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10000
   },
   container: {
     flex: 1,
