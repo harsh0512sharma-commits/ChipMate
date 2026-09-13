@@ -21,9 +21,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.21',
+      version: '1.0.22',
       buildTime: Date.now(),
-      releaseNotes: 'New splash video, unified Teen Patti & Poker custom denominations, casino vault inventory buy-in, denomination lending & settlement.'
+      releaseNotes: 'New splash video cache refresh, unified custom denominations, casino vault inventory buy-in, denomination settlement.'
     });
   };
   app.get('/version', versionHandler);

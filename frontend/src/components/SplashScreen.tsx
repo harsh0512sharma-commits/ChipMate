@@ -89,7 +89,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd }) =>
       {Platform.OS === 'web' && (
         <HtmlVideo
           ref={videoRef}
-          src="/splash_video.mp4"
+          src="/splash_video_v2.mp4?v=1.0.22"
           autoPlay
           muted={true}
           playsInline

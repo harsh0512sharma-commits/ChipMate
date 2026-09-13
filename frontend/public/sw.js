@@ -1,12 +1,11 @@
-const CACHE_NAME = 'chipmate-pwa-v3';
+const CACHE_NAME = 'chipmate-pwa-v4';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
   '/favicon.png',
   '/icon-192.png',
   '/icon-512.png',
-  '/apple-touch-icon.png',
-  '/splash_video.mp4'
+  '/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', event => {
@@ -24,6 +23,7 @@ self.addEventListener('activate', event => {
       return Promise.all(
         keys.map(key => {
           if (key !== CACHE_NAME) {
+            console.log('[ChipMate PWA] Purging outdated cache:', key);
             return caches.delete(key);
           }
         })
@@ -38,6 +38,23 @@ self.addEventListener('fetch', event => {
 
   // Never cache API requests, WebSocket connections, or version check files
   if (url.pathname.startsWith('/api') || url.pathname.startsWith('/socket.io') || url.pathname.includes('version.json') || event.request.method !== 'GET') {
+    return;
+  }
+
+  // Intercept any legacy requests for the old splash video and point to the new versioned video
+  if (url.pathname === '/splash_video.mp4') {
+    const targetUrl = new URL('/splash_video_v2.mp4?v=1.0.22', event.request.url);
+    event.respondWith(
+      fetch(targetUrl.toString(), {
+        headers: event.request.headers,
+        credentials: event.request.credentials
+      })
+    );
+    return;
+  }
+
+  // Bypass Service Worker Cache for video files to allow native Range (206) requests and avoid stale video locks
+  if (url.pathname.endsWith('.mp4') || event.request.headers.has('range')) {
     return;
   }
 
@@ -71,3 +88,4 @@ self.addEventListener('message', event => {
     self.skipWaiting();
   }
 });
+
