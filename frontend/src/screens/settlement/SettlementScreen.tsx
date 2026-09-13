@@ -50,6 +50,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
   const [showEditChipsModal, setShowEditChipsModal] = useState(false);
   const [editChipInputs, setEditChipInputs] = useState<Record<string, string>>({});
   const [editPlayerDenoms, setEditPlayerDenoms] = useState<Record<string, Record<number, number>>>({});
+  const [editPlayerDirectValues, setEditPlayerDirectValues] = useState<Record<string, string>>({});
   const [submittingChips, setSubmittingChips] = useState(false);
   const [editChipError, setEditChipError] = useState<string | null>(null);
 
@@ -74,6 +75,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
     const isDenom = data?.chipMode === 'DENOMINATION';
     if (isDenom) {
       const initialDenoms: Record<string, Record<number, number>> = {};
+      const initialDirect: Record<string, string> = {};
       (data?.players || []).forEach((p: any) => {
         initialDenoms[p.playerId] = {};
         if (Array.isArray(p.finalDenominations)) {
@@ -83,8 +85,15 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
             }
           });
         }
+        if (p.finalChipsMoney !== null && p.finalChipsMoney !== undefined) {
+          initialDirect[p.playerId] = String(p.finalChipsMoney);
+        } else {
+          const sumMoney = Object.entries(initialDenoms[p.playerId]).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * (c || 0)), 0);
+          initialDirect[p.playerId] = sumMoney > 0 ? String(sumMoney) : String(p.totalBuyinMoney || 0);
+        }
       });
       setEditPlayerDenoms(initialDenoms);
+      setEditPlayerDirectValues(initialDirect);
     } else {
       const initial: Record<string, string> = {};
       (data?.players || []).forEach((p: any) => {
@@ -101,7 +110,15 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
       const pMap = { ...(prev[playerId] || {}) };
       const cur = pMap[denom] || 0;
       pMap[denom] = Math.max(0, cur + delta);
-      return { ...prev, [playerId]: pMap };
+      const nextMap = { ...prev, [playerId]: pMap };
+
+      const sumMoney = Object.entries(pMap).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * (c || 0)), 0);
+      setEditPlayerDirectValues(dPrev => ({
+        ...dPrev,
+        [playerId]: String(sumMoney)
+      }));
+
+      return nextMap;
     });
   };
 
@@ -110,8 +127,31 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
     setEditPlayerDenoms(prev => {
       const pMap = { ...(prev[playerId] || {}) };
       pMap[denom] = Math.max(0, val);
-      return { ...prev, [playerId]: pMap };
+      const nextMap = { ...prev, [playerId]: pMap };
+
+      const sumMoney = Object.entries(pMap).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * (c || 0)), 0);
+      setEditPlayerDirectValues(dPrev => ({
+        ...dPrev,
+        [playerId]: String(sumMoney)
+      }));
+
+      return nextMap;
     });
+  };
+
+  const setEditPlayerTotalValueDirect = (playerId: string, text: string) => {
+    setEditPlayerDirectValues(prev => ({
+      ...prev,
+      [playerId]: text
+    }));
+  };
+
+  const getEditPlayerFinalValue = (playerId: string) => {
+    if (editPlayerDirectValues[playerId] !== undefined) {
+      return parseFloat(editPlayerDirectValues[playerId]) || 0;
+    }
+    const pDenoms = editPlayerDenoms[playerId] || {};
+    return Object.entries(pDenoms).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * (c || 0)), 0);
   };
 
   const handleSaveEditChips = async () => {
@@ -125,8 +165,9 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
           const breakdown = Object.entries(denoms)
             .map(([d, cnt]) => ({ denom: parseFloat(d), count: cnt }))
             .filter(item => item.count > 0);
-          const chips = breakdown.reduce((acc, item) => acc + item.count, 0);
-          const money = breakdown.reduce((acc, item) => acc + (item.count * item.denom), 0);
+          const denomChips = breakdown.reduce((acc, item) => acc + item.count, 0);
+          const money = getEditPlayerFinalValue(p.playerId);
+          const chips = denomChips > 0 ? denomChips : ((data?.chipValue || 10) > 0 ? Math.round(money / (data?.chipValue || 10)) : 0);
           return {
             playerId: p.playerId,
             finalChips: chips,
@@ -249,12 +290,10 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
   let totalEditDenomMoney = 0;
   if (isDenomMode) {
     for (const p of players) {
+      totalEditDenomMoney += getEditPlayerFinalValue(p.playerId);
       const pDenoms = editPlayerDenoms[p.playerId] || {};
-      for (const [denomStr, count] of Object.entries(pDenoms)) {
-        const d = parseFloat(denomStr) || 0;
-        const c = count || 0;
-        totalEditDenomChips += c;
-        totalEditDenomMoney += (c * d);
+      for (const count of Object.values(pDenoms)) {
+        totalEditDenomChips += (count || 0);
       }
     }
   }
@@ -276,8 +315,8 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
     : (expectedTotalChips * (data.chipValue || 10));
 
   const isChipCountMatched = totalEditEnteredChips === expectedTotalChips;
-  const isMoneyMatched = isDenomMode ? Math.abs(totalEditEnteredMoney - expectedTotalMoney) < 0.01 : true;
-  const isEditMatched = isChipCountMatched && isMoneyMatched;
+  const isMoneyMatched = isDenomMode ? (Math.abs(totalEditEnteredMoney - expectedTotalMoney) < 1) : true;
+  const isEditMatched = isDenomMode ? isMoneyMatched : (isChipCountMatched && isMoneyMatched);
 
   return (
     <View style={styles.container}>
@@ -549,9 +588,9 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                 <View style={styles.mismatchBadge}>
                   <AlertTriangle size={12} color={colors.dangerText} />
                   <Text style={styles.mismatchBadgeText}>
-                    {!isChipCountMatched
-                      ? `${Math.abs(expectedTotalChips - totalEditEnteredChips)} chips ${totalEditEnteredChips > expectedTotalChips ? 'over' : 'short'}`
-                      : `₹${Math.abs(expectedTotalMoney - totalEditEnteredMoney).toLocaleString('en-IN')} ${totalEditEnteredMoney > expectedTotalMoney ? 'over' : 'short'}`}
+                    {isDenomMode
+                      ? `₹${Math.abs(expectedTotalMoney - totalEditEnteredMoney).toLocaleString('en-IN')} ${totalEditEnteredMoney > expectedTotalMoney ? 'over' : 'short'}`
+                      : `${Math.abs(expectedTotalChips - totalEditEnteredChips)} chips ${totalEditEnteredChips > expectedTotalChips ? 'over' : 'short'}`}
                   </Text>
                 </View>
               )}
@@ -562,7 +601,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                 if (isDenomMode) {
                   const pDenoms = editPlayerDenoms[p.playerId] || {};
                   const pChips = Object.values(pDenoms).reduce((acc, c) => acc + (c || 0), 0);
-                  const pMoney = Object.entries(pDenoms).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * (c || 0)), 0);
+                  const pMoney = getEditPlayerFinalValue(p.playerId);
 
                   return (
                     <View key={p.playerId} style={styles.denomPlayerCard}>
@@ -573,8 +612,27 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                         </View>
                         <View style={styles.denomPlayerTotalPill}>
                           <Text style={styles.denomPlayerTotalText}>
-                            {pChips} chips • ₹{pMoney.toLocaleString('en-IN')}
+                            {pChips > 0 ? `${pChips} chips • ` : ''}₹{pMoney.toLocaleString('en-IN')}
                           </Text>
+                        </View>
+                      </View>
+
+                      {/* Direct Total Chip Value input row */}
+                      <View style={styles.directValueInputRow}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text style={styles.directValueLabel}>Total In-Hand Value:</Text>
+                          <Text style={styles.directValueSubtext}>Write total ₹ directly, or enter chips below</Text>
+                        </View>
+                        <View style={styles.directValueBox}>
+                          <Text style={styles.rupeeSymbol}>₹</Text>
+                          <TextInput
+                            style={styles.directValueInput}
+                            keyboardType="numeric"
+                            placeholder="0"
+                            placeholderTextColor={colors.textMuted}
+                            value={editPlayerDirectValues[p.playerId] !== undefined ? editPlayerDirectValues[p.playerId] : String(pMoney)}
+                            onChangeText={t => setEditPlayerTotalValueDirect(p.playerId, t)}
+                          />
                         </View>
                       </View>
 
@@ -1393,6 +1451,53 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.chipGold,
     width: 58,
+    textAlign: 'right'
+  },
+  directValueInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(235, 94, 40, 0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(235, 94, 40, 0.25)'
+  },
+  directValueLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text
+  },
+  directValueSubtext: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 1
+  },
+  directValueBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardInset,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    paddingHorizontal: 8,
+    height: 32
+  },
+  rupeeSymbol: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.primary,
+    marginRight: 4
+  },
+  directValueInput: {
+    width: 70,
+    height: 30,
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.text,
+    padding: 0,
     textAlign: 'right'
   }
 });

@@ -100,6 +100,7 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
   }
 
   let totalPotMoney = 0;
+  let sumFinalChipsMoney = 0;
   let sumPlayerChips = 0;
 
   const totalBuyinChips = players.reduce((sum, p) => sum + (p.total_buyin_chips || 0), 0);
@@ -112,6 +113,7 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
     const finalChipsMoney = (p.final_chips_value !== null && p.final_chips_value !== undefined)
       ? Math.round(p.final_chips_value * 100) / 100
       : Math.round(finalChips * table.chip_value * 100) / 100;
+    sumFinalChipsMoney += finalChipsMoney;
     const totalBuyinMoney = Math.round(p.total_buyin_amount * 100) / 100;
     totalPotMoney += totalBuyinMoney;
 
@@ -150,10 +152,13 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
   // Calculate settlement optimization (minimize peer payments via integer paise)
   const optimizedSettlements = optimizeDebts(playerBalances);
 
-  // Check reconciliation against expected chips
+  // Check reconciliation against expected chips / money
+  const isDenomMode = table.chip_mode === 'DENOMINATION';
   const totalAccounted = sumPlayerChips;
-  const isReconciled = totalAccounted === expectedTotalChips;
-  const discrepancy = expectedTotalChips - totalAccounted;
+  const isReconciled = isDenomMode
+    ? (totalPotMoney === 0 || Math.abs(sumFinalChipsMoney - totalPotMoney) < 1 || totalAccounted === expectedTotalChips)
+    : (totalAccounted === expectedTotalChips);
+  const discrepancy = isReconciled ? 0 : (expectedTotalChips - totalAccounted);
 
   // Identify biggest winner & loser
   let biggestWinner: { displayName: string; amount: number } | undefined;
@@ -300,23 +305,70 @@ export function submitFinalChipCounts(
     throw new Error('No players found in this game');
   }
 
+  const isDenomMode = table.chip_mode === 'DENOMINATION';
   const totalBuyinChips = players.reduce((sum, p) => sum + (p.total_buyin_chips || 0), 0);
   const expectedTotalChips = totalBuyinChips > 0 ? totalBuyinChips : table.total_chips;
+  const totalBuyinMoney = players.reduce((sum, p) => sum + (p.total_buyin_amount || 0), 0);
 
-  let totalEntered = 0;
-  for (const p of players) {
-    const entered = countsMap[p.id];
-    if (entered === undefined || entered === null || typeof entered !== 'number' || isNaN(entered)) {
-      throw new Error(`Please enter valid chip count for ${p.guest_name || 'all players'}`);
+  if (isDenomMode) {
+    let totalEnteredMoney = 0;
+    for (const p of players) {
+      const moneyVal = moneyMap[p.id] !== undefined ? moneyMap[p.id] : ((countsMap[p.id] || 0) * table.chip_value);
+      if (typeof moneyVal !== 'number' || isNaN(moneyVal) || moneyVal < 0) {
+        throw new Error(`Please enter valid total chip value for ${p.guest_name || 'all players'}`);
+      }
+      totalEnteredMoney += moneyVal;
     }
-    if (!Number.isInteger(entered) || entered < 0) {
-      throw new Error('Chip counts must be non-negative integers');
-    }
-    totalEntered += entered;
-  }
 
-  if (totalEntered !== expectedTotalChips) {
-    throw new Error(`Chip count mismatch: ${totalEntered} chips entered, but ${expectedTotalChips} chips are expected.`);
+    if (totalBuyinMoney > 0 && Math.abs(totalEnteredMoney - totalBuyinMoney) > 1) {
+      throw new Error(`Total value mismatch: ₹${totalEnteredMoney} entered, but ₹${totalBuyinMoney} was bought in.`);
+    }
+
+    let totalEnteredChips = 0;
+    for (const p of players) {
+      totalEnteredChips += (countsMap[p.id] || 0);
+    }
+
+    // If chip counts weren't directly matching physical inventory (e.g. host only entered total values),
+    // normalize countsMap so totalAccounted equals expectedTotalChips while preserving final_chips_value
+    if (totalEnteredChips !== expectedTotalChips) {
+      if (totalEnteredMoney > 0) {
+        let distributed = 0;
+        players.forEach((p, idx) => {
+          if (idx === players.length - 1) {
+            countsMap[p.id] = Math.max(0, expectedTotalChips - distributed);
+          } else {
+            const m = moneyMap[p.id] !== undefined ? moneyMap[p.id] : ((countsMap[p.id] || 0) * table.chip_value);
+            const share = Math.round((m / totalEnteredMoney) * expectedTotalChips);
+            countsMap[p.id] = share;
+            distributed += share;
+          }
+        });
+      } else {
+        const perPlayer = Math.floor(expectedTotalChips / players.length);
+        let rem = expectedTotalChips % players.length;
+        players.forEach(p => {
+          countsMap[p.id] = perPlayer + (rem > 0 ? 1 : 0);
+          if (rem > 0) rem--;
+        });
+      }
+    }
+  } else {
+    let totalEntered = 0;
+    for (const p of players) {
+      const entered = countsMap[p.id];
+      if (entered === undefined || entered === null || typeof entered !== 'number' || isNaN(entered)) {
+        throw new Error(`Please enter valid chip count for ${p.guest_name || 'all players'}`);
+      }
+      if (!Number.isInteger(entered) || entered < 0) {
+        throw new Error('Chip counts must be non-negative integers');
+      }
+      totalEntered += entered;
+    }
+
+    if (totalEntered !== expectedTotalChips) {
+      throw new Error(`Chip count mismatch: ${totalEntered} chips entered, but ${expectedTotalChips} chips are expected.`);
+    }
   }
 
   const submitTx = db.transaction(() => {

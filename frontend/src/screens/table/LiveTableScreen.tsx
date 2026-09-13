@@ -141,6 +141,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const [showFinalChipsModal, setShowFinalChipsModal] = useState(false);
   const [finalChipInputs, setFinalChipInputs] = useState<Record<string, string>>({});
   const [finalPlayerDenoms, setFinalPlayerDenoms] = useState<Record<string, Record<number, number>>>({});
+  const [finalPlayerDirectValues, setFinalPlayerDirectValues] = useState<Record<string, string>>({});
   const [submittingFinalChips, setSubmittingFinalChips] = useState(false);
   const [finalChipError, setFinalChipError] = useState<string | null>(null);
   const [showBatchBuyInModal, setShowBatchBuyInModal] = useState(false);
@@ -465,6 +466,11 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const otherRegisteredPlayers = (players || []).filter((p: any) => p.user_id !== user?.id && !p.is_guest);
   const nextHostName = otherRegisteredPlayers.length > 0 ? otherRegisteredPlayers[0].display_name : 'the next player';
 
+  const totalActiveLoansMoney = (activeLoans || []).reduce(
+    (sum: number, l: any) => sum + (Number(l.moneyEquivalent) || 0),
+    0
+  );
+
   // Expected chips calculation for final settlement
   const isDenomMode = table?.chip_mode === 'DENOMINATION';
   let tableDenomList: Array<{ denom: number; color?: string; label?: string }> = [];
@@ -491,7 +497,16 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
       const pMap = { ...(prev[playerId] || {}) };
       const cur = pMap[denom] || 0;
       pMap[denom] = Math.max(0, cur + delta);
-      return { ...prev, [playerId]: pMap };
+      const nextMap = { ...prev, [playerId]: pMap };
+
+      // Automatically calculate sum of (count * denom) and update direct value
+      const sumMoney = Object.entries(pMap).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * (c || 0)), 0);
+      setFinalPlayerDirectValues(dPrev => ({
+        ...dPrev,
+        [playerId]: String(sumMoney)
+      }));
+
+      return nextMap;
     });
   };
 
@@ -500,8 +515,32 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
     setFinalPlayerDenoms(prev => {
       const pMap = { ...(prev[playerId] || {}) };
       pMap[denom] = Math.max(0, val);
-      return { ...prev, [playerId]: pMap };
+      const nextMap = { ...prev, [playerId]: pMap };
+
+      // Automatically calculate sum of (count * denom) and update direct value
+      const sumMoney = Object.entries(pMap).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * (c || 0)), 0);
+      setFinalPlayerDirectValues(dPrev => ({
+        ...dPrev,
+        [playerId]: String(sumMoney)
+      }));
+
+      return nextMap;
     });
+  };
+
+  const setPlayerTotalValueDirect = (playerId: string, text: string) => {
+    setFinalPlayerDirectValues(prev => ({
+      ...prev,
+      [playerId]: text
+    }));
+  };
+
+  const getPlayerFinalValue = (playerId: string) => {
+    if (finalPlayerDirectValues[playerId] !== undefined) {
+      return parseFloat(finalPlayerDirectValues[playerId]) || 0;
+    }
+    const pDenoms = finalPlayerDenoms[playerId] || {};
+    return Object.entries(pDenoms).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * (c || 0)), 0);
   };
 
   const totalBuyinChips = (players || []).reduce((sum: number, p: any) => sum + (p.total_buyin_chips || 0), 0);
@@ -515,12 +554,10 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   let totalFinalDenomMoney = 0;
   if (isDenomMode) {
     for (const p of (players || [])) {
+      totalFinalDenomMoney += getPlayerFinalValue(p.id);
       const pDenoms = finalPlayerDenoms[p.id] || {};
-      for (const [denomStr, count] of Object.entries(pDenoms)) {
-        const d = parseFloat(denomStr) || 0;
-        const c = count || 0;
-        totalFinalDenomChips += c;
-        totalFinalDenomMoney += (c * d);
+      for (const count of Object.values(pDenoms)) {
+        totalFinalDenomChips += (count || 0);
       }
     }
   }
@@ -539,12 +576,13 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
 
   const chipDiscrepancy = expectedTotalChips - totalEnteredChips;
   const isChipCountMatched = totalEnteredChips === expectedTotalChips;
-  const isMoneyMatched = isDenomMode ? Math.abs(totalFinalDenomMoney - expectedTotalValue) < 0.01 : true;
-  const isCountsMatched = isChipCountMatched && isMoneyMatched;
+  const isMoneyMatched = isDenomMode ? (Math.abs(totalFinalDenomMoney - expectedTotalValue) < 1) : true;
+  const isCountsMatched = isDenomMode ? isMoneyMatched : (isChipCountMatched && isMoneyMatched);
 
   const handleOpenFinalChipsModal = () => {
     if (isDenomMode) {
       const initialDenoms: Record<string, Record<number, number>> = {};
+      const initialDirect: Record<string, string> = {};
       for (const p of (players || [])) {
         initialDenoms[p.id] = {};
         if (p.final_denominations) {
@@ -559,8 +597,15 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
             }
           } catch (_) {}
         }
+        if (p.final_chips_value !== null && p.final_chips_value !== undefined) {
+          initialDirect[p.id] = String(p.final_chips_value);
+        } else {
+          const sumMoney = Object.entries(initialDenoms[p.id]).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * (c || 0)), 0);
+          initialDirect[p.id] = sumMoney > 0 ? String(sumMoney) : String(p.total_buyin_amount || 0);
+        }
       }
       setFinalPlayerDenoms(initialDenoms);
+      setFinalPlayerDirectValues(initialDirect);
     } else {
       const initialCounts: Record<string, string> = {};
       for (const p of (players || [])) {
@@ -574,10 +619,10 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
 
   const handleFinalChipsSubmit = async () => {
     if (!isCountsMatched) {
-      if (!isChipCountMatched) {
+      if (isDenomMode) {
+        setFinalChipError(`Total value mismatch: ₹${totalFinalDenomMoney.toLocaleString('en-IN')} entered, but ₹${expectedTotalValue.toLocaleString('en-IN')} was bought in.`);
+      } else {
         setFinalChipError(`Chip count mismatch: ${totalEnteredChips} chips entered, but ${expectedTotalChips} chips are expected.`);
-      } else if (!isMoneyMatched) {
-        setFinalChipError(`Value mismatch: ₹${totalFinalDenomMoney.toLocaleString('en-IN')} entered, but ₹${expectedTotalValue.toLocaleString('en-IN')} was bought in.`);
       }
       return;
     }
@@ -591,8 +636,9 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
           const breakdown = Object.entries(denoms)
             .map(([d, cnt]) => ({ denom: parseFloat(d), count: cnt }))
             .filter(item => item.count > 0);
-          const chips = breakdown.reduce((acc, item) => acc + item.count, 0);
-          const money = breakdown.reduce((acc, item) => acc + (item.count * item.denom), 0);
+          const denomChips = breakdown.reduce((acc, item) => acc + item.count, 0);
+          const money = getPlayerFinalValue(p.id);
+          const chips = denomChips > 0 ? denomChips : (table.chip_value > 0 ? Math.round(money / table.chip_value) : 0);
           return {
             playerId: p.id,
             finalChips: chips,
@@ -1262,19 +1308,21 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                   { color: isCountsMatched ? colors.successText : colors.dangerText }
                 ]}>
                   {isCountsMatched
-                    ? `Chip count and values match perfectly (${expectedTotalChips} chips / ₹${expectedTotalValue.toLocaleString('en-IN')})`
-                    : !isChipCountMatched
-                      ? `Chip count mismatch: ${totalEnteredChips} chips entered, but ${expectedTotalChips} chips are expected.`
-                      : `Value mismatch: ₹${totalFinalDenomMoney.toLocaleString('en-IN')} entered, but ₹${expectedTotalValue.toLocaleString('en-IN')} was bought in.`}
+                    ? (isDenomMode
+                        ? `100% Reconciled • Total Value ₹${expectedTotalValue.toLocaleString('en-IN')} Balanced`
+                        : `Chip count and values match perfectly (${expectedTotalChips} chips / ₹${expectedTotalValue.toLocaleString('en-IN')})`)
+                    : (isDenomMode
+                        ? `Value mismatch: ₹${totalFinalDenomMoney.toLocaleString('en-IN')} entered, but ₹${expectedTotalValue.toLocaleString('en-IN')} was bought in.`
+                        : `Chip count mismatch: ${totalEnteredChips} chips entered, but ${expectedTotalChips} chips are expected.`)}
                 </Text>
               </View>
               {!isCountsMatched && (
                 <Text style={styles.finalChipsTallyDiff}>
-                  {!isChipCountMatched
-                    ? chipDiscrepancy > 0
-                      ? `Missing ${chipDiscrepancy} chip${chipDiscrepancy === 1 ? '' : 's'}`
-                      : `${Math.abs(chipDiscrepancy)} extra chip${Math.abs(chipDiscrepancy) === 1 ? '' : 's'}`
-                    : `₹${Math.abs(expectedTotalValue - totalFinalDenomMoney).toLocaleString('en-IN')} ${totalFinalDenomMoney > expectedTotalValue ? 'extra' : 'short'}`}
+                  {isDenomMode
+                    ? `₹${Math.abs(expectedTotalValue - totalFinalDenomMoney).toLocaleString('en-IN')} ${totalFinalDenomMoney > expectedTotalValue ? 'extra' : 'short'}`
+                    : (chipDiscrepancy > 0
+                        ? `Missing ${chipDiscrepancy} chip${chipDiscrepancy === 1 ? '' : 's'}`
+                        : `${Math.abs(chipDiscrepancy)} extra chip${Math.abs(chipDiscrepancy) === 1 ? '' : 's'}`)}
                 </Text>
               )}
             </View>
@@ -1288,7 +1336,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                 if (isDenomMode) {
                   const pDenoms = finalPlayerDenoms[p.id] || {};
                   const pChips = Object.values(pDenoms).reduce((acc, c) => acc + (c || 0), 0);
-                  const pMoney = Object.entries(pDenoms).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * (c || 0)), 0);
+                  const pMoney = getPlayerFinalValue(p.id);
 
                   return (
                     <View key={p.id} style={styles.denomPlayerCard}>
@@ -1313,8 +1361,27 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                         </View>
                         <View style={styles.denomPlayerTotalPill}>
                           <Text style={styles.denomPlayerTotalText}>
-                            {pChips} chips • ₹{pMoney.toLocaleString('en-IN')}
+                            {pChips > 0 ? `${pChips} chips • ` : ''}₹{pMoney.toLocaleString('en-IN')}
                           </Text>
+                        </View>
+                      </View>
+
+                      {/* Direct Total Chip Value input row */}
+                      <View style={styles.directValueInputRow}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text style={styles.directValueLabel}>Total In-Hand Value:</Text>
+                          <Text style={styles.directValueSubtext}>Write total ₹ directly, or enter chips below</Text>
+                        </View>
+                        <View style={styles.directValueBox}>
+                          <Text style={styles.rupeeSymbol}>₹</Text>
+                          <TextInput
+                            style={styles.directValueInput}
+                            keyboardType="numeric"
+                            placeholder="0"
+                            placeholderTextColor={colors.textMuted}
+                            value={finalPlayerDirectValues[p.id] !== undefined ? finalPlayerDirectValues[p.id] : String(pMoney)}
+                            onChangeText={t => setPlayerTotalValueDirect(p.id, t)}
+                          />
                         </View>
                       </View>
 
@@ -2285,6 +2352,53 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.chipGold,
     width: 58,
+    textAlign: 'right'
+  },
+  directValueInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(235, 94, 40, 0.08)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(235, 94, 40, 0.25)'
+  },
+  directValueLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text
+  },
+  directValueSubtext: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 1
+  },
+  directValueBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardInset,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    paddingHorizontal: 8,
+    height: 32
+  },
+  rupeeSymbol: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.primary,
+    marginRight: 4
+  },
+  directValueInput: {
+    width: 70,
+    height: 30,
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.text,
+    padding: 0,
     textAlign: 'right'
   }
 });

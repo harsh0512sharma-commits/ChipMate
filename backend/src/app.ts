@@ -21,9 +21,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.22',
-      buildTime: Date.now(),
-      releaseNotes: 'New splash video cache refresh, unified custom denominations, casino vault inventory buy-in, denomination settlement.'
+      version: '1.0.23',
+      buildTime: 1789351000000,
+      releaseNotes: 'Fix custom denomination table black screen crash and enable direct final chip value input in end-game settlement.'
     });
   };
   app.get('/version', versionHandler);

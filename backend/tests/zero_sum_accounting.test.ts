@@ -788,4 +788,92 @@ describe('ChipMate Authoritative Zero-Sum Accounting Engine & Invariants', () =>
     const finalizeRes = settlementService.finalizeGame(hostA.id, table.id);
     expect(finalizeRes.success).toBe(true);
   });
+
+  // TEST CASE: DIRECT VALUE ENTRY IN CUSTOM DENOMINATION TABLE
+  test('Custom denomination table allows direct final chip value entry and resolves exact winners, losers, and transfers', () => {
+    const [hostA, playerB] = setupPlayers(2);
+
+    const { table } = tableService.createTable({
+      hostUserId: hostA.id,
+      name: 'Direct Value Denom Table',
+      gameType: 'POKER',
+      chipMode: 'DENOMINATION',
+      denominations: [
+        { value: 10, count: 50 },
+        { value: 50, count: 20 },
+        { value: 100, count: 10 }
+      ]
+    });
+
+    const aId = db.prepare('SELECT id FROM game_players WHERE game_id = ? AND user_id = ?').get(table.id, hostA.id).id;
+    const { playerId: bId } = tableService.joinTableByCode(playerB.id, table.join_code);
+
+    // A buys in ₹1000 (10 x ₹100 chips)
+    ledgerService.recordBuyIn({
+      gameId: table.id,
+      hostUserId: hostA.id,
+      playerId: aId,
+      chipAmount: 10,
+      moneyValue: 1000,
+      denominationsBreakdown: [{ denom: 100, count: 10 }]
+    });
+
+    // B buys in ₹1000 (20 x ₹50 chips)
+    ledgerService.recordBuyIn({
+      gameId: table.id,
+      hostUserId: hostA.id,
+      playerId: bId,
+      chipAmount: 20,
+      moneyValue: 1000,
+      denominationsBreakdown: [{ denom: 50, count: 20 }]
+    });
+
+    // At end of game, host simply writes direct total values:
+    // Player A ended with ₹1500 (profit ₹500)
+    // Player B ended with ₹500 (loss ₹500)
+    // Total entered money = ₹2000 (100% matches total buy-in pot of ₹2000)
+    const preview = settlementService.submitFinalChipCounts(hostA.id, table.id, [
+      {
+        playerId: aId,
+        finalChips: 0, // Not counted physically
+        finalChipsMoney: 1500
+      },
+      {
+        playerId: bId,
+        finalChips: 0, // Not counted physically
+        finalChipsMoney: 500
+      }
+    ]);
+
+    expect(preview.isReconciled).toBe(true);
+
+    const balA = preview.players.find(p => p.playerId === aId)!;
+    const balB = preview.players.find(p => p.playerId === bId)!;
+
+    expect(balA.finalChipsMoney).toBe(1500);
+    expect(balA.totalBuyinMoney).toBe(1000);
+    expect(balA.netPosition).toBe(500); // Winner
+
+    expect(balB.finalChipsMoney).toBe(500);
+    expect(balB.totalBuyinMoney).toBe(1000);
+    expect(balB.netPosition).toBe(-500); // Loser
+
+    // Zero-sum invariant: 500 + (-500) = 0
+    expect(balA.netPosition + balB.netPosition).toBe(0);
+
+    // Optimized settlement: B pays A ₹500
+    expect(preview.optimizedSettlements).toHaveLength(1);
+    expect(preview.optimizedSettlements[0].fromPlayerId).toBe(bId);
+    expect(preview.optimizedSettlements[0].toPlayerId).toBe(aId);
+    expect(preview.optimizedSettlements[0].amount).toBe(500);
+
+    // Summary tracks winner and loser
+    expect(preview.summary.biggestWinner?.amount).toBe(500);
+    expect(preview.summary.biggestLoser?.amount).toBe(-500);
+
+    // Host finalizes smoothly
+    const finalRes = settlementService.finalizeGame(hostA.id, table.id);
+    expect(finalRes.success).toBe(true);
+  });
 });
+
