@@ -103,6 +103,19 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLo
       useNativeDriver: false,
     }).start();
 
+    // Instant DOM-level autoplay trigger for mobile Safari & Chrome Android
+    if (Platform.OS === 'web' && videoRef.current) {
+      try {
+        videoRef.current.muted = true;
+        videoRef.current.defaultMuted = true;
+        videoRef.current.playsInline = true;
+        videoRef.current.setAttribute('muted', '');
+        videoRef.current.setAttribute('playsinline', '');
+        videoRef.current.setAttribute('webkit-playsinline', '');
+        videoRef.current.play().catch(() => {});
+      } catch (_) {}
+    }
+
     // Safety timer (7 seconds) to ensure app always transitions smoothly if onEnded doesn't fire
     const safetyTimer = setTimeout(() => {
       finishSplash();
@@ -120,10 +133,27 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLo
     outputRange: ['0%', '100%'],
   });
 
+  const handleContainerTap = () => {
+    if (videoRef.current) {
+      try {
+        if (videoRef.current.paused) {
+          videoRef.current.play().catch(() => finishSplash());
+        }
+      } catch (_) {
+        finishSplash();
+      }
+    }
+  };
+
   // 1. Web Custom Video Mode: Shows 100% complete unzoomed video (contain) with zero clutter
   if (Platform.OS === 'web' && !videoFailed) {
     return (
-      <Animated.View style={[styles.videoContainer, { opacity: opacityAnim }]}>
+      <Animated.View
+        style={[styles.videoContainer, { opacity: opacityAnim }]}
+        // @ts-ignore
+        onClick={handleContainerTap}
+        onTouchStart={handleContainerTap}
+      >
         <StatusBar barStyle="light-content" backgroundColor="#000000" />
 
         <HtmlVideo
@@ -133,8 +163,16 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd, isLo
           muted={true}
           playsInline
           preload="auto"
+          onLoadedMetadata={() => {
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              videoRef.current.defaultMuted = true;
+              videoRef.current.play().catch(() => {});
+            }
+          }}
           onCanPlay={() => {
             if (videoRef.current) {
+              videoRef.current.muted = true;
               videoRef.current.play().catch(() => {});
             }
           }}

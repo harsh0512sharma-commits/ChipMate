@@ -8,6 +8,7 @@ interface ChipCardProps {
   playerChips: number;
   bankChips: number;
   chipValue: number;
+  totalLoansMoney?: number;
   chipMode?: 'EQUAL' | 'DENOMINATION';
   denominations?: number[] | string | null;
   isReconciled?: boolean;
@@ -20,10 +21,12 @@ export const ChipCard: React.FC<ChipCardProps> = ({
   playerChips,
   bankChips,
   chipValue,
+  totalLoansMoney = 0,
   chipMode,
   denominations
 }) => {
-  const totalPotMoney = totalChips * chipValue;
+  const hasLoans = totalLoansMoney > 0;
+  const totalPotMoney = (totalChips * chipValue) + totalLoansMoney;
   const inPlayMoney = playerChips * chipValue;
   const bankMoney = bankChips * chipValue;
 
@@ -97,6 +100,9 @@ export const ChipCard: React.FC<ChipCardProps> = ({
             {totalChips} <Text style={[styles.chipUnit, { color: colors.chipGold }]}>chips</Text>
           </Text>
           <Text style={[styles.metricMoney, { color: colors.successText }]}>₹{totalPotMoney.toLocaleString('en-IN')}</Text>
+          {hasLoans && (
+            <Text style={styles.loansTag}>+₹{totalLoansMoney.toLocaleString('en-IN')} shots</Text>
+          )}
         </View>
       </View>
     </View>
@@ -199,5 +205,11 @@ const styles = StyleSheet.create({
     height: 38,
     backgroundColor: colors.borderDark,
     marginHorizontal: 2
+  },
+  loansTag: {
+    fontSize: 9,
+    color: colors.warningText,
+    fontWeight: '700',
+    marginTop: 2
   }
 });

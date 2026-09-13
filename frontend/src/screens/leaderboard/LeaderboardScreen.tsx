@@ -6,7 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import { Trophy, Medal, Award, Flame } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
@@ -115,6 +116,16 @@ export const LeaderboardScreen: React.FC = () => {
                 <View style={styles.rankContainer}>
                   {getRankBadge(item.rank)}
                 </View>
+
+                {item.avatarUrl ? (
+                  <Image source={{ uri: item.avatarUrl }} style={styles.rankAvatarImage} />
+                ) : (
+                  <View style={styles.rankAvatar}>
+                    <Text style={styles.rankAvatarText}>
+                      {item.displayName ? item.displayName.charAt(0).toUpperCase() : 'P'}
+                    </Text>
+                  </View>
+                )}
 
                 <View style={styles.infoContainer}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -243,7 +254,32 @@ const styles = StyleSheet.create({
   rankContainer: {
     width: 36,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    marginRight: 6
+  },
+  rankAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10
+  },
+  rankAvatarImage: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1.5,
+    borderColor: colors.primaryBorder,
+    marginRight: 10
+  },
+  rankAvatarText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.primary
   },
   rankMedal: {
     fontSize: 20
@@ -254,8 +290,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted
   },
   infoContainer: {
-    flex: 1,
-    marginLeft: 10
+    flex: 1
   },
   playerName: {
     fontSize: 15,

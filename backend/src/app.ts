@@ -15,15 +15,15 @@ export function createApp() {
 
   // Health check
   app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.13', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.14', timestamp: new Date().toISOString() });
   });
 
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.13',
-      buildTime: 1789257000000,
-      releaseNotes: 'Full uncropped 16:9 video splash screen with smooth instant playback, HRVS Solutions branding on auth and profile footers.'
+      version: '1.0.14',
+      buildTime: 1789260000000,
+      releaseNotes: 'Uncapped shots and credit lending in Teen Patti & Poker, pot value expansion with active shots, seamless video splash auto-entry, and user profile picture upload.'
     });
   };
   app.get('/version', versionHandler);

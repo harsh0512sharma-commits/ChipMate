@@ -255,8 +255,8 @@ export function getFriendLeaderboard(userId: string, sortBy: 'NET_WINNINGS' | 'W
 export function getHeadToHeadStats(userIdA: string, userIdB: string) {
   const db = getDb();
 
-  const userA = db.prepare('SELECT id, display_name, friend_code FROM users WHERE id = ?').get(userIdA) as any;
-  const userB = db.prepare('SELECT id, display_name, friend_code FROM users WHERE id = ?').get(userIdB) as any;
+  const userA = db.prepare('SELECT id, display_name, friend_code, avatar_url FROM users WHERE id = ?').get(userIdA) as any;
+  const userB = db.prepare('SELECT id, display_name, friend_code, avatar_url FROM users WHERE id = ?').get(userIdB) as any;
 
   if (!userA || !userB) throw new Error('User not found');
 
@@ -296,8 +296,8 @@ export function getHeadToHeadStats(userIdA: string, userIdB: string) {
   }
 
   return {
-    userA: { id: userA.id, displayName: userA.display_name, friendCode: userA.friend_code },
-    userB: { id: userB.id, displayName: userB.display_name, friendCode: userB.friend_code },
+    userA: { id: userA.id, displayName: userA.display_name, friendCode: userA.friend_code, avatarUrl: userA.avatar_url },
+    userB: { id: userB.id, displayName: userB.display_name, friendCode: userB.friend_code, avatarUrl: userB.avatar_url },
     gamesPlayedTogether: gamesCount,
     winsA,
     winsB,

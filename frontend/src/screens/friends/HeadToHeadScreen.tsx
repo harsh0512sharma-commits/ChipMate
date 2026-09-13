@@ -4,7 +4,8 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import { Swords, Trophy, History } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
@@ -67,9 +68,13 @@ export const HeadToHeadScreen: React.FC<HeadToHeadScreenProps> = ({
           <View style={styles.versusRow}>
             {/* Player A */}
             <View style={styles.playerColumn}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{userA.displayName.charAt(0).toUpperCase()}</Text>
-              </View>
+              {userA.avatarUrl ? (
+                <Image source={{ uri: userA.avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{userA.displayName.charAt(0).toUpperCase()}</Text>
+                </View>
+              )}
               <Text style={styles.playerName} numberOfLines={1}>{userA.displayName}</Text>
               <Text style={styles.playerCode}>#{userA.friendCode}</Text>
               <Text style={[styles.netAmount, { color: netA >= 0 ? colors.successText : colors.dangerText }]}>
@@ -84,9 +89,13 @@ export const HeadToHeadScreen: React.FC<HeadToHeadScreenProps> = ({
 
             {/* Player B */}
             <View style={styles.playerColumn}>
-              <View style={[styles.avatar, { backgroundColor: colors.purpleLight }]}>
-                <Text style={[styles.avatarText, { color: colors.purple }]}>{userB.displayName.charAt(0).toUpperCase()}</Text>
-              </View>
+              {userB.avatarUrl ? (
+                <Image source={{ uri: userB.avatarUrl }} style={[styles.avatarImage, { borderColor: colors.purple }]} />
+              ) : (
+                <View style={[styles.avatar, { backgroundColor: colors.purpleLight }]}>
+                  <Text style={[styles.avatarText, { color: colors.purple }]}>{userB.displayName.charAt(0).toUpperCase()}</Text>
+                </View>
+              )}
               <Text style={styles.playerName} numberOfLines={1}>{userB.displayName}</Text>
               <Text style={styles.playerCode}>#{userB.friendCode}</Text>
               <Text style={[styles.netAmount, { color: netB >= 0 ? colors.successText : colors.dangerText }]}>
@@ -200,6 +209,14 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSubtle,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 8
+  },
+  avatarImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: colors.primaryBorder,
     marginBottom: 8
   },
   avatarText: {

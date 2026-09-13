@@ -53,6 +53,8 @@ export interface SettlementReview {
   optimizedSettlements: OptimizedPayment[];
   summary: {
     totalPotMoney: number;
+    totalBuyinPotMoney?: number;
+    totalActiveLoansMoney?: number;
     biggestWinner?: { displayName: string; amount: number };
     biggestLoser?: { displayName: string; amount: number };
   };
@@ -154,6 +156,9 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
     }
   }
 
+  const totalActiveLoansMoney = loans.reduce((sum, l) => sum + (l.remaining_chip_amount * table.chip_value), 0);
+  const effectivePotMoney = Math.round((totalPotMoney + totalActiveLoansMoney) * 100) / 100;
+
   return {
     gameId: table.id,
     tableName: table.name,
@@ -176,7 +181,9 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
     })),
     optimizedSettlements,
     summary: {
-      totalPotMoney: Math.round(totalPotMoney * 100) / 100,
+      totalBuyinPotMoney: Math.round(totalPotMoney * 100) / 100,
+      totalActiveLoansMoney: Math.round(totalActiveLoansMoney * 100) / 100,
+      totalPotMoney: effectivePotMoney,
       biggestWinner,
       biggestLoser
     }

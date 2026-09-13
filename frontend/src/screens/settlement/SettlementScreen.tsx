@@ -205,6 +205,19 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
             Total Accounted: {data.totalAccountedChips} chips • Total Expected: {expectedTotalChips} chips (₹{data.chipValue || 1}/chip)
           </Text>
 
+          {Boolean(data.summary?.totalPotMoney) && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+              <Text style={{ fontSize: 13, color: colors.chipGold, fontWeight: '700' }}>
+                Total Pot: ₹{Number(data.summary.totalPotMoney).toLocaleString('en-IN')}
+              </Text>
+              {Boolean(data.summary?.totalActiveLoansMoney && data.summary.totalActiveLoansMoney > 0) && (
+                <Text style={{ fontSize: 11, color: colors.warningText, fontWeight: '600', marginLeft: 8 }}>
+                  (includes ₹{Number(data.summary.totalActiveLoansMoney).toLocaleString('en-IN')} in shots/credit)
+                </Text>
+              )}
+            </View>
+          )}
+
           {isHost && !isFinalized && (
             <TouchableOpacity style={styles.recountBtn} onPress={handleOpenEditChips}>
               <Edit3 size={14} color={colors.primary} style={{ marginRight: 6 }} />

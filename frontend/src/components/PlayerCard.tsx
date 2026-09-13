@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Crown, UserCheck, Clock, UserPlus } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 
@@ -15,6 +15,7 @@ export interface PlayerCardData {
   friendshipStatus: 'SELF' | 'FRIENDS' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'NONE';
   moneyEquivalent: number;
   is_guest?: boolean;
+  avatar_url?: string | null;
 }
 
 interface PlayerCardProps {
@@ -51,11 +52,15 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
       {/* Top Header: Avatar, Name, Host Tag, Social Button */}
       <View style={styles.topRow}>
         <View style={styles.nameSection}>
-          <View style={[styles.avatar, isGuest && { backgroundColor: colors.cardRaised, borderColor: colors.borderDark }]}>
-            <Text style={[styles.avatarText, isGuest && { color: colors.textSecondary }]}>
-              {player.display_name ? player.display_name.charAt(0).toUpperCase() : 'G'}
-            </Text>
-          </View>
+          {player.avatar_url ? (
+            <Image source={{ uri: player.avatar_url }} style={styles.avatarImage} />
+          ) : (
+            <View style={[styles.avatar, isGuest && { backgroundColor: colors.cardRaised, borderColor: colors.borderDark }]}>
+              <Text style={[styles.avatarText, isGuest && { color: colors.textSecondary }]}>
+                {player.display_name ? player.display_name.charAt(0).toUpperCase() : 'G'}
+              </Text>
+            </View>
+          )}
           <View style={styles.nameMeta}>
             <View style={styles.nameLine}>
               <Text style={styles.playerName} numberOfLines={1}>
@@ -166,6 +171,14 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSubtle,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 8
+  },
+  avatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: colors.primaryBorder,
     marginRight: 8
   },
   avatarText: {

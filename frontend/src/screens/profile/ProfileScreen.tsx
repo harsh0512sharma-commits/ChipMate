@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,8 @@ import {
   TextInput,
   Alert,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import {
   User,
@@ -21,7 +22,8 @@ import {
   Sparkles,
   Edit2,
   History,
-  ArrowRight
+  ArrowRight,
+  Camera
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
@@ -57,6 +59,67 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary }) =
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [gameHistory, setGameHistory] = useState<any[]>([]);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<any>(null);
+
+  const handlePickImage = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (e: any) => {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+
+    if (file.size > 15 * 1024 * 1024) {
+      Alert.alert('File too large', 'Please choose an image under 15MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = document.createElement('img');
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const targetSize = 256;
+        canvas.width = targetSize;
+        canvas.height = targetSize;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const minDim = Math.min(img.width, img.height);
+          const sx = (img.width - minDim) / 2;
+          const sy = (img.height - minDim) / 2;
+          ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, targetSize, targetSize);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          saveAvatar(compressedDataUrl);
+        }
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const saveAvatar = async (dataUrl: string) => {
+    setUploadingAvatar(true);
+    try {
+      const res = await apiRequest('/auth/profile', {
+        method: 'PUT',
+        body: { avatarUrl: dataUrl }
+      });
+      if (res.success && res.user) {
+        updateUser(res.user);
+        Alert.alert('Success', 'Profile picture updated successfully!');
+      } else {
+        Alert.alert('Upload Failed', res.error || 'Could not update profile picture');
+      }
+    } catch (err: any) {
+      Alert.alert('Upload Error', err.message || 'Failed to update profile picture');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   useEffect(() => {
     refreshUser();
@@ -113,10 +176,46 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary }) =
       <ScrollView contentContainerStyle={styles.content}>
         {/* User Card */}
         <View style={styles.userCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.display_name ? user.display_name.charAt(0).toUpperCase() : 'U'}
-            </Text>
+          {Platform.OS === 'web' && (
+            // @ts-ignore
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
+            />
+          )}
+
+          <View style={styles.avatarWrapper}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={handlePickImage}
+              disabled={uploadingAvatar}
+              style={styles.avatarTouchable}
+            >
+              {user?.avatar_url ? (
+                <Image source={{ uri: user.avatar_url }} style={styles.avatarImage} />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {user?.display_name ? user.display_name.charAt(0).toUpperCase() : 'U'}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.cameraBadge}>
+                {uploadingAvatar ? (
+                  <ActivityIndicator size={12} color="#FFF" />
+                ) : (
+                  <Camera size={13} color="#FFF" />
+                )}
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handlePickImage} disabled={uploadingAvatar}>
+              <Text style={styles.changePhotoText}>
+                {uploadingAvatar ? 'Uploading...' : 'Change Photo'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Name Display & Editing */}
@@ -363,7 +462,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary }) =
         {/* App Version Footer */}
         <View style={styles.versionFooter}>
           <Text style={styles.versionFooterText}>ChipMate v{APP_BUILD_VERSION}</Text>
-          <Text style={styles.versionSubText}>Zero-Sum Card Ledger • Real-Time Offline Sync</Text>
+          <Text style={styles.versionSubText}>Zero-Sum Card Ledger</Text>
           <Text style={styles.madeWithLoveText}>Made with ❤️ by HRVS Solutions</Text>
         </View>
       </ScrollView>
@@ -477,16 +576,51 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSubtle
   },
+  avatarWrapper: {
+    alignItems: 'center',
+    marginBottom: 14
+  },
+  avatarTouchable: {
+    position: 'relative'
+  },
   avatar: {
-    width: 68,
-    height: 68,
-    borderRadius: 22,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     backgroundColor: colors.cardRaised,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    borderWidth: 2,
+    borderColor: colors.primaryBorder,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12
+    overflow: 'hidden'
+  },
+  avatarImage: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 2,
+    borderColor: colors.primaryBorder
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: colors.primary,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.card,
+    elevation: 3
+  },
+  changePhotoText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+    marginTop: 6,
+    letterSpacing: 0.2
   },
   avatarText: {
     fontSize: 26,

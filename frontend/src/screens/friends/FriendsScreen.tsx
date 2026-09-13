@@ -9,7 +9,8 @@ import {
   RefreshControl,
   ActivityIndicator,
   Modal,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import {
   UserPlus,
@@ -217,11 +218,15 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead, 
           ) : (
             friends.map(friend => (
               <View key={friend.id} style={styles.friendCard}>
-                <View style={styles.friendAvatar}>
-                  <Text style={styles.avatarLetter}>
-                    {friend.displayName ? friend.displayName.charAt(0).toUpperCase() : 'P'}
-                  </Text>
-                </View>
+                {friend.avatarUrl ? (
+                  <Image source={{ uri: friend.avatarUrl }} style={styles.friendAvatarImage} />
+                ) : (
+                  <View style={styles.friendAvatar}>
+                    <Text style={styles.avatarLetter}>
+                      {friend.displayName ? friend.displayName.charAt(0).toUpperCase() : 'P'}
+                    </Text>
+                  </View>
+                )}
 
                 <View style={{ flex: 1 }}>
                   <Text style={styles.friendName}>{friend.displayName}</Text>
@@ -488,6 +493,14 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSubtle,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12
+  },
+  friendAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.primaryBorder,
     marginRight: 12
   },
   avatarLetter: {

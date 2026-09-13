@@ -122,11 +122,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* Welcome Header */}
         <View style={styles.welcomeRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Image
-              source={require('../../../assets/chip_icon.png')}
-              style={styles.headerChipIcon}
-              resizeMode="contain"
-            />
+            {user?.avatar_url ? (
+              <Image source={{ uri: user.avatar_url }} style={styles.headerAvatar} />
+            ) : (
+              <Image
+                source={require('../../../assets/chip_icon.png')}
+                style={styles.headerChipIcon}
+                resizeMode="contain"
+              />
+            )}
             <View style={{ marginLeft: 10 }}>
               <Text style={styles.greetingText}>Welcome,</Text>
               <Text style={styles.userName}>{user?.display_name || 'Player'}</Text>
@@ -363,6 +367,13 @@ const styles = StyleSheet.create({
   headerChipIcon: {
     width: 42,
     height: 42
+  },
+  headerAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1.5,
+    borderColor: colors.primaryBorder
   },
   greetingText: {
     fontSize: 12,

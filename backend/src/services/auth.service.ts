@@ -373,23 +373,25 @@ export function verifyOtp(email: string, code: string): { token: string; user: U
   return { token, user: fullUser, isNewUser };
 }
 
-export function updateUserProfile(userId: string, displayName: string, avatarUrl?: string): UserRecord {
-  const trimmedName = displayName.trim();
-  if (!trimmedName || trimmedName.length < 2) {
-    throw new Error('Display name must be at least 2 characters');
-  }
-
+export function updateUserProfile(userId: string, displayName?: string, avatarUrl?: string): UserRecord {
   const db = getDb();
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as UserRecord | undefined;
   if (!user) {
     throw new Error('User not found');
   }
 
+  const finalName = displayName !== undefined ? displayName.trim() : user.display_name;
+  if (!finalName || finalName.length < 2) {
+    throw new Error('Display name must be at least 2 characters');
+  }
+
+  const finalAvatar = avatarUrl !== undefined ? (avatarUrl || null) : (user.avatar_url || null);
+
   const now = new Date().toISOString();
   db.prepare(`
     UPDATE users SET display_name = ?, avatar_url = ?, updated_at = ?
     WHERE id = ?
-  `).run(trimmedName, avatarUrl || user.avatar_url || null, now, userId);
+  `).run(finalName, finalAvatar, now, userId);
 
   return db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as UserRecord;
 }

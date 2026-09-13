@@ -200,7 +200,7 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
               <View>
                 <View style={styles.infoBanner}>
                   <Text style={styles.infoBannerText}>
-                    🤝 <Text style={{ fontWeight: '700' }}>These chips are lent, not won.</Text> Creates an outstanding debt between players.
+                    🤝 <Text style={{ fontWeight: '700' }}>Credit / Shot Lending:</Text> You can lend beyond current in-hand chips. Creates an obligation debt tracked until final settlement.
                   </Text>
                 </View>
 

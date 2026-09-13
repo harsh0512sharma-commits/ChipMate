@@ -412,6 +412,10 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const expectedTotalChips = totalBuyinChips > 0 ? totalBuyinChips : (table.total_chips || 100);
   const chipValue = table.chip_value || 10;
   const expectedTotalValue = expectedTotalChips * chipValue;
+  const totalActiveLoansMoney = (activeLoans || []).reduce(
+    (sum: number, l: any) => sum + (l.moneyEquivalent || ((l.remaining_chip_amount || 0) * chipValue)),
+    0
+  );
 
   const totalEnteredChips = (players || []).reduce((sum: number, p: any) => {
     const raw = finalChipInputs[p.id];
@@ -544,6 +548,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
           playerChips={reconciliation.playerChips}
           bankChips={reconciliation.bankChips}
           chipValue={table.chip_value}
+          totalLoansMoney={totalActiveLoansMoney}
           chipMode={table.chip_mode}
           denominations={table.denominations}
           isReconciled={reconciliation.isReconciled}

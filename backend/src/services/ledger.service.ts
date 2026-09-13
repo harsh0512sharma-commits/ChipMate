@@ -128,11 +128,9 @@ export function recordLend(params: {
     const borrower = db.prepare('SELECT * FROM game_players WHERE id = ? AND game_id = ?').get(params.borrowerPlayerId, params.gameId) as any;
 
     if (!lender || !borrower) throw new Error('Lender or borrower not found in this game');
+    if (lender.id === borrower.id) throw new Error('Lender and borrower cannot be the same');
 
-    if (lender.current_chips < params.chipAmount) {
-      throw new Error(`Lender only has ${lender.current_chips} chips available to lend.`);
-    }
-
+    // Uncapped shots/loans: In home games with limited physical chips, players can lend on credit beyond their in-hand chips.
     const moneyValue = params.chipAmount * table.chip_value;
     const loanId = uuidv4();
     const txId = uuidv4();

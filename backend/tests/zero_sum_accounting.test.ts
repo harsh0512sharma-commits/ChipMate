@@ -435,4 +435,80 @@ describe('ChipMate Authoritative Zero-Sum Accounting Engine & Invariants', () =>
     const totalPaid = run1.reduce((sum, p) => sum + p.amount, 0);
     expect(totalPaid).toBe(300);
   });
+
+  // INVARIANT: UNCAPPED SHOT / CREDIT LENDING IN HOME GAMES
+  test('Invariant: Uncapped shot/credit lending allows lending beyond in-hand chips and expands pot value', () => {
+    const [hostA, playerB, playerC] = setupPlayers(3);
+    const { table } = tableService.createTable({
+      hostUserId: hostA.id,
+      name: 'Teen Patti Limited Chips Game',
+      gameType: 'TEEN_PATTI',
+      totalChips: 60,
+      chipValue: 5
+    });
+
+    const aId = db.prepare('SELECT id FROM game_players WHERE game_id = ? AND user_id = ?').get(table.id, hostA.id).id;
+    const { playerId: bId } = tableService.joinTableByCode(playerB.id, table.join_code);
+    const { playerId: cId } = tableService.joinTableByCode(playerC.id, table.join_code);
+
+    // 3 players buy in for 20 chips each @ ₹5 = ₹100 buyin each (60 total physical chips, ₹300 total buyin pot)
+    ledgerService.recordBuyIn({ gameId: table.id, hostUserId: hostA.id, playerId: aId, chipAmount: 20 });
+    ledgerService.recordBuyIn({ gameId: table.id, hostUserId: hostA.id, playerId: bId, chipAmount: 20 });
+    ledgerService.recordBuyIn({ gameId: table.id, hostUserId: hostA.id, playerId: cId, chipAmount: 20 });
+
+    // Host A lends 50 chips (credit shot) to Player B (even though Host A only has 20 chips)
+    // Host A chips become 20 - 50 = -30
+    // Player B chips become 20 + 50 = 70
+    const { loanId } = ledgerService.recordLend({
+      gameId: table.id,
+      hostUserId: hostA.id,
+      lenderPlayerId: aId,
+      borrowerPlayerId: bId,
+      chipAmount: 50
+    });
+
+    const pA = db.prepare('SELECT current_chips FROM game_players WHERE id = ?').get(aId);
+    const pB = db.prepare('SELECT current_chips FROM game_players WHERE id = ?').get(bId);
+    expect(pA.current_chips).toBe(-30);
+    expect(pB.current_chips).toBe(70);
+
+    // End of game: Host counts physical chips in hand:
+    // Host A: 35 chips (₹175)
+    // Player B: 5 chips (₹25)
+    // Player C: 20 chips (₹100)
+    // Total physical chips = 35 + 5 + 20 = 60 chips (100% matched)
+    const preview = settlementService.submitFinalChipCounts(hostA.id, table.id, {
+      [aId]: 35,
+      [bId]: 5,
+      [cId]: 20
+    });
+
+    expect(preview.isReconciled).toBe(true);
+    expect(preview.totalAccountedChips).toBe(60);
+    expect(preview.expectedTotalChips).toBe(60);
+
+    // Pot value expanded to include active credit shots:
+    // Total buyin pot = ₹300. Active loan = 50 * ₹5 = ₹250. Effective pot = ₹550.
+    expect(preview.summary.totalPotMoney).toBe(550);
+    expect(preview.summary.totalBuyinPotMoney).toBe(300);
+    expect(preview.summary.totalActiveLoansMoney).toBe(250);
+
+    const balA = preview.players.find(p => p.playerId === aId)!;
+    const balB = preview.players.find(p => p.playerId === bId)!;
+    const balC = preview.players.find(p => p.playerId === cId)!;
+
+    // A: 35 chips (₹175) - Buyin (₹100) + Credit Lent (₹250) = +₹325
+    expect(balA.netPosition).toBe(325);
+    // B: 5 chips (₹25) - Buyin (₹100) - Loan Debt (₹250) = -₹325
+    expect(balB.netPosition).toBe(-325);
+    // C: 20 chips (₹100) - Buyin (₹100) = ₹0
+    expect(balC.netPosition).toBe(0);
+
+    // Zero-sum invariant strictly satisfied
+    expect(balA.netPosition + balB.netPosition + balC.netPosition).toBe(0);
+
+    // Finalize game
+    const finalizeRes = settlementService.finalizeGame(hostA.id, table.id);
+    expect(finalizeRes.success).toBe(true);
+  });
 });
