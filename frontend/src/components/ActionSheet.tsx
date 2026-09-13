@@ -23,7 +23,13 @@ interface ActionSheetProps {
   lastTransaction?: any;
   initialPlayerId?: string;
   onClose: () => void;
-  onSubmitBuy: (playerId: string, chipAmount: number, isRebuy: boolean) => Promise<void>;
+  onSubmitBuy: (
+    playerId: string,
+    chipAmount: number,
+    isRebuy: boolean,
+    moneyValue?: number,
+    denominationsBreakdown?: Array<{ denom: number; count: number }>
+  ) => Promise<void>;
   onSubmitLend: (
     lenderPlayerId: string,
     borrowerPlayerId: string,
@@ -64,8 +70,8 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
 
   const isDenomTable = table?.chip_mode === 'DENOMINATION';
 
-  // Parse denominations for table
-  let tableDenomList: Array<{ denom: number; color?: string; label?: string }> = [];
+  // Parse denominations for table (with vault counts and color)
+  let tableDenomList: Array<{ denom: number; count?: number; initial_count?: number; color?: string; label?: string }> = [];
   if (isDenomTable && table?.denominations) {
     try {
       const parsed = typeof table.denominations === 'string' ? JSON.parse(table.denominations) : table.denominations;
@@ -74,16 +80,47 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
           if (typeof item === 'object' && item !== null) {
             return {
               denom: Number(item.value) || 0,
+              count: Number(item.count) || 0,
+              initial_count: Number(item.initial_count ?? item.count) || 0,
               color: item.color,
               label: item.label
             };
           }
-          return { denom: Number(item) || 0 };
+          return { denom: Number(item) || 0, count: 999 };
         }).filter(d => d.denom > 0);
       }
     } catch (_) {}
   }
 
+  // Denomination Buy-In Counts
+  const [denomBuyCounts, setDenomBuyCounts] = useState<Record<number, number>>({});
+
+  const updateDenomBuyCount = (denom: number, delta: number) => {
+    setDenomBuyCounts(prev => {
+      const current = prev[denom] || 0;
+      const next = Math.max(0, current + delta);
+      const bankItem = tableDenomList.find(d => d.denom === denom);
+      if (bankItem && bankItem.count !== undefined && next > bankItem.count) {
+        return prev;
+      }
+      return { ...prev, [denom]: next };
+    });
+  };
+
+  const setDenomBuyDirect = (denom: number, countStr: string) => {
+    const val = parseInt(countStr, 10) || 0;
+    const bankItem = tableDenomList.find(d => d.denom === denom);
+    const maxVal = (bankItem && bankItem.count !== undefined) ? bankItem.count : val;
+    setDenomBuyCounts(prev => ({
+      ...prev,
+      [denom]: Math.max(0, Math.min(val, maxVal))
+    }));
+  };
+
+  const totalDenomBuyChips = Object.values(denomBuyCounts).reduce((acc, c) => acc + c, 0);
+  const totalDenomBuyMoney = Object.entries(denomBuyCounts).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * c), 0);
+
+  // Denomination Lending Counts
   const [denomLendCounts, setDenomLendCounts] = useState<Record<number, number>>({});
 
   const updateDenomLendCount = (denom: number, delta: number) => {
@@ -111,10 +148,13 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
     }
   }, [initialPlayerId, visible]);
 
-  // Reset lend denomination counts when sheet opens
+  // Reset denomination counts when sheet opens
   React.useEffect(() => {
     if (visible && type === 'LEND') {
       setDenomLendCounts({});
+    }
+    if (visible && type === 'BUY') {
+      setDenomBuyCounts({});
     }
   }, [visible, type]);
 
@@ -129,9 +169,17 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
     setIsSubmitting(true);
     try {
       if (type === 'BUY') {
-        if (numChips <= 0) throw new Error('Chip amount must be greater than 0');
-        if (numChips > table.bank_chips) throw new Error(`Bank only has ${table.bank_chips} chips available.`);
-        await onSubmitBuy(selectedPlayerId, numChips, isRebuy);
+        if (isDenomTable && tableDenomList.length > 0) {
+          if (totalDenomBuyChips <= 0) throw new Error('Please select at least one chip denomination to buy');
+          const breakdown = Object.entries(denomBuyCounts)
+            .map(([d, cnt]) => ({ denom: parseFloat(d), count: cnt }))
+            .filter(item => item.count > 0);
+          await onSubmitBuy(selectedPlayerId, totalDenomBuyChips, isRebuy, totalDenomBuyMoney, breakdown);
+        } else {
+          if (numChips <= 0) throw new Error('Chip amount must be greater than 0');
+          if (numChips > table.bank_chips) throw new Error(`Bank only has ${table.bank_chips} chips available.`);
+          await onSubmitBuy(selectedPlayerId, numChips, isRebuy, calculatedMoney);
+        }
       } else if (type === 'LEND') {
         if (selectedPlayerId === secondPlayerId) throw new Error('Lender and borrower cannot be the same');
         if (isDenomTable && tableDenomList.length > 0) {
@@ -212,34 +260,105 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
                   ))}
                 </View>
 
-                <Text style={styles.sectionLabel}>Number of Chips</Text>
-                <TextInput
-                  keyboardType="numeric"
-                  value={chipAmount}
-                  onChangeText={setChipAmount}
-                  placeholder="Enter chips"
-                  style={styles.input}
-                />
+                {isDenomTable && tableDenomList.length > 0 ? (
+                  /* CUSTOM DENOMINATION BUY-IN (EXACT CHIPS PER DENOMINATION) */
+                  <View style={{ marginTop: 12 }}>
+                    <Text style={styles.sectionLabel}>Select Physical Chips from Vault</Text>
+                    <Text style={styles.sectionSublabel}>
+                      Dispense exact physical chips by denomination to this player:
+                    </Text>
 
-                {/* Quick preset chips */}
-                <View style={styles.presetsRow}>
-                  {[5, 10, 20, 25, 50].map(val => (
-                    <TouchableOpacity
-                      key={val}
-                      onPress={() => setChipAmount(val.toString())}
-                      style={[styles.presetBtn, numChips === val && styles.presetBtnActive]}
-                    >
-                      <Text style={[styles.presetBtnText, numChips === val && styles.presetBtnTextActive]}>+{val}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                    <View style={styles.denomLendList}>
+                      {tableDenomList.map(item => {
+                        const count = denomBuyCounts[item.denom] || 0;
+                        const subtotal = count * item.denom;
+                        const avail = item.count ?? 0;
+                        return (
+                          <View key={item.denom} style={styles.denomLendRow}>
+                            <View style={[styles.denomChipBadge, { backgroundColor: item.color || colors.primary }]}>
+                              <Text style={styles.denomChipBadgeText}>₹{item.denom}</Text>
+                            </View>
 
-                <View style={styles.calcCard}>
-                  <Text style={styles.calcText}>
-                    {numChips} chips × ₹{chipVal} = <Text style={styles.calcHighlight}>₹{calculatedMoney.toLocaleString('en-IN')}</Text>
-                  </Text>
-                  <Text style={styles.bankAvailText}>Bank has {table.bank_chips} chips available</Text>
-                </View>
+                            <View style={{ flex: 1, paddingLeft: 8 }}>
+                              <Text style={styles.denomLendName}>₹{item.denom} Chip</Text>
+                              <Text style={[styles.denomLendStock, avail === 0 && { color: colors.dangerText }]}>
+                                {avail} in vault
+                              </Text>
+                            </View>
+
+                            <View style={styles.counterBox}>
+                              <TouchableOpacity
+                                onPress={() => updateDenomBuyCount(item.denom, -1)}
+                                style={[styles.counterBtn, count <= 0 && { opacity: 0.35 }]}
+                                disabled={count <= 0}
+                              >
+                                <Minus size={14} color="#FFF" />
+                              </TouchableOpacity>
+
+                              <TextInput
+                                style={styles.counterInput}
+                                keyboardType="numeric"
+                                value={count.toString()}
+                                onChangeText={t => setDenomBuyDirect(item.denom, t)}
+                              />
+
+                              <TouchableOpacity
+                                onPress={() => updateDenomBuyCount(item.denom, 1)}
+                                style={[styles.counterBtn, count >= avail && { opacity: 0.35 }]}
+                                disabled={count >= avail}
+                              >
+                                <Plus size={14} color="#FFF" />
+                              </TouchableOpacity>
+                            </View>
+
+                            <View style={{ width: 68, alignItems: 'flex-end', justifyContent: 'center' }}>
+                              <Text style={styles.denomSubtotal}>₹{subtotal.toLocaleString('en-IN')}</Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+
+                    <View style={styles.calcCard}>
+                      <Text style={styles.calcText}>
+                        {totalDenomBuyChips} physical chips = <Text style={styles.calcHighlight}>₹{totalDenomBuyMoney.toLocaleString('en-IN')}</Text>
+                      </Text>
+                      <Text style={styles.bankAvailText}>Bank has {table.bank_chips} total chips available</Text>
+                    </View>
+                  </View>
+                ) : (
+                  /* EQUAL CHIP VALUE BUY-IN */
+                  <>
+                    <Text style={styles.sectionLabel}>Number of Chips</Text>
+                    <TextInput
+                      keyboardType="numeric"
+                      value={chipAmount}
+                      onChangeText={setChipAmount}
+                      placeholder="Enter chips"
+                      style={styles.input}
+                    />
+
+                    {/* Quick preset chips */}
+                    <View style={styles.presetsRow}>
+                      {[5, 10, 20, 25, 50].map(val => (
+                        <TouchableOpacity
+                          key={val}
+                          onPress={() => setChipAmount(val.toString())}
+                          style={[styles.presetBtn, numChips === val && styles.presetBtnActive]}
+                        >
+                          <Text style={[styles.presetBtnText, numChips === val && styles.presetBtnTextActive]}>+{val}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <View style={styles.calcCard}>
+                      <Text style={styles.calcText}>
+                        {numChips} chips × ₹{chipVal} = <Text style={styles.calcHighlight}>₹{calculatedMoney.toLocaleString('en-IN')}</Text>
+                      </Text>
+                      <Text style={styles.bankAvailText}>Bank has {table.bank_chips} chips available</Text>
+                    </View>
+                  </>
+                )}
 
                 {/* Buy-in Type Toggle */}
                 <View style={styles.toggleRow}>

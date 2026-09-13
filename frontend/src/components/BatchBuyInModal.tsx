@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator
 } from 'react-native';
-import { X, Check, Users, Coins, AlertCircle, Sparkles, CheckSquare, Square } from 'lucide-react-native';
+import { X, Check, Users, Coins, AlertCircle, Sparkles, CheckSquare, Square, Minus, Plus } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 
 interface BatchBuyInModalProps {
@@ -41,36 +41,89 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // When modal becomes visible, default to selecting all players
-  useEffect(() => {
-    if (visible && players && players.length > 0) {
-      setSelectedPlayerIds(players.map(p => p.id));
-      setErrorMsg(null);
-    }
-  }, [visible, players]);
-
-  if (!visible) return null;
+  // Denomination Bundle State (quantity of each denomination per player)
+  const [denomBundleCounts, setDenomBundleCounts] = useState<Record<number, number>>({});
 
   const isDenomMode = table?.chip_mode === 'DENOMINATION';
   const chipVal = table?.chip_value || 10;
 
   // Parse table denominations if present
-  let tableDenoms: any[] = [];
-  if (table?.denominations) {
+  let tableDenomList: Array<{ denom: number; count: number; initial_count: number; color?: string; label?: string }> = [];
+  if (isDenomMode && table?.denominations) {
     try {
       const parsed = typeof table.denominations === 'string' ? JSON.parse(table.denominations) : table.denominations;
       if (Array.isArray(parsed)) {
-        tableDenoms = parsed.map((d: any) => (typeof d === 'object' && d !== null ? d.value : d));
+        tableDenomList = parsed.map((d: any) => {
+          if (typeof d === 'object' && d !== null) {
+            return {
+              denom: Number(d.value) || 0,
+              count: Number(d.count) || 0,
+              initial_count: Number(d.initial_count ?? d.count) || 0,
+              color: d.color,
+              label: d.label
+            };
+          }
+          return { denom: Number(d) || 0, count: 999, initial_count: 999 };
+        }).filter(d => d.denom > 0);
       }
     } catch (_) {}
   }
 
-  const chipsPerPlayer = isCustomChips ? (parseInt(customChips, 10) || 0) : (parseInt(chipAmount, 10) || 0);
-  const moneyPerPlayer = chipsPerPlayer * chipVal;
+  const updateDenomBundleCount = (denom: number, delta: number) => {
+    setDenomBundleCounts(prev => {
+      const current = prev[denom] || 0;
+      const next = Math.max(0, current + delta);
+      return { ...prev, [denom]: next };
+    });
+  };
 
-  const totalChipsNeeded = chipsPerPlayer * selectedPlayerIds.length;
-  const totalMoneyValue = moneyPerPlayer * selectedPlayerIds.length;
-  const bankHasEnough = (table?.bank_chips ?? 0) >= totalChipsNeeded;
+  const setDenomBundleDirect = (denom: number, countStr: string) => {
+    const val = parseInt(countStr, 10) || 0;
+    setDenomBundleCounts(prev => ({
+      ...prev,
+      [denom]: Math.max(0, val)
+    }));
+  };
+
+  // When modal becomes visible, default to selecting all players
+  useEffect(() => {
+    if (visible && players && players.length > 0) {
+      setSelectedPlayerIds(players.map(p => p.id));
+      setErrorMsg(null);
+      if (isDenomMode) {
+        setDenomBundleCounts({});
+      }
+    }
+  }, [visible, players, isDenomMode]);
+
+  if (!visible) return null;
+
+  const bundleChipsPerPlayer = Object.values(denomBundleCounts).reduce((acc, c) => acc + c, 0);
+  const bundleMoneyPerPlayer = Object.entries(denomBundleCounts).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * c), 0);
+
+  const chipsPerPlayer = isDenomMode ? bundleChipsPerPlayer : (isCustomChips ? (parseInt(customChips, 10) || 0) : (parseInt(chipAmount, 10) || 0));
+  const moneyPerPlayer = isDenomMode ? bundleMoneyPerPlayer : (chipsPerPlayer * chipVal);
+
+  const numPlayers = selectedPlayerIds.length;
+  const totalChipsNeeded = chipsPerPlayer * numPlayers;
+  const totalMoneyValue = moneyPerPlayer * numPlayers;
+
+  // Check if bank vault has enough for EACH denomination:
+  let denomOverdraftError: string | null = null;
+  if (isDenomMode && numPlayers > 0) {
+    for (const [denomStr, count] of Object.entries(denomBundleCounts)) {
+      const d = parseFloat(denomStr);
+      const totalNeededForDenom = count * numPlayers;
+      const bankItem = tableDenomList.find(item => item.denom === d);
+      const available = bankItem ? bankItem.count : 0;
+      if (totalNeededForDenom > available) {
+        denomOverdraftError = `Vault only has ${available} chips of ₹${d}, but ${totalNeededForDenom} needed for ${numPlayers} players.`;
+        break;
+      }
+    }
+  }
+
+  const bankHasEnough = isDenomMode ? !denomOverdraftError : ((table?.bank_chips ?? 0) >= totalChipsNeeded);
 
   const isAllSelected = players.length > 0 && selectedPlayerIds.length === players.length;
 
@@ -95,7 +148,11 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
       return;
     }
     if (chipsPerPlayer <= 0) {
-      setErrorMsg('Buy-in chip count must be greater than 0');
+      setErrorMsg(isDenomMode ? 'Please specify at least 1 chip in the denomination bundle' : 'Buy-in chip count must be greater than 0');
+      return;
+    }
+    if (denomOverdraftError) {
+      setErrorMsg(denomOverdraftError);
       return;
     }
     if (!bankHasEnough) {
@@ -105,7 +162,13 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      await onSubmitBatchBuyIn(selectedPlayerIds, chipsPerPlayer, moneyPerPlayer);
+      const breakdown = isDenomMode
+        ? Object.entries(denomBundleCounts)
+            .map(([d, cnt]) => ({ denom: parseFloat(d), count: cnt }))
+            .filter(item => item.count > 0)
+        : undefined;
+
+      await onSubmitBatchBuyIn(selectedPlayerIds, chipsPerPlayer, moneyPerPlayer, breakdown);
       onClose();
     } catch (err: any) {
       setErrorMsg(err.message || 'Batch buy-in failed');
@@ -144,86 +207,162 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
             {/* Top Section: Buy-In Configuration / Presets */}
             <View style={styles.configCard}>
-              <View style={styles.configHeaderRow}>
-                <Text style={styles.sectionLabel}>CHIPS PER PLAYER</Text>
-                <Text style={styles.rateLabel}>
-                  Rate: ₹{chipVal.toFixed(1)} / chip
-                </Text>
-              </View>
-
-              {/* Presets Row */}
-              <View style={styles.pillsRow}>
-                {['20', '50', '100', '200'].map(cnt => (
-                  <TouchableOpacity
-                    key={cnt}
-                    onPress={() => {
-                      setChipAmount(cnt);
-                      setIsCustomChips(false);
-                    }}
-                    style={[
-                      styles.pill,
-                      !isCustomChips && chipAmount === cnt && styles.pillActive
-                    ]}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[
-                        styles.pillText,
-                        !isCustomChips && chipAmount === cnt && styles.pillTextActive
-                      ]}
-                    >
-                      {cnt} chips
-                    </Text>
-                    <Text
-                      style={[
-                        styles.pillSubText,
-                        !isCustomChips && chipAmount === cnt && styles.pillSubTextActive
-                      ]}
-                    >
-                      ₹{(parseInt(cnt, 10) * chipVal).toLocaleString('en-IN')}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-
-                <TouchableOpacity
-                  onPress={() => {
-                    setIsCustomChips(true);
-                    setCustomChips(chipAmount);
-                  }}
-                  style={[styles.pill, isCustomChips && styles.pillActive]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.pillText, isCustomChips && styles.pillTextActive]}>
-                    Custom
+              {isDenomMode ? (
+                <View>
+                  <View style={styles.configHeaderRow}>
+                    <Text style={styles.sectionLabel}>CHIP BUNDLE PER PLAYER</Text>
+                    <Text style={styles.rateLabel}>Denomination Mode</Text>
+                  </View>
+                  <Text style={[styles.perPlayerNoteText, { marginBottom: 10 }]}>
+                    Configure exact chips to dispense to EACH selected player:
                   </Text>
-                  <Text style={[styles.pillSubText, isCustomChips && styles.pillSubTextActive]}>
-                    Any amount
-                  </Text>
-                </TouchableOpacity>
-              </View>
 
-              {isCustomChips && (
-                <View style={styles.customInputRow}>
-                  <Text style={styles.customInputLabel}>Enter Chips per player:</Text>
-                  <TextInput
-                    style={styles.customInput}
-                    keyboardType="numeric"
-                    placeholder="e.g. 75"
-                    placeholderTextColor={colors.textMuted}
-                    value={customChips}
-                    onChangeText={setCustomChips}
-                  />
+                  <View style={styles.denomListContainer}>
+                    {tableDenomList.map(item => {
+                      const count = denomBundleCounts[item.denom] || 0;
+                      const subtotal = count * item.denom;
+                      const avail = item.count ?? 0;
+                      const totalNeeded = count * numPlayers;
+                      const isOver = totalNeeded > avail;
+
+                      return (
+                        <View key={item.denom} style={styles.denomRow}>
+                          <View style={[styles.denomBadge, { backgroundColor: item.color || colors.primary }]}>
+                            <Text style={styles.denomBadgeText}>₹{item.denom}</Text>
+                          </View>
+
+                          <View style={{ flex: 1, paddingLeft: 8 }}>
+                            <Text style={styles.denomName}>₹{item.denom} Chip</Text>
+                            <Text style={[styles.denomStock, isOver && { color: colors.dangerText, fontWeight: '700' }]}>
+                              {avail} in vault {numPlayers > 0 && count > 0 ? `(${totalNeeded} needed)` : ''}
+                            </Text>
+                          </View>
+
+                          <View style={styles.counterBox}>
+                            <TouchableOpacity
+                              onPress={() => updateDenomBundleCount(item.denom, -1)}
+                              style={[styles.counterBtn, count <= 0 && { opacity: 0.35 }]}
+                              disabled={count <= 0}
+                            >
+                              <Minus size={14} color="#FFF" />
+                            </TouchableOpacity>
+
+                            <TextInput
+                              style={styles.counterInput}
+                              keyboardType="numeric"
+                              value={count.toString()}
+                              onChangeText={t => setDenomBundleDirect(item.denom, t)}
+                            />
+
+                            <TouchableOpacity
+                              onPress={() => updateDenomBundleCount(item.denom, 1)}
+                              style={[styles.counterBtn, (count + 1) * Math.max(1, numPlayers) > avail && { opacity: 0.35 }]}
+                              disabled={(count + 1) * Math.max(1, numPlayers) > avail}
+                            >
+                              <Plus size={14} color="#FFF" />
+                            </TouchableOpacity>
+                          </View>
+
+                          <View style={{ width: 68, alignItems: 'flex-end', justifyContent: 'center' }}>
+                            <Text style={styles.denomSubtotal}>₹{subtotal.toLocaleString('en-IN')}</Text>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+
+                  <View style={styles.perPlayerNoteRow}>
+                    <Sparkles size={13} color={colors.primary} />
+                    <Text style={styles.perPlayerNoteText}>
+                      Each selected player receives{' '}
+                      <Text style={{ fontWeight: '800', color: colors.text }}>{chipsPerPlayer} chips</Text> (₹{moneyPerPlayer.toLocaleString('en-IN')})
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View>
+                  <View style={styles.configHeaderRow}>
+                    <Text style={styles.sectionLabel}>CHIPS PER PLAYER</Text>
+                    <Text style={styles.rateLabel}>
+                      Rate: ₹{chipVal.toFixed(1)} / chip
+                    </Text>
+                  </View>
+
+                  {/* Presets Row */}
+                  <View style={styles.pillsRow}>
+                    {['20', '50', '100', '200'].map(cnt => (
+                      <TouchableOpacity
+                        key={cnt}
+                        onPress={() => {
+                          setChipAmount(cnt);
+                          setIsCustomChips(false);
+                        }}
+                        style={[
+                          styles.pill,
+                          !isCustomChips && chipAmount === cnt && styles.pillActive
+                        ]}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={[
+                            styles.pillText,
+                            !isCustomChips && chipAmount === cnt && styles.pillTextActive
+                          ]}
+                        >
+                          {cnt} chips
+                        </Text>
+                        <Text
+                          style={[
+                            styles.pillSubText,
+                            !isCustomChips && chipAmount === cnt && styles.pillSubTextActive
+                          ]}
+                        >
+                          ₹{(parseInt(cnt, 10) * chipVal).toLocaleString('en-IN')}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsCustomChips(true);
+                        setCustomChips(chipAmount);
+                      }}
+                      style={[styles.pill, isCustomChips && styles.pillActive]}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.pillText, isCustomChips && styles.pillTextActive]}>
+                        Custom
+                      </Text>
+                      <Text style={[styles.pillSubText, isCustomChips && styles.pillSubTextActive]}>
+                        Any amount
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {isCustomChips && (
+                    <View style={styles.customInputRow}>
+                      <Text style={styles.customInputLabel}>Enter Chips per player:</Text>
+                      <TextInput
+                        style={styles.customInput}
+                        keyboardType="numeric"
+                        placeholder="e.g. 75"
+                        placeholderTextColor={colors.textMuted}
+                        value={customChips}
+                        onChangeText={setCustomChips}
+                      />
+                    </View>
+                  )}
+
+                  {/* Individual Player Preview Info */}
+                  <View style={styles.perPlayerNoteRow}>
+                    <Sparkles size={13} color={colors.primary} />
+                    <Text style={styles.perPlayerNoteText}>
+                      Each selected player will receive{' '}
+                      <Text style={{ fontWeight: '800', color: colors.text }}>{chipsPerPlayer} chips</Text> (₹{moneyPerPlayer.toLocaleString('en-IN')})
+                    </Text>
+                  </View>
                 </View>
               )}
-
-              {/* Individual Player Preview Info */}
-              <View style={styles.perPlayerNoteRow}>
-                <Sparkles size={13} color={colors.primary} />
-                <Text style={styles.perPlayerNoteText}>
-                  Each selected player will receive{' '}
-                  <Text style={{ fontWeight: '800', color: colors.text }}>{chipsPerPlayer} chips</Text> (₹{moneyPerPlayer.toLocaleString('en-IN')})
-                </Text>
-              </View>
             </View>
 
             {/* Middle Section: Seated Players List with Checkboxes */}
@@ -333,7 +472,9 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
               <View style={styles.overdraftAlert}>
                 <AlertCircle size={13} color={colors.dangerText} />
                 <Text style={styles.overdraftAlertText}>
-                  Bank vault only has {table?.bank_chips ?? 0} chips available. Reduce amount or players.
+                  {isDenomMode && denomOverdraftError
+                    ? denomOverdraftError
+                    : `Bank vault only has ${table?.bank_chips ?? 0} chips available. Reduce amount or players.`}
                 </Text>
               </View>
             )}
@@ -719,5 +860,72 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#FFF'
+  },
+  denomListContainer: {
+    gap: 8,
+    marginBottom: 8
+  },
+  denomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  denomBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFF'
+  },
+  denomBadgeText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#000'
+  },
+  denomName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text
+  },
+  denomStock: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 1
+  },
+  counterBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardInset,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    overflow: 'hidden'
+  },
+  counterBtn: {
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)'
+  },
+  counterInput: {
+    width: 38,
+    height: 28,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text,
+    padding: 0
+  },
+  denomSubtotal: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.chipGold
   }
 });

@@ -19,7 +19,9 @@ import {
   Lock,
   RotateCcw,
   X,
-  Edit3
+  Edit3,
+  Minus,
+  Plus
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
@@ -47,6 +49,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
   // Edit final chip counts modal
   const [showEditChipsModal, setShowEditChipsModal] = useState(false);
   const [editChipInputs, setEditChipInputs] = useState<Record<string, string>>({});
+  const [editPlayerDenoms, setEditPlayerDenoms] = useState<Record<string, Record<number, number>>>({});
   const [submittingChips, setSubmittingChips] = useState(false);
   const [editChipError, setEditChipError] = useState<string | null>(null);
 
@@ -68,28 +71,85 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
   }, [tableId]);
 
   const handleOpenEditChips = () => {
-    const initial: Record<string, string> = {};
-    (data?.players || []).forEach((p: any) => {
-      initial[p.playerId] = String(p.finalChips ?? 0);
-    });
-    setEditChipInputs(initial);
+    const isDenom = data?.chipMode === 'DENOMINATION';
+    if (isDenom) {
+      const initialDenoms: Record<string, Record<number, number>> = {};
+      (data?.players || []).forEach((p: any) => {
+        initialDenoms[p.playerId] = {};
+        if (Array.isArray(p.finalDenominations)) {
+          p.finalDenominations.forEach((item: any) => {
+            if (item && item.denom !== undefined && item.count !== undefined) {
+              initialDenoms[p.playerId][item.denom] = item.count;
+            }
+          });
+        }
+      });
+      setEditPlayerDenoms(initialDenoms);
+    } else {
+      const initial: Record<string, string> = {};
+      (data?.players || []).forEach((p: any) => {
+        initial[p.playerId] = String(p.finalChips ?? 0);
+      });
+      setEditChipInputs(initial);
+    }
     setEditChipError(null);
     setShowEditChipsModal(true);
+  };
+
+  const updatePlayerDenom = (playerId: string, denom: number, delta: number) => {
+    setEditPlayerDenoms(prev => {
+      const pMap = { ...(prev[playerId] || {}) };
+      const cur = pMap[denom] || 0;
+      pMap[denom] = Math.max(0, cur + delta);
+      return { ...prev, [playerId]: pMap };
+    });
+  };
+
+  const setPlayerDenomDirect = (playerId: string, denom: number, text: string) => {
+    const val = parseInt(text, 10) || 0;
+    setEditPlayerDenoms(prev => {
+      const pMap = { ...(prev[playerId] || {}) };
+      pMap[denom] = Math.max(0, val);
+      return { ...prev, [playerId]: pMap };
+    });
   };
 
   const handleSaveEditChips = async () => {
     setSubmittingChips(true);
     setEditChipError(null);
     try {
-      const countsPayload: Record<string, number> = {};
-      for (const [playerId, countStr] of Object.entries(editChipInputs)) {
-        countsPayload[playerId] = parseInt(countStr || '0', 10) || 0;
-      }
+      let res;
+      if (data?.chipMode === 'DENOMINATION') {
+        const finalPlayerCounts = (data?.players || []).map((p: any) => {
+          const denoms = editPlayerDenoms[p.playerId] || {};
+          const breakdown = Object.entries(denoms)
+            .map(([d, cnt]) => ({ denom: parseFloat(d), count: cnt }))
+            .filter(item => item.count > 0);
+          const chips = breakdown.reduce((acc, item) => acc + item.count, 0);
+          const money = breakdown.reduce((acc, item) => acc + (item.count * item.denom), 0);
+          return {
+            playerId: p.playerId,
+            finalChips: chips,
+            finalChipsMoney: money,
+            denominations: breakdown
+          };
+        });
 
-      const res = await apiRequest(`/tables/${tableId}/settle/chips`, {
-        method: 'POST',
-        body: { finalChipCounts: countsPayload }
-      });
+        res = await apiRequest(`/tables/${tableId}/settle/chips`, {
+          method: 'POST',
+          body: { finalPlayerCounts }
+        });
+      } else {
+        const countsPayload: Record<string, number> = {};
+        for (const [playerId, countStr] of Object.entries(editChipInputs)) {
+          countsPayload[playerId] = parseInt(countStr || '0', 10) || 0;
+        }
+
+        res = await apiRequest(`/tables/${tableId}/settle/chips`, {
+          method: 'POST',
+          body: { finalChipCounts: countsPayload }
+        });
+      }
 
       if (res.success) {
         setShowEditChipsModal(false);
@@ -165,12 +225,59 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
   const loans = data.outstandingLoans || [];
   const allGenuinelyZero = players.length > 0 && players.every((p: any) => Math.round(Math.abs(p.netPosition || 0) * 100) === 0);
 
-  const totalEditEnteredChips = Object.values(editChipInputs).reduce(
-    (acc, val) => acc + (parseInt(val || '0', 10) || 0),
-    0
-  );
+  const isDenomMode = data.chipMode === 'DENOMINATION';
+  let tableDenomList: Array<{ denom: number; color?: string; label?: string }> = [];
+  if (isDenomMode && data.denominations) {
+    try {
+      const parsed = typeof data.denominations === 'string' ? JSON.parse(data.denominations) : data.denominations;
+      if (Array.isArray(parsed)) {
+        tableDenomList = parsed.map((d: any) => {
+          if (typeof d === 'object' && d !== null) {
+            return {
+              denom: Number(d.value) || 0,
+              color: d.color,
+              label: d.label
+            };
+          }
+          return { denom: Number(d) || 0 };
+        }).filter(d => d.denom > 0);
+      }
+    } catch (_) {}
+  }
+
+  let totalEditDenomChips = 0;
+  let totalEditDenomMoney = 0;
+  if (isDenomMode) {
+    for (const p of players) {
+      const pDenoms = editPlayerDenoms[p.playerId] || {};
+      for (const [denomStr, count] of Object.entries(pDenoms)) {
+        const d = parseFloat(denomStr) || 0;
+        const c = count || 0;
+        totalEditDenomChips += c;
+        totalEditDenomMoney += (c * d);
+      }
+    }
+  }
+
+  const totalEditEnteredChips = isDenomMode
+    ? totalEditDenomChips
+    : Object.values(editChipInputs).reduce(
+        (acc, val) => acc + (parseInt(val || '0', 10) || 0),
+        0
+      );
+
+  const totalEditEnteredMoney = isDenomMode
+    ? totalEditDenomMoney
+    : totalEditEnteredChips * (data.chipValue || 10);
+
   const expectedTotalChips = data.expectedTotalChips || data.totalChips || 0;
-  const isEditMatched = totalEditEnteredChips === expectedTotalChips;
+  const expectedTotalMoney = isDenomMode
+    ? (data.summary?.totalBuyinPotMoney ?? data.expectedTotalValue ?? 0)
+    : (expectedTotalChips * (data.chipValue || 10));
+
+  const isChipCountMatched = totalEditEnteredChips === expectedTotalChips;
+  const isMoneyMatched = isDenomMode ? Math.abs(totalEditEnteredMoney - expectedTotalMoney) < 0.01 : true;
+  const isEditMatched = isChipCountMatched && isMoneyMatched;
 
   return (
     <View style={styles.container}>
@@ -417,13 +524,22 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
             </View>
 
             <Text style={styles.modalSub}>
-              Enter the exact count of physical chips each player has right now. Total must equal {expectedTotalChips} chips.
+              {isDenomMode
+                ? `Enter the physical chip denominations held by each player. Total chips must equal ${expectedTotalChips} and total value must equal ₹${expectedTotalMoney.toLocaleString('en-IN')}.`
+                : `Enter the exact count of physical chips each player has right now. Total must equal ${expectedTotalChips} chips.`}
             </Text>
 
             <View style={styles.countSummaryBox}>
-              <Text style={styles.countSummaryText}>
-                Entered: <Text style={{ fontWeight: '800', color: colors.text }}>{totalEditEnteredChips}</Text> / {expectedTotalChips} chips
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.countSummaryText}>
+                  Entered: <Text style={{ fontWeight: '800', color: colors.text }}>{totalEditEnteredChips}</Text> / {expectedTotalChips} chips
+                  {isDenomMode && (
+                    <Text style={{ color: colors.textMuted }}>
+                      {'\n'}Value: ₹<Text style={{ fontWeight: '800', color: colors.chipGold }}>{totalEditEnteredMoney.toLocaleString('en-IN')}</Text> / ₹{expectedTotalMoney.toLocaleString('en-IN')}
+                    </Text>
+                  )}
+                </Text>
+              </View>
               {isEditMatched ? (
                 <View style={styles.matchedBadge}>
                   <CheckCircle2 size={12} color={colors.successText} />
@@ -433,36 +549,99 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                 <View style={styles.mismatchBadge}>
                   <AlertTriangle size={12} color={colors.dangerText} />
                   <Text style={styles.mismatchBadgeText}>
-                    {Math.abs(expectedTotalChips - totalEditEnteredChips)}{' '}
-                    {totalEditEnteredChips > expectedTotalChips ? 'over' : 'short'}
+                    {!isChipCountMatched
+                      ? `${Math.abs(expectedTotalChips - totalEditEnteredChips)} chips ${totalEditEnteredChips > expectedTotalChips ? 'over' : 'short'}`
+                      : `₹${Math.abs(expectedTotalMoney - totalEditEnteredMoney).toLocaleString('en-IN')} ${totalEditEnteredMoney > expectedTotalMoney ? 'over' : 'short'}`}
                   </Text>
                 </View>
               )}
             </View>
 
-            <ScrollView style={{ maxHeight: 260, marginVertical: 10 }}>
-              {players.map((p: any) => (
-                <View key={p.playerId} style={styles.chipInputRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.chipInputName}>{p.displayName}</Text>
-                    <Text style={styles.chipInputSub}>Buy-in: ₹{p.totalBuyinMoney}</Text>
+            <ScrollView style={{ maxHeight: 320, marginVertical: 10 }} showsVerticalScrollIndicator={false}>
+              {players.map((p: any) => {
+                if (isDenomMode) {
+                  const pDenoms = editPlayerDenoms[p.playerId] || {};
+                  const pChips = Object.values(pDenoms).reduce((acc, c) => acc + (c || 0), 0);
+                  const pMoney = Object.entries(pDenoms).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * (c || 0)), 0);
+
+                  return (
+                    <View key={p.playerId} style={styles.denomPlayerCard}>
+                      <View style={styles.denomPlayerHeader}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.chipInputName}>{p.displayName}</Text>
+                          <Text style={styles.chipInputSub}>Buy-in: ₹{p.totalBuyinMoney?.toLocaleString('en-IN')}</Text>
+                        </View>
+                        <View style={styles.denomPlayerTotalPill}>
+                          <Text style={styles.denomPlayerTotalText}>
+                            {pChips} chips • ₹{pMoney.toLocaleString('en-IN')}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.denomChipsGrid}>
+                        {tableDenomList.map(item => {
+                          const count = pDenoms[item.denom] || 0;
+                          return (
+                            <View key={item.denom} style={styles.denomChipRow}>
+                              <View style={[styles.denomBadgeSmall, { backgroundColor: item.color || colors.primary }]}>
+                                <Text style={styles.denomBadgeSmallText}>₹{item.denom}</Text>
+                              </View>
+                              <View style={{ flex: 1, paddingLeft: 8 }}>
+                                <Text style={styles.denomChipRowName}>₹{item.denom} Chip</Text>
+                              </View>
+                              <View style={styles.counterBoxSmall}>
+                                <TouchableOpacity
+                                  onPress={() => updatePlayerDenom(p.playerId, item.denom, -1)}
+                                  style={[styles.counterBtnSmall, count <= 0 && { opacity: 0.35 }]}
+                                  disabled={count <= 0}
+                                >
+                                  <Minus size={12} color="#FFF" />
+                                </TouchableOpacity>
+                                <TextInput
+                                  style={styles.counterInputSmall}
+                                  keyboardType="numeric"
+                                  value={count.toString()}
+                                  onChangeText={t => setPlayerDenomDirect(p.playerId, item.denom, t)}
+                                />
+                                <TouchableOpacity
+                                  onPress={() => updatePlayerDenom(p.playerId, item.denom, 1)}
+                                  style={styles.counterBtnSmall}
+                                >
+                                  <Plus size={12} color="#FFF" />
+                                </TouchableOpacity>
+                              </View>
+                              <Text style={styles.denomRowSubtotal}>₹{(count * item.denom).toLocaleString('en-IN')}</Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  );
+                }
+
+                return (
+                  <View key={p.playerId} style={styles.chipInputRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.chipInputName}>{p.displayName}</Text>
+                      <Text style={styles.chipInputSub}>Buy-in: ₹{p.totalBuyinMoney}</Text>
+                    </View>
+                    <View style={styles.chipInputBoxContainer}>
+                      <TextInput
+                        style={styles.chipInputBox}
+                        keyboardType="numeric"
+                        value={editChipInputs[p.playerId] ?? ''}
+                        onChangeText={(val) => {
+                          const sanitized = val.replace(/[^0-9]/g, '');
+                          setEditChipInputs((prev) => ({ ...prev, [p.playerId]: sanitized }));
+                        }}
+                        placeholder="0"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                      <Text style={styles.chipsSuffix}>chips</Text>
+                    </View>
                   </View>
-                  <View style={styles.chipInputBoxContainer}>
-                    <TextInput
-                      style={styles.chipInputBox}
-                      keyboardType="numeric"
-                      value={editChipInputs[p.playerId] ?? ''}
-                      onChangeText={(val) => {
-                        const sanitized = val.replace(/[^0-9]/g, '');
-                        setEditChipInputs((prev) => ({ ...prev, [p.playerId]: sanitized }));
-                      }}
-                      placeholder="0"
-                      placeholderTextColor={colors.textMuted}
-                    />
-                    <Text style={styles.chipsSuffix}>chips</Text>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </ScrollView>
 
             {editChipError && (
@@ -1123,5 +1302,97 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     marginLeft: 6
+  },
+  denomPlayerCard: {
+    backgroundColor: colors.cardInset,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  denomPlayerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  denomPlayerTotalPill: {
+    backgroundColor: 'rgba(235, 94, 40, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(235, 94, 40, 0.25)'
+  },
+  denomPlayerTotalText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary
+  },
+  denomChipsGrid: {
+    gap: 6
+  },
+  denomChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  denomBadgeSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFF'
+  },
+  denomBadgeSmallText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#000'
+  },
+  denomChipRowName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text
+  },
+  counterBoxSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardInset,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    overflow: 'hidden'
+  },
+  counterBtnSmall: {
+    width: 26,
+    height: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)'
+  },
+  counterInputSmall: {
+    width: 34,
+    height: 26,
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.text,
+    padding: 0
+  },
+  denomRowSubtotal: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.chipGold,
+    width: 58,
+    textAlign: 'right'
   }
 });

@@ -23,6 +23,7 @@ import {
   History,
   Settings,
   Plus,
+  Minus,
   ArrowRight,
   ShieldAlert,
   Flag,
@@ -139,6 +140,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const [leavingTable, setLeavingTable] = useState(false);
   const [showFinalChipsModal, setShowFinalChipsModal] = useState(false);
   const [finalChipInputs, setFinalChipInputs] = useState<Record<string, string>>({});
+  const [finalPlayerDenoms, setFinalPlayerDenoms] = useState<Record<string, Record<number, number>>>({});
   const [submittingFinalChips, setSubmittingFinalChips] = useState(false);
   const [finalChipError, setFinalChipError] = useState<string | null>(null);
   const [showBatchBuyInModal, setShowBatchBuyInModal] = useState(false);
@@ -356,10 +358,23 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
     }
   };
 
-  const handleBuy = async (playerId: string, chipAmount: number, isRebuy: boolean) => {
+  const handleBuy = async (
+    playerId: string,
+    chipAmount: number,
+    isRebuy: boolean,
+    moneyValue?: number,
+    denominationsBreakdown?: Array<{ denom: number; count: number }>
+  ) => {
     await apiRequest(`/tables/${tableId}/buy-in`, {
       method: 'POST',
-      body: { playerId, chipAmount, isRebuy, idempotencyKey: `buy_${Date.now()}` }
+      body: {
+        playerId,
+        chipAmount,
+        moneyValue,
+        denominationsBreakdown,
+        isRebuy,
+        idempotencyKey: `buy_${Date.now()}`
+      }
     });
     fetchTableData();
   };
@@ -451,52 +466,158 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const nextHostName = otherRegisteredPlayers.length > 0 ? otherRegisteredPlayers[0].display_name : 'the next player';
 
   // Expected chips calculation for final settlement
+  const isDenomMode = table?.chip_mode === 'DENOMINATION';
+  let tableDenomList: Array<{ denom: number; color?: string; label?: string }> = [];
+  if (isDenomMode && table?.denominations) {
+    try {
+      const parsed = typeof table.denominations === 'string' ? JSON.parse(table.denominations) : table.denominations;
+      if (Array.isArray(parsed)) {
+        tableDenomList = parsed.map((d: any) => {
+          if (typeof d === 'object' && d !== null) {
+            return {
+              denom: Number(d.value) || 0,
+              color: d.color,
+              label: d.label
+            };
+          }
+          return { denom: Number(d) || 0 };
+        }).filter(d => d.denom > 0);
+      }
+    } catch (_) {}
+  }
+
+  const updateFinalPlayerDenom = (playerId: string, denom: number, delta: number) => {
+    setFinalPlayerDenoms(prev => {
+      const pMap = { ...(prev[playerId] || {}) };
+      const cur = pMap[denom] || 0;
+      pMap[denom] = Math.max(0, cur + delta);
+      return { ...prev, [playerId]: pMap };
+    });
+  };
+
+  const setFinalPlayerDenomDirect = (playerId: string, denom: number, text: string) => {
+    const val = parseInt(text, 10) || 0;
+    setFinalPlayerDenoms(prev => {
+      const pMap = { ...(prev[playerId] || {}) };
+      pMap[denom] = Math.max(0, val);
+      return { ...prev, [playerId]: pMap };
+    });
+  };
+
   const totalBuyinChips = (players || []).reduce((sum: number, p: any) => sum + (p.total_buyin_chips || 0), 0);
   const expectedTotalChips = totalBuyinChips > 0 ? totalBuyinChips : (table.total_chips || 100);
   const chipValue = table.chip_value || 10;
-  const expectedTotalValue = expectedTotalChips * chipValue;
-  const totalActiveLoansMoney = (activeLoans || []).reduce(
-    (sum: number, l: any) => sum + (l.moneyEquivalent || ((l.remaining_chip_amount || 0) * chipValue)),
-    0
-  );
 
-  const totalEnteredChips = (players || []).reduce((sum: number, p: any) => {
-    const raw = finalChipInputs[p.id];
-    const val = raw !== undefined ? parseInt(raw, 10) : p.current_chips;
-    return sum + (isNaN(val) || val < 0 ? 0 : val);
-  }, 0);
+  const totalBuyinMoney = (players || []).reduce((sum: number, p: any) => sum + (p.total_buyin_amount || 0), 0);
+  const expectedTotalValue = isDenomMode ? totalBuyinMoney : expectedTotalChips * chipValue;
+
+  let totalFinalDenomChips = 0;
+  let totalFinalDenomMoney = 0;
+  if (isDenomMode) {
+    for (const p of (players || [])) {
+      const pDenoms = finalPlayerDenoms[p.id] || {};
+      for (const [denomStr, count] of Object.entries(pDenoms)) {
+        const d = parseFloat(denomStr) || 0;
+        const c = count || 0;
+        totalFinalDenomChips += c;
+        totalFinalDenomMoney += (c * d);
+      }
+    }
+  }
+
+  const totalEnteredChips = isDenomMode
+    ? totalFinalDenomChips
+    : (players || []).reduce((sum: number, p: any) => {
+        const raw = finalChipInputs[p.id];
+        const val = raw !== undefined ? parseInt(raw, 10) : p.current_chips;
+        return sum + (isNaN(val) || val < 0 ? 0 : val);
+      }, 0);
+
+  const totalEnteredMoney = isDenomMode
+    ? totalFinalDenomMoney
+    : totalEnteredChips * chipValue;
 
   const chipDiscrepancy = expectedTotalChips - totalEnteredChips;
-  const isCountsMatched = totalEnteredChips === expectedTotalChips;
+  const isChipCountMatched = totalEnteredChips === expectedTotalChips;
+  const isMoneyMatched = isDenomMode ? Math.abs(totalFinalDenomMoney - expectedTotalValue) < 0.01 : true;
+  const isCountsMatched = isChipCountMatched && isMoneyMatched;
 
   const handleOpenFinalChipsModal = () => {
-    const initialCounts: Record<string, string> = {};
-    for (const p of (players || [])) {
-      initialCounts[p.id] = String(p.current_chips ?? 0);
+    if (isDenomMode) {
+      const initialDenoms: Record<string, Record<number, number>> = {};
+      for (const p of (players || [])) {
+        initialDenoms[p.id] = {};
+        if (p.final_denominations) {
+          try {
+            const parsed = typeof p.final_denominations === 'string' ? JSON.parse(p.final_denominations) : p.final_denominations;
+            if (Array.isArray(parsed)) {
+              parsed.forEach((item: any) => {
+                if (item && item.denom !== undefined && item.count !== undefined) {
+                  initialDenoms[p.id][item.denom] = item.count;
+                }
+              });
+            }
+          } catch (_) {}
+        }
+      }
+      setFinalPlayerDenoms(initialDenoms);
+    } else {
+      const initialCounts: Record<string, string> = {};
+      for (const p of (players || [])) {
+        initialCounts[p.id] = String(p.current_chips ?? 0);
+      }
+      setFinalChipInputs(initialCounts);
     }
-    setFinalChipInputs(initialCounts);
     setFinalChipError(null);
     setShowFinalChipsModal(true);
   };
 
   const handleFinalChipsSubmit = async () => {
     if (!isCountsMatched) {
-      setFinalChipError(`Chip count mismatch: ${totalEnteredChips} chips entered, but ${expectedTotalChips} chips are expected.`);
+      if (!isChipCountMatched) {
+        setFinalChipError(`Chip count mismatch: ${totalEnteredChips} chips entered, but ${expectedTotalChips} chips are expected.`);
+      } else if (!isMoneyMatched) {
+        setFinalChipError(`Value mismatch: ₹${totalFinalDenomMoney.toLocaleString('en-IN')} entered, but ₹${expectedTotalValue.toLocaleString('en-IN')} was bought in.`);
+      }
       return;
     }
     setSubmittingFinalChips(true);
     setFinalChipError(null);
     try {
-      const countsPayload: Record<string, number> = {};
-      for (const p of (players || [])) {
-        const raw = finalChipInputs[p.id];
-        const val = raw !== undefined ? parseInt(raw, 10) : p.current_chips;
-        countsPayload[p.id] = isNaN(val) || val < 0 ? 0 : val;
+      let res;
+      if (isDenomMode) {
+        const finalPlayerCounts = (players || []).map((p: any) => {
+          const denoms = finalPlayerDenoms[p.id] || {};
+          const breakdown = Object.entries(denoms)
+            .map(([d, cnt]) => ({ denom: parseFloat(d), count: cnt }))
+            .filter(item => item.count > 0);
+          const chips = breakdown.reduce((acc, item) => acc + item.count, 0);
+          const money = breakdown.reduce((acc, item) => acc + (item.count * item.denom), 0);
+          return {
+            playerId: p.id,
+            finalChips: chips,
+            finalChipsMoney: money,
+            denominations: breakdown
+          };
+        });
+
+        res = await apiRequest(`/tables/${table.id}/settle/chips`, {
+          method: 'POST',
+          body: { finalPlayerCounts }
+        });
+      } else {
+        const countsPayload: Record<string, number> = {};
+        for (const p of (players || [])) {
+          const raw = finalChipInputs[p.id];
+          const val = raw !== undefined ? parseInt(raw, 10) : p.current_chips;
+          countsPayload[p.id] = isNaN(val) || val < 0 ? 0 : val;
+        }
+        res = await apiRequest(`/tables/${table.id}/settle/chips`, {
+          method: 'POST',
+          body: { finalChipCounts: countsPayload }
+        });
       }
-      const res = await apiRequest(`/tables/${table.id}/settle/chips`, {
-        method: 'POST',
-        body: { finalChipCounts: countsPayload }
-      });
+
       if (res.success) {
         setShowFinalChipsModal(false);
         onProceedToSettlement(table.id);
@@ -1113,10 +1234,12 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                 <Text style={styles.finalChipsExpectLabel}>Total chips in game:</Text>
                 <Text style={styles.finalChipsExpectVal}>{expectedTotalChips}</Text>
               </View>
-              <View style={styles.finalChipsExpectRow}>
-                <Text style={styles.finalChipsExpectLabel}>Chip value:</Text>
-                <Text style={styles.finalChipsExpectVal}>₹{chipValue}</Text>
-              </View>
+              {!isDenomMode && (
+                <View style={styles.finalChipsExpectRow}>
+                  <Text style={styles.finalChipsExpectLabel}>Chip value:</Text>
+                  <Text style={styles.finalChipsExpectVal}>₹{chipValue}</Text>
+                </View>
+              )}
               <View style={[styles.finalChipsExpectRow, { marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: colors.borderDark }]}>
                 <Text style={[styles.finalChipsExpectLabel, { fontWeight: '700', color: colors.text }]}>Expected total value:</Text>
                 <Text style={[styles.finalChipsExpectVal, { fontWeight: '800', color: colors.primary }]}>₹{expectedTotalValue.toLocaleString('en-IN')}</Text>
@@ -1139,24 +1262,103 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                   { color: isCountsMatched ? colors.successText : colors.dangerText }
                 ]}>
                   {isCountsMatched
-                    ? `Chip count matches perfectly (${expectedTotalChips} chips / ₹${expectedTotalValue.toLocaleString('en-IN')})`
-                    : `Chip count mismatch: ${totalEnteredChips} chips entered, but ${expectedTotalChips} chips are expected.`}
+                    ? `Chip count and values match perfectly (${expectedTotalChips} chips / ₹${expectedTotalValue.toLocaleString('en-IN')})`
+                    : !isChipCountMatched
+                      ? `Chip count mismatch: ${totalEnteredChips} chips entered, but ${expectedTotalChips} chips are expected.`
+                      : `Value mismatch: ₹${totalFinalDenomMoney.toLocaleString('en-IN')} entered, but ₹${expectedTotalValue.toLocaleString('en-IN')} was bought in.`}
                 </Text>
               </View>
               {!isCountsMatched && (
                 <Text style={styles.finalChipsTallyDiff}>
-                  {chipDiscrepancy > 0
-                    ? `Missing ${chipDiscrepancy} chip${chipDiscrepancy === 1 ? '' : 's'}`
-                    : `${Math.abs(chipDiscrepancy)} extra chip${Math.abs(chipDiscrepancy) === 1 ? '' : 's'}`}
+                  {!isChipCountMatched
+                    ? chipDiscrepancy > 0
+                      ? `Missing ${chipDiscrepancy} chip${chipDiscrepancy === 1 ? '' : 's'}`
+                      : `${Math.abs(chipDiscrepancy)} extra chip${Math.abs(chipDiscrepancy) === 1 ? '' : 's'}`
+                    : `₹${Math.abs(expectedTotalValue - totalFinalDenomMoney).toLocaleString('en-IN')} ${totalFinalDenomMoney > expectedTotalValue ? 'extra' : 'short'}`}
                 </Text>
               )}
             </View>
 
             {/* Players in-hand chips entry list */}
-            <ScrollView style={{ maxHeight: 260, marginVertical: 8 }}>
+            <ScrollView style={{ maxHeight: 320, marginVertical: 8 }} showsVerticalScrollIndicator={false}>
               {players.map((p: any) => {
                 const isHostPlayer = p.role === 'HOST';
                 const isGuestPlayer = Boolean(p.is_guest || p.friend_code === 'GUEST' || (p.user_id && p.user_id.startsWith('guest_')));
+
+                if (isDenomMode) {
+                  const pDenoms = finalPlayerDenoms[p.id] || {};
+                  const pChips = Object.values(pDenoms).reduce((acc, c) => acc + (c || 0), 0);
+                  const pMoney = Object.entries(pDenoms).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * (c || 0)), 0);
+
+                  return (
+                    <View key={p.id} style={styles.denomPlayerCard}>
+                      <View style={styles.denomPlayerHeader}>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={styles.finalChipPlayerName} numberOfLines={1}>{p.display_name}</Text>
+                            {isHostPlayer && (
+                              <View style={styles.hostBadge}>
+                                <Text style={styles.hostBadgeText}>HOST</Text>
+                              </View>
+                            )}
+                            {isGuestPlayer && (
+                              <View style={styles.guestBadge}>
+                                <Text style={styles.guestBadgeText}>GUEST</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={styles.finalChipPlayerMeta}>
+                            Buy-in: ₹{p.total_buyin_amount} ({p.total_buyin_chips} chips)
+                          </Text>
+                        </View>
+                        <View style={styles.denomPlayerTotalPill}>
+                          <Text style={styles.denomPlayerTotalText}>
+                            {pChips} chips • ₹{pMoney.toLocaleString('en-IN')}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.denomChipsGrid}>
+                        {tableDenomList.map(item => {
+                          const count = pDenoms[item.denom] || 0;
+                          return (
+                            <View key={item.denom} style={styles.denomChipRow}>
+                              <View style={[styles.denomBadgeSmall, { backgroundColor: item.color || colors.primary }]}>
+                                <Text style={styles.denomBadgeSmallText}>₹{item.denom}</Text>
+                              </View>
+                              <View style={{ flex: 1, paddingLeft: 8 }}>
+                                <Text style={styles.denomChipRowName}>₹{item.denom} Chip</Text>
+                              </View>
+                              <View style={styles.counterBoxSmall}>
+                                <TouchableOpacity
+                                  onPress={() => updateFinalPlayerDenom(p.id, item.denom, -1)}
+                                  style={[styles.counterBtnSmall, count <= 0 && { opacity: 0.35 }]}
+                                  disabled={count <= 0}
+                                >
+                                  <Minus size={12} color="#FFF" />
+                                </TouchableOpacity>
+                                <TextInput
+                                  style={styles.counterInputSmall}
+                                  keyboardType="numeric"
+                                  value={count.toString()}
+                                  onChangeText={t => setFinalPlayerDenomDirect(p.id, item.denom, t)}
+                                />
+                                <TouchableOpacity
+                                  onPress={() => updateFinalPlayerDenom(p.id, item.denom, 1)}
+                                  style={styles.counterBtnSmall}
+                                >
+                                  <Plus size={12} color="#FFF" />
+                                </TouchableOpacity>
+                              </View>
+                              <Text style={styles.denomRowSubtotal}>₹{(count * item.denom).toLocaleString('en-IN')}</Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  );
+                }
+
                 const rawVal = finalChipInputs[p.id];
                 const enteredChips = rawVal !== undefined ? (parseInt(rawVal, 10) || 0) : (p.current_chips ?? 0);
                 const enteredMoney = enteredChips * chipValue;
@@ -1992,5 +2194,97 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#FFFFFF'
+  },
+  denomPlayerCard: {
+    backgroundColor: colors.cardInset,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  denomPlayerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  denomPlayerTotalPill: {
+    backgroundColor: 'rgba(235, 94, 40, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(235, 94, 40, 0.25)'
+  },
+  denomPlayerTotalText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary
+  },
+  denomChipsGrid: {
+    gap: 6
+  },
+  denomChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  denomBadgeSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFF'
+  },
+  denomBadgeSmallText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#000'
+  },
+  denomChipRowName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text
+  },
+  counterBoxSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardInset,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    overflow: 'hidden'
+  },
+  counterBtnSmall: {
+    width: 26,
+    height: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)'
+  },
+  counterInputSmall: {
+    width: 34,
+    height: 26,
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.text,
+    padding: 0
+  },
+  denomRowSubtotal: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.chipGold,
+    width: 58,
+    textAlign: 'right'
   }
 });

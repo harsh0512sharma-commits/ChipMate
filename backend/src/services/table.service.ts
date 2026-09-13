@@ -104,6 +104,13 @@ export function createTable(params: {
   if (chipMode === 'DENOMINATION' && Array.isArray(parsedDenoms) && parsedDenoms.length > 0) {
     const isObjectConfig = typeof parsedDenoms[0] === 'object' && parsedDenoms[0] !== null && 'value' in parsedDenoms[0] && 'count' in parsedDenoms[0];
     if (isObjectConfig) {
+      parsedDenoms = parsedDenoms.map((d: any) => ({
+        value: Number(d.value) || 0,
+        count: Number(d.count) || 0,
+        initial_count: Number(d.initial_count ?? d.count) || 0,
+        label: d.label || '',
+        color: d.color || '#3B82F6'
+      }));
       const sumChips = parsedDenoms.reduce((sum: number, d: any) => sum + (Number(d.count) || 0), 0);
       const sumMoney = parsedDenoms.reduce((sum: number, d: any) => sum + ((Number(d.count) || 0) * (Number(d.value) || 0)), 0);
       if (sumChips > 0) {
@@ -379,7 +386,7 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
   // Fetch players
   const isSettlingOrFinal = table.status === 'SETTLING' || table.status === 'FINALIZED' || table.status === 'ARCHIVED';
   const players = db.prepare(`
-    SELECT gp.id, gp.user_id, gp.role, gp.current_chips, gp.total_buyin_amount, gp.total_buyin_chips, gp.joined_at, gp.left_at,
+    SELECT gp.id, gp.user_id, gp.role, gp.current_chips, gp.total_buyin_amount, gp.total_buyin_chips, gp.final_chips_value, gp.final_denominations, gp.joined_at, gp.left_at,
       gp.is_guest, gp.guest_name,
       COALESCE(gp.guest_name, u.display_name) as display_name,
       u.friend_code, u.phone_number, u.avatar_url

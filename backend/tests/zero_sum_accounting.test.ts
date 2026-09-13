@@ -651,4 +651,141 @@ describe('ChipMate Authoritative Zero-Sum Accounting Engine & Invariants', () =>
     expect(balB.netLoanImpact).toBe(-100);
     expect(balA.netPosition + balB.netPosition).toBe(0);
   });
+
+  // TEST CASE: CASINO-GRADE DENOMINATION INVENTORY & EXACT ZERO-SUM FINAL SETTLEMENT
+  test('Denomination buy-ins decrement bank vault inventory accurately, record exact money values, and reconcile zero-sum on settlement', () => {
+    const [hostA, playerB] = setupPlayers(2);
+    const { table } = tableService.createTable({
+      hostUserId: hostA.id,
+      name: 'Casino Vault Game',
+      gameType: 'POKER',
+      chipMode: 'DENOMINATION',
+      denominations: [
+        { value: 10, count: 50 },
+        { value: 50, count: 20 },
+        { value: 100, count: 10 }
+      ] // Total: 50 + 20 + 10 = 80 chips. Total Vault Value: 500 + 1000 + 1000 = ₹2500
+    });
+
+    const aId = db.prepare('SELECT id FROM game_players WHERE game_id = ? AND user_id = ?').get(table.id, hostA.id).id;
+    const { playerId: bId } = tableService.joinTableByCode(playerB.id, table.join_code);
+
+    // Initial Vault check
+    expect(table.bank_chips).toBe(80);
+
+    // Host A buys in: 5 x ₹10 + 2 x ₹50 = 7 chips, ₹150 exact value
+    const buyResultA = ledgerService.recordBuyIn({
+      gameId: table.id,
+      hostUserId: hostA.id,
+      playerId: aId,
+      chipAmount: 7,
+      moneyValue: 150,
+      denominationsBreakdown: [
+        { denom: 10, count: 5 },
+        { denom: 50, count: 2 }
+      ]
+    });
+
+    expect(buyResultA.newBankChips).toBe(73);
+    const pARow = db.prepare('SELECT current_chips, total_buyin_chips, total_buyin_amount FROM game_players WHERE id = ?').get(aId);
+    expect(pARow.current_chips).toBe(7);
+    expect(pARow.total_buyin_chips).toBe(7);
+    expect(pARow.total_buyin_amount).toBe(150);
+
+    // Verify vault inventory decremented
+    const tableAfterA = db.prepare('SELECT denominations, bank_chips FROM games WHERE id = ?').get(table.id);
+    const denomsAfterA = JSON.parse(tableAfterA.denominations);
+    expect(denomsAfterA.find((d: any) => d.value === 10).count).toBe(45);
+    expect(denomsAfterA.find((d: any) => d.value === 50).count).toBe(18);
+    expect(denomsAfterA.find((d: any) => d.value === 100).count).toBe(10);
+    expect(tableAfterA.bank_chips).toBe(73);
+
+    // Batch buy-in with denomination bundles: 2 x ₹10 + 1 x ₹100 = 3 chips, ₹120 per player
+    // For Player B (1 player)
+    const batchResult = ledgerService.recordBatchBuyIn({
+      gameId: table.id,
+      hostUserId: hostA.id,
+      playerIds: [bId],
+      chipAmount: 3,
+      moneyValue: 120,
+      denominationsBreakdown: [
+        { denom: 10, count: 2 },
+        { denom: 100, count: 1 }
+      ]
+    });
+
+    expect(batchResult.newBankChips).toBe(70);
+    const pBRow = db.prepare('SELECT current_chips, total_buyin_chips, total_buyin_amount FROM game_players WHERE id = ?').get(bId);
+    expect(pBRow.current_chips).toBe(3);
+    expect(pBRow.total_buyin_chips).toBe(3);
+    expect(pBRow.total_buyin_amount).toBe(120);
+
+    // Overdraft attempt: try to buy 15 of ₹100 (vault only has 9 left)
+    expect(() => {
+      ledgerService.recordBuyIn({
+        gameId: table.id,
+        hostUserId: hostA.id,
+        playerId: aId,
+        chipAmount: 15,
+        moneyValue: 1500,
+        denominationsBreakdown: [
+          { denom: 100, count: 15 }
+        ]
+      });
+    }).toThrow(/Bank vault only has 9 chips of ₹100/);
+
+    // Settlement with exact physical chip counts:
+    // Host A ends with: 1 x ₹10 + 1 x ₹100 = 2 chips, ₹110 (loss of ₹40)
+    // Player B ends with: 6 x ₹10 + 2 x ₹50 = 8 chips, ₹160 (win of ₹40)
+    // Total final chips: 2 + 8 = 10 chips (matches expectedTotalChips 10)
+    // Total final money: 110 + 160 = ₹270 (matches total buy-in pot ₹270)
+    const preview = settlementService.submitFinalChipCounts(hostA.id, table.id, [
+      {
+        playerId: aId,
+        finalChips: 2,
+        finalChipsMoney: 110,
+        denominations: [
+          { denom: 10, count: 1 },
+          { denom: 100, count: 1 }
+        ]
+      },
+      {
+        playerId: bId,
+        finalChips: 8,
+        finalChipsMoney: 160,
+        denominations: [
+          { denom: 10, count: 6 },
+          { denom: 50, count: 2 }
+        ]
+      }
+    ]);
+
+    expect(preview.isReconciled).toBe(true);
+    expect(preview.expectedTotalChips).toBe(10);
+    expect(preview.totalAccountedChips).toBe(10);
+
+    const balA = preview.players.find(p => p.playerId === aId)!;
+    const balB = preview.players.find(p => p.playerId === bId)!;
+
+    expect(balA.finalChipsMoney).toBe(110);
+    expect(balA.totalBuyinMoney).toBe(150);
+    expect(balA.netPosition).toBe(-40);
+
+    expect(balB.finalChipsMoney).toBe(160);
+    expect(balB.totalBuyinMoney).toBe(120);
+    expect(balB.netPosition).toBe(40);
+
+    // Exact zero-sum verification
+    expect(balA.netPosition + balB.netPosition).toBe(0);
+
+    // Optimized settlement: A pays B ₹40
+    expect(preview.optimizedSettlements).toHaveLength(1);
+    expect(preview.optimizedSettlements[0].fromPlayerId).toBe(aId);
+    expect(preview.optimizedSettlements[0].toPlayerId).toBe(bId);
+    expect(preview.optimizedSettlements[0].amount).toBe(40);
+
+    // Finalize
+    const finalizeRes = settlementService.finalizeGame(hostA.id, table.id);
+    expect(finalizeRes.success).toBe(true);
+  });
 });

@@ -7,7 +7,7 @@ export function buyIn(req: AuthenticatedRequest, res: Response): void {
   try {
     const hostUserId = req.user!.userId;
     const tableId = req.params.tableId as string;
-    const { playerId, chipAmount, isRebuy, idempotencyKey } = req.body;
+    const { playerId, chipAmount, moneyValue, denominationsBreakdown, isRebuy, idempotencyKey } = req.body;
 
     if (!playerId || !chipAmount) {
       res.status(400).json({ success: false, error: 'Player ID and chip amount are required' });
@@ -19,6 +19,8 @@ export function buyIn(req: AuthenticatedRequest, res: Response): void {
       hostUserId,
       playerId,
       chipAmount: parseInt(chipAmount, 10),
+      moneyValue: moneyValue !== undefined ? parseFloat(moneyValue) : undefined,
+      denominationsBreakdown,
       isRebuy: !!isRebuy,
       idempotencyKey
     });

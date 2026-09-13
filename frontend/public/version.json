@@ -1,5 +1,5 @@
 {
-  "version": "1.0.20",
-  "buildTime": 1789323600000,
-  "releaseNotes": "Poker custom denominations & chip counts, denomination loans, and multi-player batch buy-in."
+  "version": "1.0.21",
+  "buildTime": 1789340000000,
+  "releaseNotes": "New splash video, unified Teen Patti & Poker custom denominations, casino vault inventory buy-in, denomination lending & settlement."
 }

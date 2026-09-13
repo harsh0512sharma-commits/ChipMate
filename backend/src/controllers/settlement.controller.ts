@@ -7,14 +7,14 @@ export function submitFinalChips(req: AuthenticatedRequest, res: Response): void
   try {
     const hostUserId = req.user!.userId;
     const tableId = req.params.tableId as string;
-    const { finalChipCounts } = req.body;
+    const payload = req.body.finalPlayerCounts || req.body.finalChipCounts;
 
-    if (!finalChipCounts || typeof finalChipCounts !== 'object') {
+    if (!payload || typeof payload !== 'object') {
       res.status(400).json({ success: false, error: 'Final chip counts are required' });
       return;
     }
 
-    const review = settlementService.submitFinalChipCounts(hostUserId, tableId, finalChipCounts);
+    const review = settlementService.submitFinalChipCounts(hostUserId, tableId, payload);
     broadcastTableUpdate(tableId, 'SETTLING_STARTED', review);
     res.json({ success: true, ...review });
   } catch (err: any) {

@@ -234,6 +234,8 @@ export function initSchema(db: Database.Database) {
       current_chips INTEGER NOT NULL DEFAULT 0,
       total_buyin_amount REAL NOT NULL DEFAULT 0,
       total_buyin_chips INTEGER NOT NULL DEFAULT 0,
+      final_chips_value REAL,
+      final_denominations TEXT,
       is_guest INTEGER NOT NULL DEFAULT 0,
       guest_name TEXT,
       joined_at TEXT NOT NULL,
@@ -264,12 +266,14 @@ export function initSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS loans (
       id TEXT PRIMARY KEY,
       game_id TEXT NOT NULL,
-      lender_id TEXT NOT NULL,   -- game_players.id
-      borrower_id TEXT NOT NULL, -- game_players.id
+      lender_id TEXT NOT NULL,
+      borrower_id TEXT NOT NULL,
       original_chip_amount INTEGER NOT NULL,
       remaining_chip_amount INTEGER NOT NULL,
       chip_value REAL NOT NULL,
-      status TEXT NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, PARTIALLY_REPAID, SETTLED
+      status TEXT NOT NULL, -- ACTIVE, PARTIALLY_SETTLED, SETTLED
+      notes TEXT,
+      metadata TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
@@ -369,6 +373,9 @@ export function initSchema(db: Database.Database) {
   try { db.exec("ALTER TABLE game_players ADD COLUMN guest_name TEXT"); } catch (_) {}
   try { db.exec("ALTER TABLE games ADD COLUMN chip_mode TEXT DEFAULT 'EQUAL'"); } catch (_) {}
   try { db.exec("ALTER TABLE games ADD COLUMN denominations TEXT"); } catch (_) {}
+  try { db.exec("ALTER TABLE game_players ADD COLUMN final_chips_value REAL"); } catch (_) {}
+  try { db.exec("ALTER TABLE game_players ADD COLUMN final_denominations TEXT"); } catch (_) {}
+  try { db.exec("ALTER TABLE loans ADD COLUMN metadata TEXT"); } catch (_) {}
 }
 
 const SYNC_TABLES = [

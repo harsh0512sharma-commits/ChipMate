@@ -23,6 +23,8 @@ export function recordBuyIn(params: {
   hostUserId: string;
   playerId: string;
   chipAmount: number;
+  moneyValue?: number;
+  denominationsBreakdown?: Array<{ denom: number; count: number }>;
   isRebuy?: boolean;
   idempotencyKey?: string;
 }): { transaction: TransactionRecord; newBankChips: number; newPlayerChips: number } {
@@ -50,26 +52,69 @@ export function recordBuyIn(params: {
       throw new Error('Cannot add buy-ins to a finalized game');
     }
 
-    if (table.bank_chips < params.chipAmount) {
-      throw new Error(`Bank only has ${table.bank_chips} chips available.`);
-    }
-
     const player = db.prepare('SELECT * FROM game_players WHERE id = ? AND game_id = ?').get(params.playerId, params.gameId) as any;
     if (!player) throw new Error('Player not found in this game');
 
-    const moneyValue = params.chipAmount * table.chip_value;
+    let totalChipsToDeduct = params.chipAmount;
+    let actualMoneyValue = (params.moneyValue !== undefined && params.moneyValue > 0)
+      ? params.moneyValue
+      : (params.chipAmount * table.chip_value);
+    let updatedBank = table.bank_chips;
+
+    // Denomination inventory handling
+    if (params.denominationsBreakdown && params.denominationsBreakdown.length > 0) {
+      const breakdownChips = params.denominationsBreakdown.reduce((sum, d) => sum + (Number(d.count) || 0), 0);
+      const breakdownMoney = params.denominationsBreakdown.reduce((sum, d) => sum + ((Number(d.count) || 0) * (Number(d.denom) || 0)), 0);
+      if (breakdownChips > 0) {
+        totalChipsToDeduct = breakdownChips;
+        actualMoneyValue = (params.moneyValue !== undefined && params.moneyValue > 0) ? params.moneyValue : breakdownMoney;
+      }
+
+      if (table.denominations) {
+        let denoms: any[] = [];
+        try { denoms = JSON.parse(table.denominations); } catch (_) {}
+        if (Array.isArray(denoms) && denoms.length > 0 && typeof denoms[0] === 'object') {
+          for (const item of params.denominationsBreakdown) {
+            const count = Number(item.count) || 0;
+            if (count <= 0) continue;
+            const bankItem = denoms.find(d => Number(d.value) === Number(item.denom));
+            if (!bankItem || (Number(bankItem.count) || 0) < count) {
+              throw new Error(`Bank vault only has ${bankItem ? bankItem.count : 0} chips of ₹${item.denom}, but ${count} requested.`);
+            }
+            bankItem.count = (Number(bankItem.count) || 0) - count;
+          }
+          updatedBank = denoms.reduce((sum, d) => sum + (Number(d.count) || 0), 0);
+          db.prepare('UPDATE games SET bank_chips = ?, denominations = ? WHERE id = ?').run(updatedBank, JSON.stringify(denoms), table.id);
+        } else {
+          if (table.bank_chips < totalChipsToDeduct) {
+            throw new Error(`Bank only has ${table.bank_chips} chips available.`);
+          }
+          updatedBank = table.bank_chips - totalChipsToDeduct;
+          db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(updatedBank, table.id);
+        }
+      } else {
+        if (table.bank_chips < totalChipsToDeduct) {
+          throw new Error(`Bank only has ${table.bank_chips} chips available.`);
+        }
+        updatedBank = table.bank_chips - totalChipsToDeduct;
+        db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(updatedBank, table.id);
+      }
+    } else {
+      if (table.bank_chips < totalChipsToDeduct) {
+        throw new Error(`Bank only has ${table.bank_chips} chips available.`);
+      }
+      updatedBank = table.bank_chips - totalChipsToDeduct;
+      db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(updatedBank, table.id);
+    }
+
     const type = params.isRebuy ? 'RE_BUY' : (player.total_buyin_chips > 0 ? 'RE_BUY' : 'BUY_IN');
     const txId = uuidv4();
     const now = new Date().toISOString();
 
-    // 1. Deduct bank chips
-    const updatedBank = table.bank_chips - params.chipAmount;
-    db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(updatedBank, table.id);
-
     // 2. Add chips & money to player
-    const updatedPlayerChips = player.current_chips + params.chipAmount;
-    const updatedTotalBuyinChips = player.total_buyin_chips + params.chipAmount;
-    const updatedTotalBuyinAmount = player.total_buyin_amount + moneyValue;
+    const updatedPlayerChips = player.current_chips + totalChipsToDeduct;
+    const updatedTotalBuyinChips = player.total_buyin_chips + totalChipsToDeduct;
+    const updatedTotalBuyinAmount = player.total_buyin_amount + actualMoneyValue;
 
     db.prepare(`
       UPDATE game_players 
@@ -78,10 +123,13 @@ export function recordBuyIn(params: {
     `).run(updatedPlayerChips, updatedTotalBuyinChips, updatedTotalBuyinAmount, player.id);
 
     // 3. Record transaction
+    const metadata = params.denominationsBreakdown ? JSON.stringify({ breakdown: params.denominationsBreakdown }) : null;
+    const effectiveChipVal = totalChipsToDeduct > 0 ? (actualMoneyValue / totalChipsToDeduct) : table.chip_value;
+
     db.prepare(`
-      INSERT INTO transactions (id, game_id, type, actor_user_id, from_player_id, to_player_id, chip_amount, chip_value, money_value, idempotency_key, created_at)
-      VALUES (?, ?, ?, ?, 'BANK', ?, ?, ?, ?, ?, ?)
-    `).run(txId, table.id, type, params.hostUserId, player.id, params.chipAmount, table.chip_value, moneyValue, params.idempotencyKey || null, now);
+      INSERT INTO transactions (id, game_id, type, actor_user_id, from_player_id, to_player_id, chip_amount, chip_value, money_value, idempotency_key, metadata, created_at)
+      VALUES (?, ?, ?, ?, 'BANK', ?, ?, ?, ?, ?, ?, ?)
+    `).run(txId, table.id, type, params.hostUserId, player.id, totalChipsToDeduct, effectiveChipVal, actualMoneyValue, params.idempotencyKey || null, metadata, now);
 
     const tx = db.prepare('SELECT * FROM transactions WHERE id = ?').get(txId) as TransactionRecord;
     return { transaction: tx, newBankChips: updatedBank, newPlayerChips: updatedPlayerChips };
@@ -126,14 +174,60 @@ export function recordBatchBuyIn(params: {
       throw new Error('Cannot add buy-ins to a finalized game');
     }
 
-    const totalChipsRequired = params.chipAmount * params.playerIds.length;
-    if (table.bank_chips < totalChipsRequired) {
-      throw new Error(`Bank vault only has ${table.bank_chips} chips available, but ${totalChipsRequired} chips are needed for ${params.playerIds.length} players.`);
-    }
-
-    const perPlayerMoney = (params.moneyValue && params.moneyValue > 0)
+    let perPlayerChips = params.chipAmount;
+    let perPlayerMoney = (params.moneyValue !== undefined && params.moneyValue > 0)
       ? params.moneyValue
       : (params.chipAmount * table.chip_value);
+    let totalChipsRequired = perPlayerChips * params.playerIds.length;
+    let newBankChips = table.bank_chips;
+
+    // Denomination inventory handling for batch
+    if (params.denominationsBreakdown && params.denominationsBreakdown.length > 0) {
+      const bundleChips = params.denominationsBreakdown.reduce((sum, d) => sum + (Number(d.count) || 0), 0);
+      const bundleMoney = params.denominationsBreakdown.reduce((sum, d) => sum + ((Number(d.count) || 0) * (Number(d.denom) || 0)), 0);
+      if (bundleChips > 0) {
+        perPlayerChips = bundleChips;
+        totalChipsRequired = perPlayerChips * params.playerIds.length;
+        perPlayerMoney = (params.moneyValue !== undefined && params.moneyValue > 0) ? params.moneyValue : bundleMoney;
+      }
+
+      if (table.denominations) {
+        let denoms: any[] = [];
+        try { denoms = JSON.parse(table.denominations); } catch (_) {}
+        if (Array.isArray(denoms) && denoms.length > 0 && typeof denoms[0] === 'object') {
+          for (const item of params.denominationsBreakdown) {
+            const perPlayerCount = Number(item.count) || 0;
+            if (perPlayerCount <= 0) continue;
+            const totalNeeded = perPlayerCount * params.playerIds.length;
+            const bankItem = denoms.find(d => Number(d.value) === Number(item.denom));
+            if (!bankItem || (Number(bankItem.count) || 0) < totalNeeded) {
+              throw new Error(`Bank vault only has ${bankItem ? bankItem.count : 0} chips of ₹${item.denom}, but ${totalNeeded} needed for ${params.playerIds.length} players.`);
+            }
+            bankItem.count = (Number(bankItem.count) || 0) - totalNeeded;
+          }
+          newBankChips = denoms.reduce((sum, d) => sum + (Number(d.count) || 0), 0);
+          db.prepare('UPDATE games SET bank_chips = ?, denominations = ? WHERE id = ?').run(newBankChips, JSON.stringify(denoms), table.id);
+        } else {
+          if (table.bank_chips < totalChipsRequired) {
+            throw new Error(`Bank vault only has ${table.bank_chips} chips available, but ${totalChipsRequired} chips are needed.`);
+          }
+          newBankChips = table.bank_chips - totalChipsRequired;
+          db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(newBankChips, table.id);
+        }
+      } else {
+        if (table.bank_chips < totalChipsRequired) {
+          throw new Error(`Bank vault only has ${table.bank_chips} chips available, but ${totalChipsRequired} chips are needed.`);
+        }
+        newBankChips = table.bank_chips - totalChipsRequired;
+        db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(newBankChips, table.id);
+      }
+    } else {
+      if (table.bank_chips < totalChipsRequired) {
+        throw new Error(`Bank vault only has ${table.bank_chips} chips available, but ${totalChipsRequired} chips are needed for ${params.playerIds.length} players.`);
+      }
+      newBankChips = table.bank_chips - totalChipsRequired;
+      db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(newBankChips, table.id);
+    }
 
     const now = new Date().toISOString();
     const transactions: TransactionRecord[] = [];
@@ -144,10 +238,6 @@ export function recordBatchBuyIn(params: {
       totalBuyinAmount: number;
     }> = [];
 
-    // Deduct total chips from bank vault
-    const newBankChips = table.bank_chips - totalChipsRequired;
-    db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(newBankChips, table.id);
-
     for (let i = 0; i < params.playerIds.length; i++) {
       const pid = params.playerIds[i];
       const player = db.prepare('SELECT * FROM game_players WHERE id = ? AND game_id = ?').get(pid, table.id) as any;
@@ -157,8 +247,8 @@ export function recordBatchBuyIn(params: {
 
       const txId = uuidv4();
       const type = params.isRebuy ? 'RE_BUY' : (player.total_buyin_chips > 0 ? 'RE_BUY' : 'BUY_IN');
-      const updatedPlayerChips = player.current_chips + params.chipAmount;
-      const updatedTotalBuyinChips = player.total_buyin_chips + params.chipAmount;
+      const updatedPlayerChips = player.current_chips + perPlayerChips;
+      const updatedTotalBuyinChips = player.total_buyin_chips + perPlayerChips;
       const updatedTotalBuyinAmount = player.total_buyin_amount + perPlayerMoney;
 
       db.prepare(`
@@ -178,8 +268,8 @@ export function recordBatchBuyIn(params: {
         type,
         params.hostUserId,
         player.id,
-        params.chipAmount,
-        params.chipAmount > 0 ? (perPlayerMoney / params.chipAmount) : table.chip_value,
+        perPlayerChips,
+        perPlayerChips > 0 ? (perPlayerMoney / perPlayerChips) : table.chip_value,
         perPlayerMoney,
         params.idempotencyKey ? `${params.idempotencyKey}_${i}` : null,
         metadata,

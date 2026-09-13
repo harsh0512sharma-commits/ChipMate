@@ -18,6 +18,7 @@ export interface SettlementPlayerBalance {
   loanCreditOwed: number; // money owed to this player by other borrowers
   netLoanImpact: number; // loanCreditOwed - loanDebtOwed
   netPosition: number; // gameGrossPnl + netLoanImpact
+  finalDenominations?: any[] | null;
 }
 
 export interface OptimizedPayment {
@@ -39,6 +40,8 @@ export interface SettlementReview {
   hostUserId: string;
   gameType: string;
   status: string;
+  chipMode?: string;
+  denominations?: string | null;
   totalChips: number;
   chipValue: number;
   bankChips: number;
@@ -106,7 +109,9 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
   const playerBalances: SettlementPlayerBalance[] = players.map(p => {
     const finalChips = p.current_chips;
     sumPlayerChips += finalChips;
-    const finalChipsMoney = Math.round(finalChips * table.chip_value * 100) / 100;
+    const finalChipsMoney = (p.final_chips_value !== null && p.final_chips_value !== undefined)
+      ? Math.round(p.final_chips_value * 100) / 100
+      : Math.round(finalChips * table.chip_value * 100) / 100;
     const totalBuyinMoney = Math.round(p.total_buyin_amount * 100) / 100;
     totalPotMoney += totalBuyinMoney;
 
@@ -117,6 +122,11 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
     // Authoritative Zero-Sum Unified Formula:
     // Final Net Position = Final In-Hand Chip Value - Total Buy-in Value - Total Borrowed Value + Total Lent Value
     const netPosition = Math.round((finalChipsMoney - totalBuyinMoney - loanDebtOwed + loanCreditOwed) * 100) / 100;
+
+    let finalDenominations = null;
+    if (p.final_denominations) {
+      try { finalDenominations = JSON.parse(p.final_denominations); } catch (_) {}
+    }
 
     return {
       playerId: p.id,
@@ -132,7 +142,8 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
       loanDebtOwed,
       loanCreditOwed,
       netLoanImpact,
-      netPosition
+      netPosition,
+      finalDenominations
     };
   });
 
@@ -166,6 +177,8 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
     hostUserId: table.host_user_id,
     gameType: table.game_type,
     status: table.status,
+    chipMode: table.chip_mode,
+    denominations: table.denominations,
     totalChips: table.total_chips,
     chipValue: table.chip_value,
     bankChips: table.bank_chips,
@@ -251,7 +264,7 @@ export function optimizeDebts(players: SettlementPlayerBalance[]): OptimizedPaym
 export function submitFinalChipCounts(
   hostUserId: string,
   gameId: string,
-  finalChipCounts: Record<string, number> | Array<{ playerId: string; finalChips: number }>
+  finalChipCounts: Record<string, number> | Array<{ playerId: string; finalChips: number; finalChipsMoney?: number; denominations?: Array<{ denom: number; count: number }> }>
 ): SettlementReview {
   const db = getDb();
   const table = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId) as GameTableRecord | undefined;
@@ -261,12 +274,21 @@ export function submitFinalChipCounts(
     throw new Error('Game is already finalized');
   }
 
-  // Normalize finalChipCounts to Record<string, number>
+  // Normalize finalChipCounts to Record<string, number> and extract money / denominations
   let countsMap: Record<string, number> = {};
+  let moneyMap: Record<string, number> = {};
+  let denomMap: Record<string, string> = {};
+
   if (Array.isArray(finalChipCounts)) {
     for (const item of finalChipCounts) {
       if (item && item.playerId) {
-        countsMap[item.playerId] = Number(item.finalChips);
+        countsMap[item.playerId] = Number(item.finalChips) || 0;
+        if (item.finalChipsMoney !== undefined) {
+          moneyMap[item.playerId] = Number(item.finalChipsMoney);
+        }
+        if (item.denominations) {
+          denomMap[item.playerId] = JSON.stringify(item.denominations);
+        }
       }
     }
   } else if (finalChipCounts && typeof finalChipCounts === 'object') {
@@ -301,7 +323,13 @@ export function submitFinalChipCounts(
     const now = new Date().toISOString();
     for (const p of players) {
       const count = countsMap[p.id];
-      db.prepare('UPDATE game_players SET current_chips = ? WHERE id = ?').run(count, p.id);
+      const moneyVal = moneyMap[p.id] !== undefined ? moneyMap[p.id] : (count * table.chip_value);
+      const denomsJson = denomMap[p.id] || null;
+      db.prepare(`
+        UPDATE game_players 
+        SET current_chips = ?, final_chips_value = ?, final_denominations = ? 
+        WHERE id = ?
+      `).run(count, moneyVal, denomsJson, p.id);
     }
     db.prepare(`UPDATE games SET status = 'SETTLING', ended_at = ? WHERE id = ?`).run(now, gameId);
   });
