@@ -15,15 +15,15 @@ export function createApp() {
 
   // Health check
   app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.18', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.19', timestamp: new Date().toISOString() });
   });
 
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.18',
-      buildTime: 1789290000000,
-      releaseNotes: 'Cleaned test games, enforced 1-account-per-phone rule, and added exclusive Master Admin portal for 7319123393.'
+      version: '1.0.19',
+      buildTime: 1789291000000,
+      releaseNotes: 'Exclusive Master Admin player account deletion capability (7319123393).'
     });
   };
   app.get('/version', versionHandler);

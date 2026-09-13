@@ -71,6 +71,7 @@ router.get('/stats/user/:userId', requireAuth, statsCtrl.getUserStats);
 router.get('/admin/overview', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.getOverview);
 router.get('/admin/users', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.getAllPlayers);
 router.get('/admin/users/:userId', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.getPlayerDetails);
+router.delete('/admin/users/:userId', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.deletePlayer);
 router.get('/admin/games', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.getAllGames);
 router.delete('/admin/games/:gameId', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.deleteGame);
 router.post('/admin/reset-games', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.resetAllGames);

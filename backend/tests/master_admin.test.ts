@@ -87,6 +87,7 @@ describe('Master Admin (7319123393) & Single Account Enforcement Suite', () => {
       { method: 'get', url: '/api/admin/overview' },
       { method: 'get', url: '/api/admin/users' },
       { method: 'get', url: `/api/admin/users/${regularUser.id}` },
+      { method: 'delete', url: `/api/admin/users/${regularUser.id}` },
       { method: 'get', url: '/api/admin/games' },
       { method: 'delete', url: '/api/admin/games/some-game-id' },
       { method: 'post', url: '/api/admin/reset-games' },
@@ -213,5 +214,45 @@ describe('Master Admin (7319123393) & Single Account Enforcement Suite', () => {
       .get('/api/admin/games')
       .set('Authorization', `Bearer ${adminToken}`);
     expect(gamesRes.body.games.length).toBe(0);
+  });
+
+  test('master admin can delete a player ID, but cannot delete master admin', async () => {
+    // Attempting to delete master admin returns 400
+    const selfDelRes = await request(app)
+      .delete(`/api/admin/users/${adminUser.id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(selfDelRes.status).toBe(400);
+    expect(selfDelRes.body.error).toMatch(/cannot be deleted/i);
+
+    // Create a dummy player to delete
+    const dummyReq = await authService.signupRequestOtp({
+      displayName: 'Deletable Player',
+      phoneNumber: '9111222333',
+      email: 'delete_me@chipmate.test',
+      password: 'Password123!',
+    });
+    const dummyRes = authService.signupVerifyOtp({
+      email: 'delete_me@chipmate.test',
+      code: dummyReq.devOtp!,
+      displayName: 'Deletable Player',
+    });
+    const dummyId = dummyRes.user.id;
+
+    // Admin deletes the dummy player
+    const delRes = await request(app)
+      .delete(`/api/admin/users/${dummyId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(delRes.status).toBe(200);
+    expect(delRes.body.success).toBe(true);
+    expect(delRes.body.message).toMatch(/permanently deleted/i);
+
+    // Verify user is gone from db
+    expect(authService.getUserById(dummyId)).toBeNull();
+
+    // Verify calling again returns 404
+    const delAgainRes = await request(app)
+      .delete(`/api/admin/users/${dummyId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(delAgainRes.status).toBe(404);
   });
 });

@@ -1,5 +1,6 @@
 import { getDb, flushReplicationQueue } from '../db';
 import { recalculateUserLifetimeStats } from './stats.service';
+import { isMasterAdmin } from './auth.service';
 
 export interface AdminOverview {
   totalUsers: number;
@@ -358,3 +359,81 @@ export function adminResetAllGames(): { success: boolean; message: string; delet
     message: `Master reset complete. ${deletedGamesCount} games purged and lifetime stats cleanly reset.`,
   };
 }
+
+export function adminDeletePlayer(userId: string): { success: boolean; message: string } {
+  const db = getDb();
+  const targetUser = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
+  if (!targetUser) {
+    throw new Error('User not found');
+  }
+
+  if (isMasterAdmin(targetUser)) {
+    throw new Error('Master Admin account (7319123393) cannot be deleted.');
+  }
+
+  // 1. Find all games hosted by this user and delete them completely
+  const hostedGames = db.prepare('SELECT id FROM games WHERE host_user_id = ?').all(userId) as { id: string }[];
+  for (const g of hostedGames) {
+    try {
+      adminDeleteGame(g.id);
+    } catch (_) {}
+  }
+
+  db.transaction(() => {
+    // 2. Clean up loans involving this user
+    db.prepare(`
+      DELETE FROM loans 
+      WHERE lender_id IN (SELECT id FROM game_players WHERE user_id = ?)
+         OR borrower_id IN (SELECT id FROM game_players WHERE user_id = ?)
+    `).run(userId, userId);
+
+    // 3. Clean up settlement items involving this user
+    db.prepare(`
+      DELETE FROM settlement_items 
+      WHERE from_player_id IN (SELECT id FROM game_players WHERE user_id = ?)
+         OR to_player_id IN (SELECT id FROM game_players WHERE user_id = ?)
+    `).run(userId, userId);
+
+    // 4. Clean up transactions where user was actor or from/to player
+    db.prepare(`
+      DELETE FROM transactions 
+      WHERE actor_user_id = ?
+         OR from_player_id IN (SELECT id FROM game_players WHERE user_id = ?)
+         OR to_player_id IN (SELECT id FROM game_players WHERE user_id = ?)
+    `).run(userId, userId, userId);
+
+    // 5. Clean up player game results
+    db.prepare('DELETE FROM player_game_results WHERE user_id = ?').run(userId);
+
+    // 6. Clean up game players
+    db.prepare('DELETE FROM game_players WHERE user_id = ?').run(userId);
+
+    // 7. Clean up friendships
+    db.prepare('DELETE FROM friendships WHERE user_id = ? OR friend_id = ?').run(userId, userId);
+
+    // 8. Clean up lifetime stats
+    db.prepare('DELETE FROM player_lifetime_stats WHERE user_id = ?').run(userId);
+
+    // 9. Clean up pending registrations & OTPs
+    if (targetUser.phone_number) {
+      db.prepare('DELETE FROM pending_registrations WHERE phone_number = ?').run(targetUser.phone_number);
+    }
+    if (targetUser.email) {
+      db.prepare('DELETE FROM pending_registrations WHERE email = ?').run(targetUser.email);
+      db.prepare('DELETE FROM otp_codes WHERE email = ?').run(targetUser.email);
+    }
+
+    // 10. Finally delete from users table
+    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+  })();
+
+  flushReplicationQueue().catch(err => {
+    console.warn('[adminDeletePlayer] Cloud replication flush error:', err.message);
+  });
+
+  return {
+    success: true,
+    message: `Player "${targetUser.display_name}" (${targetUser.phone_number || targetUser.friend_code}) permanently deleted.`,
+  };
+}
+

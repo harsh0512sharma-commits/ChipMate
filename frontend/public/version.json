@@ -1,5 +1,5 @@
 {
-  "version": "1.0.18",
-  "buildTime": 1789290000000,
-  "releaseNotes": "Cleaned test games, enforced 1-account-per-phone rule, and added exclusive Master Admin portal for 7319123393."
+  "version": "1.0.19",
+  "buildTime": 1789291000000,
+  "releaseNotes": "Exclusive Master Admin player account deletion capability (7319123393)."
 }

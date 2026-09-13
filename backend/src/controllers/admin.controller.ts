@@ -99,3 +99,23 @@ export function resetAllGames(req: AuthenticatedRequest, res: Response): void {
     res.status(500).json({ success: false, error: err.message || 'Failed to reset games' });
   }
 }
+
+export function deletePlayer(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const rawUserId = req.params.userId;
+    const userId = Array.isArray(rawUserId) ? rawUserId[0] : rawUserId;
+    if (!userId) {
+      res.status(400).json({ success: false, error: 'User ID is required' });
+      return;
+    }
+
+    const result = adminService.adminDeletePlayer(userId);
+    res.json(result);
+  } catch (err: any) {
+    const status = err.message === 'User not found' ? 404 : err.message.includes('cannot be deleted') ? 400 : 500;
+    res.status(status).json({
+      success: false,
+      error: err.message || 'Failed to delete player account',
+    });
+  }
+}

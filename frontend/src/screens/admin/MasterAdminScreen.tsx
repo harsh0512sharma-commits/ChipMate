@@ -119,6 +119,7 @@ export const MasterAdminScreen: React.FC<MasterAdminScreenProps> = ({ onBack, on
 
   // Deleting state
   const [deletingGameId, setDeletingGameId] = useState<string | null>(null);
+  const [deletingPlayerId, setDeletingPlayerId] = useState<string | null>(null);
   const [resettingAll, setResettingAll] = useState(false);
 
   useEffect(() => {
@@ -198,6 +199,45 @@ export const MasterAdminScreen: React.FC<MasterAdminScreenProps> = ({ onBack, on
       Alert.alert('Delete Game', confirmMsg, [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Delete Permanently', style: 'destructive', onPress: proceedWithDeletion },
+      ]);
+    }
+  };
+
+  const handleDeletePlayer = (player: { id: string; display_name: string; phone_number?: string | null; friend_code?: string }) => {
+    if (player.phone_number === '7319123393') {
+      Alert.alert('Action Blocked', 'The Master Admin account cannot be deleted.');
+      return;
+    }
+
+    const confirmMsg = `Are you sure you want to permanently delete player "${player.display_name}" (${player.phone_number || player.friend_code})?\n\nThis will purge all their records, game history, and friendship links. This action cannot be undone.`;
+
+    const proceedWithPlayerDeletion = async () => {
+      setDeletingPlayerId(player.id);
+      try {
+        const res = await apiRequest(`/admin/users/${player.id}`, { method: 'DELETE' });
+        if (res.success) {
+          Alert.alert('Player Deleted', res.message || 'Player account permanently deleted.');
+          setSelectedPlayerId(null);
+          setPlayerDetails(null);
+          loadAllAdminData();
+        } else {
+          Alert.alert('Deletion Failed', res.error || 'Could not delete player account.');
+        }
+      } catch (err: any) {
+        Alert.alert('Error', err.message || 'Failed to delete player account.');
+      } finally {
+        setDeletingPlayerId(null);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(confirmMsg)) {
+        proceedWithPlayerDeletion();
+      }
+    } else {
+      Alert.alert('Delete Player Account', confirmMsg, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete Permanently', style: 'destructive', onPress: proceedWithPlayerDeletion },
       ]);
     }
   };
@@ -450,8 +490,29 @@ export const MasterAdminScreen: React.FC<MasterAdminScreenProps> = ({ onBack, on
                           Played: {p.games_played} • Buy-ins: ₹{p.total_buyins} • Friends: {p.friends_count}
                         </Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Text style={styles.viewDossierText}>Inspect</Text>
-                          <ChevronRight size={14} color="#FFD700" />
+                          {!isMasterUser && (
+                            <TouchableOpacity
+                              style={styles.deletePlayerBtnSmall}
+                              onPress={(e) => {
+                                (e as any).stopPropagation?.();
+                                handleDeletePlayer(p);
+                              }}
+                              disabled={deletingPlayerId === p.id}
+                            >
+                              {deletingPlayerId === p.id ? (
+                                <ActivityIndicator size="small" color={colors.dangerText} />
+                              ) : (
+                                <>
+                                  <Trash2 size={12} color={colors.dangerText} style={{ marginRight: 3 }} />
+                                  <Text style={styles.deletePlayerTextSmall}>Delete ID</Text>
+                                </>
+                              )}
+                            </TouchableOpacity>
+                          )}
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}>
+                            <Text style={styles.viewDossierText}>Inspect</Text>
+                            <ChevronRight size={14} color="#FFD700" />
+                          </View>
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -704,7 +765,7 @@ export const MasterAdminScreen: React.FC<MasterAdminScreenProps> = ({ onBack, on
                 </View>
 
                 {/* Friends List */}
-                <View style={[styles.dossierSection, { marginBottom: 30 }]}>
+                <View style={styles.dossierSection}>
                   <Text style={styles.dossierSectionTitle}>
                     CHIPMATE FRIENDS ({playerDetails.friends?.length || 0})
                   </Text>
@@ -719,6 +780,30 @@ export const MasterAdminScreen: React.FC<MasterAdminScreenProps> = ({ onBack, on
                     ))
                   )}
                 </View>
+
+                {/* Danger Zone: Delete Player Account */}
+                {playerDetails?.user?.phone_number !== '7319123393' && (
+                  <View style={styles.dossierDangerZone}>
+                    <Text style={styles.dossierDangerTitle}>PERMANENT ACCOUNT DELETION</Text>
+                    <Text style={styles.dossierDangerDesc}>
+                      Permanently delete this player's ID from ChipMate. This will purge all their records, game history, and friendship connections.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.dossierDeleteBtn}
+                      onPress={() => handleDeletePlayer(playerDetails.user)}
+                      disabled={deletingPlayerId === playerDetails.user.id}
+                    >
+                      {deletingPlayerId === playerDetails.user.id ? (
+                        <ActivityIndicator size="small" color="#FFF" />
+                      ) : (
+                        <>
+                          <Trash2 size={16} color="#FFF" style={{ marginRight: 8 }} />
+                          <Text style={styles.dossierDeleteBtnText}>Delete Player ID Permanently</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
               </ScrollView>
             )}
           </View>
@@ -1180,5 +1265,55 @@ const styles = StyleSheet.create({
   dossierFriendPhone: {
     fontSize: 12,
     color: colors.textMuted,
+  },
+  deletePlayerBtnSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: '#2D1214',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#F8514944',
+  },
+  deletePlayerTextSmall: {
+    color: colors.dangerText,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  dossierDangerZone: {
+    marginTop: 16,
+    marginBottom: 40,
+    backgroundColor: '#2D1214',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#F8514955',
+  },
+  dossierDangerTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.dangerText,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  dossierDangerDesc: {
+    fontSize: 12,
+    color: '#E6EDF3',
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  dossierDeleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DA3633',
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  dossierDeleteBtnText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
