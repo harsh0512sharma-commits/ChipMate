@@ -1,5 +1,5 @@
 {
-  "version": "1.0.17",
-  "buildTime": 1789277000000,
-  "releaseNotes": "Properly filter departed players from active games and table creation concurrency checks."
+  "version": "1.0.18",
+  "buildTime": 1789290000000,
+  "releaseNotes": "Cleaned test games, enforced 1-account-per-phone rule, and added exclusive Master Admin portal for 7319123393."
 }

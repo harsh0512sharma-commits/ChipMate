@@ -5,6 +5,14 @@ import { config } from '../config';
 import { sendOtpEmail } from './email.service';
 import { recalculateUserLifetimeStats } from './stats.service';
 
+export const MASTER_ADMIN_PHONE = '7319123393';
+
+export function isMasterAdmin(user?: { phone_number?: string | null } | null): boolean {
+  if (!user || !user.phone_number) return false;
+  const cleanPhone = user.phone_number.replace(/\D/g, '').slice(-10);
+  return cleanPhone === MASTER_ADMIN_PHONE;
+}
+
 export interface UserRecord {
   id: string;
   phone_number?: string | null;
@@ -15,6 +23,7 @@ export interface UserRecord {
   avatar_url?: string | null;
   created_at: string;
   updated_at: string;
+  isMasterAdmin?: boolean;
 }
 
 export function generateFriendCode(displayName?: string): string {
@@ -104,13 +113,13 @@ export async function signupRequestOtp(params: {
   // Check if phone number is already registered
   const existingPhone = db.prepare('SELECT id FROM users WHERE phone_number = ?').get(normalizedPhone);
   if (existingPhone) {
-    throw new Error('This mobile number is already registered. Please sign in.');
+    throw new Error('An account with this mobile number is already registered. Only 1 account per mobile number is permitted. Please sign in.');
   }
 
   // Check if email is already registered
   const existingEmail = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail);
   if (existingEmail) {
-    throw new Error('This email is already registered. Please sign in.');
+    throw new Error('An account with this email is already registered. Please sign in.');
   }
 
   const now = new Date();
@@ -174,43 +183,32 @@ export function signupVerifyOtp(params: {
   db.prepare('UPDATE pending_registrations SET consumed = 1 WHERE id = ?').run(pending.id);
 
   // Check if user already exists
-  let user = db.prepare('SELECT * FROM users WHERE phone_number = ? OR email = ?').get(pending.phone_number, pending.email) as UserRecord | undefined;
-
-  if (!user) {
-    const userId = uuidv4();
-    const candidateName = params.displayName?.trim();
-    const displayName = (candidateName && candidateName !== pending.phone_number ? candidateName : null)
-      || pending.display_name?.trim()
-      || candidateName
-      || ('Player ' + pending.phone_number.slice(-4));
-    const friendCode = pending.phone_number || generateFriendCode(displayName);
-    const createdAt = new Date().toISOString();
-
-    db.prepare(`
-      INSERT INTO users (id, phone_number, email, password_hash, display_name, friend_code, avatar_url, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)
-    `).run(userId, pending.phone_number, pending.email, pending.password_hash, displayName, friendCode, createdAt, createdAt);
-
-    // Initialize lifetime stats
-    db.prepare(`
-      INSERT INTO player_lifetime_stats (user_id, updated_at)
-      VALUES (?, ?)
-    `).run(userId, createdAt);
-
-    user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as UserRecord;
-  } else {
-    // If existing user has display_name set to their phone number, upgrade to their real name
-    const candidateName = params.displayName?.trim();
-    const newName = (candidateName && candidateName !== pending.phone_number ? candidateName : null) || pending.display_name?.trim();
-    if (newName && (user.display_name === user.phone_number || !user.display_name || user.display_name.startsWith('Player '))) {
-      db.prepare('UPDATE users SET display_name = ?, updated_at = ? WHERE id = ?').run(newName, now, user.id);
-    }
-    if (pending.phone_number && user.friend_code !== pending.phone_number) {
-      db.prepare('UPDATE users SET phone_number = ?, friend_code = ?, updated_at = ? WHERE id = ?')
-        .run(pending.phone_number, pending.phone_number, now, user.id);
-    }
-    user = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id) as UserRecord;
+  let user = db.prepare('SELECT id FROM users WHERE phone_number = ? OR email = ?').get(pending.phone_number, pending.email) as UserRecord | undefined;
+  if (user) {
+    throw new Error('An account with this mobile number or email is already registered. Only 1 account per mobile number is permitted. Please sign in.');
   }
+
+  const userId = uuidv4();
+  const candidateName = params.displayName?.trim();
+  const displayName = (candidateName && candidateName !== pending.phone_number ? candidateName : null)
+    || pending.display_name?.trim()
+    || candidateName
+    || ('Player ' + pending.phone_number.slice(-4));
+  const friendCode = pending.phone_number || generateFriendCode(displayName);
+  const createdAt = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO users (id, phone_number, email, password_hash, display_name, friend_code, avatar_url, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)
+  `).run(userId, pending.phone_number, pending.email, pending.password_hash, displayName, friendCode, createdAt, createdAt);
+
+  // Initialize lifetime stats
+  db.prepare(`
+    INSERT INTO player_lifetime_stats (user_id, updated_at)
+    VALUES (?, ?)
+  `).run(userId, createdAt);
+
+  user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as UserRecord;
 
   const token = jwt.sign(
     { userId: user.id, email: user.email, phoneNumber: user.phone_number, friendCode: user.friend_code },
@@ -396,7 +394,7 @@ export function updateUserProfile(userId: string, displayName?: string, avatarUr
   return db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as UserRecord;
 }
 
-export function getUserById(userId: string): (UserRecord & { stats?: any }) | null {
+export function getUserById(userId: string): (UserRecord & { stats?: any; isMasterAdmin?: boolean }) | null {
   const db = getDb();
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as UserRecord | undefined;
   if (!user) return null;
@@ -407,7 +405,11 @@ export function getUserById(userId: string): (UserRecord & { stats?: any }) | nu
   } catch (_) {
     stats = db.prepare('SELECT * FROM player_lifetime_stats WHERE user_id = ?').get(userId);
   }
-  return { ...user, stats };
+  return {
+    ...user,
+    stats,
+    isMasterAdmin: isMasterAdmin(user),
+  };
 }
 
 export function getUserByFriendCode(friendCode: string): UserRecord | null {

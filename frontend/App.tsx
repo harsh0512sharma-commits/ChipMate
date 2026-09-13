@@ -30,6 +30,7 @@ import { FriendsScreen } from './src/screens/friends/FriendsScreen';
 import { HeadToHeadScreen } from './src/screens/friends/HeadToHeadScreen';
 import { LeaderboardScreen } from './src/screens/leaderboard/LeaderboardScreen';
 import { ProfileScreen } from './src/screens/profile/ProfileScreen';
+import { MasterAdminScreen } from './src/screens/admin/MasterAdminScreen';
 
 type ScreenType =
   | 'TAB_HOME'
@@ -41,7 +42,8 @@ type ScreenType =
   | 'LIVE_TABLE'
   | 'SETTLEMENT'
   | 'GAME_SUMMARY'
-  | 'HEAD_TO_HEAD';
+  | 'HEAD_TO_HEAD'
+  | 'MASTER_ADMIN';
 
 function MainNavigator() {
   const { user, token, isLoading, refreshUser } = useAuth();
@@ -173,7 +175,19 @@ function MainNavigator() {
             />
           )}
 
-          {currentScreen === 'TAB_PROFILE' && <ProfileScreen onOpenSummary={openSummary} />}
+          {currentScreen === 'TAB_PROFILE' && (
+            <ProfileScreen
+              onOpenSummary={openSummary}
+              onOpenMasterAdmin={() => setCurrentScreen('MASTER_ADMIN')}
+            />
+          )}
+
+          {currentScreen === 'MASTER_ADMIN' && (
+            <MasterAdminScreen
+              onBack={() => setCurrentScreen('TAB_PROFILE')}
+              onOpenSummary={openSummary}
+            />
+          )}
 
           {currentScreen === 'CREATE_TABLE' && (
             <CreateTableScreen

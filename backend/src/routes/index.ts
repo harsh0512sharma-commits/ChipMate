@@ -6,6 +6,7 @@ import * as tableCtrl from '../controllers/table.controller';
 import * as ledgerCtrl from '../controllers/ledger.controller';
 import * as settleCtrl from '../controllers/settlement.controller';
 import * as statsCtrl from '../controllers/stats.controller';
+import * as adminCtrl from '../controllers/admin.controller';
 
 const router = Router();
 
@@ -65,5 +66,13 @@ router.get('/stats/head-to-head/:otherUserId', requireAuth, statsCtrl.getHeadToH
 router.get('/stats/game-insights/:gameId', requireAuth, statsCtrl.getInsights);
 router.get('/stats/user', requireAuth, statsCtrl.getUserStats);
 router.get('/stats/user/:userId', requireAuth, statsCtrl.getUserStats);
+
+// Master Admin routes (strictly protected for 7319123393)
+router.get('/admin/overview', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.getOverview);
+router.get('/admin/users', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.getAllPlayers);
+router.get('/admin/users/:userId', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.getPlayerDetails);
+router.get('/admin/games', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.getAllGames);
+router.delete('/admin/games/:gameId', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.deleteGame);
+router.post('/admin/reset-games', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.resetAllGames);
 
 export default router;

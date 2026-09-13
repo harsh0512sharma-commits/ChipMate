@@ -33,6 +33,7 @@ import { APP_BUILD_VERSION } from '../../version';
 
 interface ProfileScreenProps {
   onOpenSummary?: (gameId: string) => void;
+  onOpenMasterAdmin?: () => void;
 }
 
 function formatGameDateTime(dateStr?: string): string {
@@ -51,8 +52,9 @@ function formatGameDateTime(dateStr?: string): string {
   return `${datePart} • ${timePart}`;
 }
 
-export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary }) => {
+export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary, onOpenMasterAdmin }) => {
   const { user, logout, refreshUser, updateUser } = useAuth();
+  const isMasterAdmin = Boolean(user?.isMasterAdmin || user?.phone_number === '7319123393');
   const [copied, setCopied] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState(user?.display_name || '');
@@ -276,6 +278,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary }) =
             </View>
           )}
 
+          {isMasterAdmin && (
+            <View style={styles.masterBadge}>
+              <Text style={styles.masterBadgeText}>👑 MASTER ADMIN</Text>
+            </View>
+          )}
+
           <Text style={styles.emailText}>{user?.email}</Text>
 
           {/* Unique Friend Code Box (Mobile Number) */}
@@ -293,6 +301,31 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary }) =
               {copied ? 'Copied to clipboard!' : 'Friends can add you using this 10-digit number'}
             </Text>
           </TouchableOpacity>
+
+          {/* Master Admin Portal Access (Strictly for 7319123393) */}
+          {isMasterAdmin && onOpenMasterAdmin && (
+            <TouchableOpacity
+              style={styles.masterAdminButton}
+              onPress={onOpenMasterAdmin}
+              activeOpacity={0.8}
+            >
+              <View style={styles.masterAdminIconWrap}>
+                <Text style={{ fontSize: 20 }}>👑</Text>
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={styles.masterAdminTitle}>Master Admin Controls</Text>
+                  <View style={styles.rootBadge}>
+                    <Text style={styles.rootBadgeText}>EXCLUSIVE</Text>
+                  </View>
+                </View>
+                <Text style={styles.masterAdminSubtitle}>
+                  Inspect all players, view platform analytics & delete any game
+                </Text>
+              </View>
+              <ArrowRight size={18} color="#FFD700" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* LIFETIME FINANCIAL CAREER STATS */}
@@ -861,5 +894,62 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 6,
     letterSpacing: 0.3
-  }
+  },
+  masterBadge: {
+    alignSelf: 'center',
+    backgroundColor: '#FFD70022',
+    borderWidth: 1,
+    borderColor: '#FFD700',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginBottom: 6,
+  },
+  masterBadgeText: {
+    color: '#FFD700',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  masterAdminButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1C1A14',
+    borderWidth: 1.5,
+    borderColor: '#FFD700',
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 12,
+  },
+  masterAdminIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFD70022',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  masterAdminTitle: {
+    color: '#FFD700',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  rootBadge: {
+    backgroundColor: '#DA3633',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  rootBadgeText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  masterAdminSubtitle: {
+    color: '#C9D1D9',
+    fontSize: 11,
+    marginTop: 3,
+    lineHeight: 15,
+  },
 });

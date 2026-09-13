@@ -10,6 +10,7 @@ export interface User {
   friend_code: string;
   avatar_url?: string | null;
   stats?: any;
+  isMasterAdmin?: boolean;
 }
 
 interface AuthContextType {

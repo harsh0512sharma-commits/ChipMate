@@ -58,13 +58,6 @@ export function recalculateUserLifetimeStats(userId: string): PlayerLifetimeStat
     ORDER BY g.finalized_at ASC, g.created_at ASC
   `).all(userId) as any[];
 
-  // If no detailed game results exist, preserve existing historical stats
-  if (results.length === 0) {
-    const existing = db.prepare('SELECT * FROM player_lifetime_stats WHERE user_id = ?').get(userId) as any;
-    if (existing && existing.games_played > 0) {
-      return existing as PlayerLifetimeStatsRecord;
-    }
-  }
 
   let gamesPlayed = results.length;
   let gamesWon = 0;
