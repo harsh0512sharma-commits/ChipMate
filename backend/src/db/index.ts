@@ -24,7 +24,71 @@ export function getTursoClient(): LibsqlClient | null {
 
 let isSyncing = false;
 
+interface ReplicationTask {
+  sql: string;
+  args: any[];
+  retryCount: number;
+}
+
+const replicationQueue: ReplicationTask[] = [];
+let isReplicating = false;
+
+async function processReplicationQueue() {
+  if (isReplicating || isSyncing) return;
+  const client = getTursoClient();
+  if (!client) return;
+
+  isReplicating = true;
+  try {
+    while (replicationQueue.length > 0) {
+      const task = replicationQueue[0];
+      try {
+        await client.execute({ sql: task.sql, args: task.args });
+        replicationQueue.shift(); // Success, remove from queue
+      } catch (err: any) {
+        task.retryCount = (task.retryCount || 0) + 1;
+        const msg = err.message || '';
+        // If row already exists or unique constraint satisfied, remove safely
+        if (msg.includes('UNIQUE constraint') || msg.includes('already exists')) {
+          replicationQueue.shift();
+        } else if (task.retryCount >= 4) {
+          console.warn('[Turso Replication Dropped after 4 retries]:', msg, 'SQL:', task.sql);
+          replicationQueue.shift();
+        } else {
+          console.warn(`[Turso Replication Retry ${task.retryCount}/4]:`, msg);
+          await new Promise(res => setTimeout(res, 250 * task.retryCount));
+        }
+      }
+    }
+  } finally {
+    isReplicating = false;
+  }
+}
+
+export function queueReplication(sql: string, args: any[]) {
+  if (process.env.NODE_ENV === 'test' || isSyncing) return;
+  const sanitizedArgs = args.map(arg => (arg === undefined ? null : arg));
+  replicationQueue.push({ sql, args: sanitizedArgs, retryCount: 0 });
+  processReplicationQueue().catch(err => {
+    console.warn('[Turso Replication Queue Worker Error]:', err.message);
+    isReplicating = false;
+  });
+}
+
+export async function flushReplicationQueue(): Promise<void> {
+  if (process.env.NODE_ENV === 'test') return;
+  const maxWaitMs = 10000;
+  const start = Date.now();
+  while (replicationQueue.length > 0 && Date.now() - start < maxWaitMs) {
+    await processReplicationQueue();
+    if (replicationQueue.length > 0) {
+      await new Promise(res => setTimeout(res, 100));
+    }
+  }
+}
+
 function wrapDatabaseWithReplication(db: Database.Database): Database.Database {
+  if (process.env.NODE_ENV === 'test' || db.name === ':memory:') return db;
   const client = getTursoClient();
   if (!client) return db;
 
@@ -38,13 +102,7 @@ function wrapDatabaseWithReplication(db: Database.Database): Database.Database {
       const origRun = stmt.run.bind(stmt);
       stmt.run = function(...args: any[]) {
         const result = origRun(...args);
-        if (!isSyncing) {
-          // Asynchronously replicate to Turso Cloud in background
-          const sanitizedArgs = args.map(arg => (arg === undefined ? null : arg));
-          client.execute({ sql, args: sanitizedArgs }).catch(err => {
-            console.warn('[Turso Cloud Replication Warning]:', err.message);
-          });
-        }
+        queueReplication(sql, args);
         return result;
       };
     }
@@ -356,6 +414,30 @@ export async function syncFromTursoCloud(db: Database.Database): Promise<void> {
       console.log(`✅ Restored ${totalRestored} records from Turso Cloud into local cache!`);
     } else {
       console.log('✅ Turso Cloud connected and ready.');
+    }
+
+    // Two-way synchronization check: If local DB has records missing in Turso Cloud, backfill them
+    for (const table of SYNC_TABLES) {
+      try {
+        const localRows = db.prepare(`SELECT * FROM ${table}`).all() as any[];
+        if (localRows.length > 0) {
+          const idCol = table === 'player_lifetime_stats' ? 'user_id' : 'id';
+          const cloudRes = await client.execute(`SELECT ${idCol} FROM ${table}`).catch(() => ({ rows: [] }));
+          const cloudIds = new Set(cloudRes.rows.map(r => (r as any)[idCol]));
+          for (const row of localRows) {
+            const rowId = row[idCol];
+            if (rowId && !cloudIds.has(rowId)) {
+              const keys = Object.keys(row);
+              const placeholders = keys.map(() => '?').join(', ');
+              const values = keys.map(k => (row[k] === undefined ? null : row[k]));
+              await client.execute({
+                sql: `INSERT OR REPLACE INTO ${table} (${keys.join(', ')}) VALUES (${placeholders})`,
+                args: values
+              }).catch(e => console.warn(`[Turso Backfill ${table} Error]:`, e.message));
+            }
+          }
+        }
+      } catch (_) {}
     }
   } catch (err: any) {
     console.warn('[Turso Cloud Hydration Warning]:', err.message);

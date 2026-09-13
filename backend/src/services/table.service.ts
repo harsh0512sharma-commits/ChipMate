@@ -385,13 +385,25 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
       t.to_player_id,
       CASE
         WHEN t.from_player_id = 'BANK' THEN 'Bank'
-        WHEN u_from.display_name IS NOT NULL THEN COALESCE(gp_from.guest_name, u_from.display_name)
-        ELSE 'Unknown'
+        WHEN gp_from.guest_name IS NOT NULL AND gp_from.guest_name != '' THEN gp_from.guest_name
+        WHEN u_from.display_name IS NOT NULL AND u_from.display_name != '' THEN u_from.display_name
+        WHEN (SELECT display_name FROM users WHERE id = gp_from.user_id) IS NOT NULL THEN (SELECT display_name FROM users WHERE id = gp_from.user_id)
+        WHEN t.from_player_id = (SELECT id FROM game_players WHERE game_id = t.game_id AND role = 'HOST') THEN (SELECT display_name FROM users WHERE id = (SELECT host_user_id FROM games WHERE id = t.game_id))
+        ELSE COALESCE(gp_from.guest_name, u_from.display_name, u_actor.display_name, 'Player')
       END as from_player_name,
       CASE
         WHEN t.to_player_id = 'BANK' THEN 'Bank'
-        WHEN u_to.display_name IS NOT NULL THEN COALESCE(gp_to.guest_name, u_to.display_name)
-        ELSE 'Unknown'
+        WHEN gp_to.guest_name IS NOT NULL AND gp_to.guest_name != '' THEN gp_to.guest_name
+        WHEN u_to.display_name IS NOT NULL AND u_to.display_name != '' THEN u_to.display_name
+        WHEN (SELECT display_name FROM users WHERE id = gp_to.user_id) IS NOT NULL THEN (SELECT display_name FROM users WHERE id = gp_to.user_id)
+        WHEN t.from_player_id = 'BANK' AND t.type IN ('BUY_IN', 'RE_BUY') THEN COALESCE(
+          (SELECT u.display_name FROM users u JOIN game_players gp ON gp.user_id = u.id WHERE gp.id = t.to_player_id),
+          (SELECT u.display_name FROM users u WHERE u.id = (SELECT host_user_id FROM games WHERE id = t.game_id)),
+          u_actor.display_name,
+          'Player'
+        )
+        WHEN t.to_player_id = (SELECT id FROM game_players WHERE game_id = t.game_id AND role = 'HOST') THEN (SELECT display_name FROM users WHERE id = (SELECT host_user_id FROM games WHERE id = t.game_id))
+        ELSE COALESCE(gp_to.guest_name, u_to.display_name, 'Player')
       END as to_player_name
     FROM transactions t
     JOIN users u_actor ON t.actor_user_id = u_actor.id
@@ -509,13 +521,25 @@ export function getTableTransactions(tableId: string) {
       t.to_player_id,
       CASE
         WHEN t.from_player_id = 'BANK' THEN 'Bank'
-        WHEN u_from.display_name IS NOT NULL THEN COALESCE(gp_from.guest_name, u_from.display_name)
-        ELSE 'Unknown'
+        WHEN gp_from.guest_name IS NOT NULL AND gp_from.guest_name != '' THEN gp_from.guest_name
+        WHEN u_from.display_name IS NOT NULL AND u_from.display_name != '' THEN u_from.display_name
+        WHEN (SELECT display_name FROM users WHERE id = gp_from.user_id) IS NOT NULL THEN (SELECT display_name FROM users WHERE id = gp_from.user_id)
+        WHEN t.from_player_id = (SELECT id FROM game_players WHERE game_id = t.game_id AND role = 'HOST') THEN (SELECT display_name FROM users WHERE id = (SELECT host_user_id FROM games WHERE id = t.game_id))
+        ELSE COALESCE(gp_from.guest_name, u_from.display_name, u_actor.display_name, 'Player')
       END as from_player_name,
       CASE
         WHEN t.to_player_id = 'BANK' THEN 'Bank'
-        WHEN u_to.display_name IS NOT NULL THEN COALESCE(gp_to.guest_name, u_to.display_name)
-        ELSE 'Unknown'
+        WHEN gp_to.guest_name IS NOT NULL AND gp_to.guest_name != '' THEN gp_to.guest_name
+        WHEN u_to.display_name IS NOT NULL AND u_to.display_name != '' THEN u_to.display_name
+        WHEN (SELECT display_name FROM users WHERE id = gp_to.user_id) IS NOT NULL THEN (SELECT display_name FROM users WHERE id = gp_to.user_id)
+        WHEN t.from_player_id = 'BANK' AND t.type IN ('BUY_IN', 'RE_BUY') THEN COALESCE(
+          (SELECT u.display_name FROM users u JOIN game_players gp ON gp.user_id = u.id WHERE gp.id = t.to_player_id),
+          (SELECT u.display_name FROM users u WHERE u.id = (SELECT host_user_id FROM games WHERE id = t.game_id)),
+          u_actor.display_name,
+          'Player'
+        )
+        WHEN t.to_player_id = (SELECT id FROM game_players WHERE game_id = t.game_id AND role = 'HOST') THEN (SELECT display_name FROM users WHERE id = (SELECT host_user_id FROM games WHERE id = t.game_id))
+        ELSE COALESCE(gp_to.guest_name, u_to.display_name, 'Player')
       END as to_player_name
     FROM transactions t
     JOIN users u_actor ON t.actor_user_id = u_actor.id
@@ -635,10 +659,17 @@ export function leaveTable(userId: string, tableId: string): {
     } else {
       // Promote the next registered player to Host!
       const newHost = remainingRegistered[0];
+      const now = new Date().toISOString();
       db.transaction(() => {
         db.prepare('UPDATE games SET host_user_id = ? WHERE id = ?').run(newHost.user_id, tableId);
         db.prepare("UPDATE game_players SET role = 'HOST' WHERE id = ?").run(newHost.id);
-        db.prepare('DELETE FROM game_players WHERE id = ?').run(player.id);
+
+        const hasTx = db.prepare('SELECT COUNT(*) as cnt FROM transactions WHERE game_id = ? AND (from_player_id = ? OR to_player_id = ?)').get(tableId, player.id, player.id) as { cnt: number };
+        if (hasTx && hasTx.cnt > 0) {
+          db.prepare("UPDATE game_players SET role = 'PLAYER', current_chips = 0, left_at = ? WHERE id = ?").run(now, player.id);
+        } else {
+          db.prepare('DELETE FROM game_players WHERE id = ?').run(player.id);
+        }
       })();
 
       return {
@@ -652,7 +683,13 @@ export function leaveTable(userId: string, tableId: string): {
     }
   } else {
     // Regular player leaves
-    db.prepare('DELETE FROM game_players WHERE id = ?').run(player.id);
+    const now = new Date().toISOString();
+    const hasTx = db.prepare('SELECT COUNT(*) as cnt FROM transactions WHERE game_id = ? AND (from_player_id = ? OR to_player_id = ?)').get(tableId, player.id, player.id) as { cnt: number };
+    if (hasTx && hasTx.cnt > 0) {
+      db.prepare("UPDATE game_players SET current_chips = 0, left_at = ? WHERE id = ?").run(now, player.id);
+    } else {
+      db.prepare('DELETE FROM game_players WHERE id = ?').run(player.id);
+    }
     return {
       success: true,
       tableDeleted: false,

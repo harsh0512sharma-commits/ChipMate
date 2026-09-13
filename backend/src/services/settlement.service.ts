@@ -1,5 +1,5 @@
 import { randomUUID as uuidv4 } from 'crypto';
-import { getDb } from '../db';
+import { getDb, flushReplicationQueue } from '../db';
 import { GameTableRecord } from './table.service';
 import { updateLifetimeStatsForFinalizedGame } from './stats.service';
 
@@ -402,6 +402,10 @@ export function finalizeGame(hostUserId: string, gameId: string): { success: boo
   });
 
   finalizeTx();
+
+  flushReplicationQueue().catch(err => {
+    console.warn('[FinalizeGame Turso Flush Note]:', err.message);
+  });
 
   return { success: true, gameId };
 }

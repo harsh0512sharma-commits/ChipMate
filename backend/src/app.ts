@@ -15,15 +15,15 @@ export function createApp() {
 
   // Health check
   app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.15', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.16', timestamp: new Date().toISOString() });
   });
 
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.15',
-      buildTime: 1789265000000,
-      releaseNotes: 'Completely remove splash screen logo and fallback elements for seamless pitch-black video boot.'
+      version: '1.0.16',
+      buildTime: 1789274000000,
+      releaseNotes: 'Sequential Turso Cloud replication queue, prevent player deletion on table leave, robust transaction name resolution, and restored ₹75 game history.'
     });
   };
   app.get('/version', versionHandler);

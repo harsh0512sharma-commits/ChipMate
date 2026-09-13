@@ -45,7 +45,7 @@ export function getSettlement(req: AuthenticatedRequest, res: Response): void {
   }
 }
 
-export function finalizeTable(req: AuthenticatedRequest, res: Response): void {
+export async function finalizeTable(req: AuthenticatedRequest, res: Response): Promise<void> {
   try {
     const hostUserId = req.user!.userId;
     const tableId = req.params.tableId as string;
