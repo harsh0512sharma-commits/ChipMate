@@ -30,7 +30,7 @@ export const ChipCard: React.FC<ChipCardProps> = ({
   const inPlayMoney = playerChips * chipValue;
   const bankMoney = bankChips * chipValue;
 
-  let parsedDenoms: number[] | null = null;
+  let parsedDenoms: any[] | null = null;
   if (denominations) {
     try {
       parsedDenoms = typeof denominations === 'string' ? JSON.parse(denominations) : denominations;
@@ -50,7 +50,7 @@ export const ChipCard: React.FC<ChipCardProps> = ({
         {chipMode === 'DENOMINATION' && Array.isArray(parsedDenoms) && parsedDenoms.length > 0 ? (
           <View style={styles.ratePill}>
             <Text style={styles.ratePillText}>
-              Set: {parsedDenoms.map(d => `₹${d}`).join(' • ')}
+              Set: {parsedDenoms.map((d: any) => (typeof d === 'object' && d !== null ? `₹${d.value}` : `₹${d}`)).join(' • ')}
             </Text>
           </View>
         ) : (

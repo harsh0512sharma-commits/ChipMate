@@ -15,15 +15,15 @@ export function createApp() {
 
   // Health check
   app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.19', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.20', timestamp: new Date().toISOString() });
   });
 
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.19',
-      buildTime: 1789291000000,
-      releaseNotes: 'Exclusive Master Admin player account deletion capability (7319123393).'
+      version: '1.0.20',
+      buildTime: Date.now(),
+      releaseNotes: 'Poker custom denominations & chip counts, denomination loans, and multi-player batch buy-in.'
     });
   };
   app.get('/version', versionHandler);

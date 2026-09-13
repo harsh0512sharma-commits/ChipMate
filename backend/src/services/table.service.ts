@@ -55,6 +55,13 @@ export function getUserActiveGame(userId: string, excludeGameId?: string): { id:
   return row || null;
 }
 
+export interface DenominationConfig {
+  value: number;
+  count: number;
+  label?: string;
+  color?: string;
+}
+
 export function createTable(params: {
   hostUserId: string;
   name: string;
@@ -62,7 +69,7 @@ export function createTable(params: {
   totalChips?: number;
   chipValue?: number;
   chipMode?: 'EQUAL' | 'DENOMINATION';
-  denominations?: number[] | string;
+  denominations?: DenominationConfig[] | number[] | string;
   initialFriendUserIds?: string[];
 }): { table: GameTableRecord; hostPlayerId: string; seatedFriendsCount: number } {
   const db = getDb();
@@ -76,11 +83,38 @@ export function createTable(params: {
   const id = uuidv4();
   const hostPlayerId = uuidv4();
   const joinCode = generateJoinCode();
-  const totalChips = params.totalChips && params.totalChips > 0 ? params.totalChips : 100;
-  const chipValue = params.chipValue && params.chipValue > 0 ? params.chipValue : 10;
+  let totalChips = params.totalChips && params.totalChips > 0 ? params.totalChips : 100;
+  let chipValue = params.chipValue && params.chipValue > 0 ? params.chipValue : 10;
   const chipMode = params.chipMode || 'EQUAL';
-  const denominationsJson = params.denominations
-    ? (typeof params.denominations === 'string' ? params.denominations : JSON.stringify(params.denominations))
+
+  let parsedDenoms: any = null;
+  if (params.denominations) {
+    if (typeof params.denominations === 'string') {
+      try {
+        parsedDenoms = JSON.parse(params.denominations);
+      } catch (_) {
+        parsedDenoms = params.denominations;
+      }
+    } else {
+      parsedDenoms = params.denominations;
+    }
+  }
+
+  // If custom denomination configs provided with count and value, derive physical chips & bank valuation
+  if (chipMode === 'DENOMINATION' && Array.isArray(parsedDenoms) && parsedDenoms.length > 0) {
+    const isObjectConfig = typeof parsedDenoms[0] === 'object' && parsedDenoms[0] !== null && 'value' in parsedDenoms[0] && 'count' in parsedDenoms[0];
+    if (isObjectConfig) {
+      const sumChips = parsedDenoms.reduce((sum: number, d: any) => sum + (Number(d.count) || 0), 0);
+      const sumMoney = parsedDenoms.reduce((sum: number, d: any) => sum + ((Number(d.count) || 0) * (Number(d.value) || 0)), 0);
+      if (sumChips > 0) {
+        totalChips = sumChips;
+        chipValue = Math.round((sumMoney / sumChips) * 100) / 100;
+      }
+    }
+  }
+
+  const denominationsJson = parsedDenoms
+    ? JSON.stringify(parsedDenoms)
     : null;
   const now = new Date().toISOString();
 

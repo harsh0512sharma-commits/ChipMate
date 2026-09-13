@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator
 } from 'react-native';
-import { ArrowLeft, Sparkles, Check, Users, UserCheck, UserPlus, Coins, Layers } from 'lucide-react-native';
+import { ArrowLeft, Sparkles, Check, Users, UserCheck, UserPlus, Coins, Layers, Plus, Trash2 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
 import { Header } from '../../components/Header';
@@ -17,6 +17,23 @@ interface CreateTableScreenProps {
   onBack: () => void;
   onTableCreated: (tableId: string) => void;
 }
+
+export interface PokerDenomRow {
+  id: string;
+  value: string;
+  count: string;
+  label?: string;
+  color: string;
+}
+
+const POKER_CHIP_COLORS = ['#EF4444', '#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#1E293B', '#EC4899', '#06B6D4'];
+
+export const DEFAULT_POKER_DENOMS: PokerDenomRow[] = [
+  { id: '1', value: '5', count: '25', label: 'Red', color: '#EF4444' },
+  { id: '2', value: '10', count: '25', label: 'Blue', color: '#3B82F6' },
+  { id: '3', value: '25', count: '25', label: 'Green', color: '#10B981' },
+  { id: '4', value: '50', count: '25', label: 'Purple', color: '#8B5CF6' }
+];
 
 export const DENOMINATION_PRESETS = [
   {
@@ -70,6 +87,26 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
   const [customDenominations, setCustomDenominations] = useState('1, 2, 5, 10');
   const [isCustomDenom, setIsCustomDenom] = useState(false);
 
+  // Poker Custom Denominations with Physical Chip Counts
+  const [pokerDenoms, setPokerDenoms] = useState<PokerDenomRow[]>(DEFAULT_POKER_DENOMS);
+
+  const updatePokerDenom = (id: string, field: 'value' | 'count', val: string) => {
+    setPokerDenoms(prev => prev.map(row => row.id === id ? { ...row, [field]: val } : row));
+  };
+
+  const addPokerDenom = () => {
+    const nextColor = POKER_CHIP_COLORS[pokerDenoms.length % POKER_CHIP_COLORS.length];
+    setPokerDenoms(prev => [
+      ...prev,
+      { id: Date.now().toString(), value: '100', count: '20', label: 'Black', color: nextColor }
+    ]);
+  };
+
+  const removePokerDenom = (id: string) => {
+    if (pokerDenoms.length <= 1) return;
+    setPokerDenoms(prev => prev.filter(row => row.id !== id));
+  };
+
   // Instant Friend Seating
   const [friends, setFriends] = useState<any[]>([]);
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
@@ -95,10 +132,12 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
     );
   };
 
+  const isPoker = gameType === 'POKER';
+
+  // Teen Patti chip & value calculations
   const numChips = isCustomChips ? (parseInt(customChips, 10) || 0) : (parseInt(totalChips, 10) || 100);
   const numValue = isCustomValue ? (parseFloat(customValue) || 0) : (parseFloat(chipValue) || 10);
 
-  // Denomination calculations
   const activeDenominations: number[] = chipMode === 'DENOMINATION'
     ? (isCustomDenom
         ? customDenominations
@@ -124,21 +163,18 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
     ? numValue
     : (numChips > 0 ? (totalPot / numChips) : 10);
 
+  // Poker dynamic calculations from physical denomination counts
+  const pokerTotalChips = pokerDenoms.reduce((sum, d) => sum + (parseInt(d.count, 10) || 0), 0);
+  const pokerTotalPot = pokerDenoms.reduce((sum, d) => sum + ((parseInt(d.count, 10) || 0) * (parseFloat(d.value) || 0)), 0);
+  const pokerEffectiveChipValue = pokerTotalChips > 0 ? (pokerTotalPot / pokerTotalChips) : 10;
+
+  const finalTotalChips = isPoker ? pokerTotalChips : numChips;
+  const finalChipValue = isPoker ? pokerEffectiveChipValue : effectiveChipValue;
+  const finalTotalPot = isPoker ? pokerTotalPot : totalPot;
+
   const handleCreate = async () => {
     if (!name.trim()) {
       setError('Please enter a game name');
-      return;
-    }
-    if (numChips <= 0) {
-      setError('Total chips must be greater than 0');
-      return;
-    }
-    if (chipMode === 'DENOMINATION' && (!activeDenominations || activeDenominations.length === 0)) {
-      setError('Please specify at least one valid chip denomination');
-      return;
-    }
-    if (chipMode === 'EQUAL' && numValue <= 0) {
-      setError('Chip value must be greater than 0');
       return;
     }
 
@@ -146,11 +182,70 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
     setLoading(true);
 
     try {
+      if (isPoker) {
+        if (pokerTotalChips <= 0) {
+          setError('Total physical chips must be greater than 0');
+          setLoading(false);
+          return;
+        }
+        const validDenoms = pokerDenoms
+          .map(d => ({
+            value: parseFloat(d.value) || 0,
+            count: parseInt(d.count, 10) || 0,
+            label: d.label,
+            color: d.color
+          }))
+          .filter(d => d.value > 0 && d.count > 0);
+
+        if (validDenoms.length === 0) {
+          setError('Please specify at least one chip denomination with positive value and quantity');
+          setLoading(false);
+          return;
+        }
+
+        const res = await apiRequest('/tables', {
+          method: 'POST',
+          body: {
+            name: name.trim(),
+            gameType: 'POKER',
+            totalChips: pokerTotalChips,
+            chipValue: pokerEffectiveChipValue,
+            chipMode: 'DENOMINATION',
+            denominations: validDenoms,
+            initialFriendUserIds: selectedFriendIds
+          }
+        });
+
+        if (res.success && res.table) {
+          onTableCreated(res.table.id);
+        } else {
+          setError(res.error || 'Failed to create poker table');
+        }
+        return;
+      }
+
+      // TEEN PATTI validation & submission
+      if (numChips <= 0) {
+        setError('Total chips must be greater than 0');
+        setLoading(false);
+        return;
+      }
+      if (chipMode === 'DENOMINATION' && (!activeDenominations || activeDenominations.length === 0)) {
+        setError('Please specify at least one valid chip denomination');
+        setLoading(false);
+        return;
+      }
+      if (chipMode === 'EQUAL' && numValue <= 0) {
+        setError('Chip value must be greater than 0');
+        setLoading(false);
+        return;
+      }
+
       const res = await apiRequest('/tables', {
         method: 'POST',
         body: {
           name: name.trim(),
-          gameType,
+          gameType: 'TEEN_PATTI',
           totalChips: numChips,
           chipValue: effectiveChipValue,
           chipMode,
@@ -224,235 +319,344 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
           </View>
         </View>
 
-        {/* Total Physical Chips */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Total Physical Chips</Text>
-          <Text style={styles.hint}>
-            Default is exactly 100 chips. You can increase or set custom quantities.
-          </Text>
-          <View style={styles.pillsRow}>
-            {['50', '100', '150', '200'].map(cnt => (
-              <TouchableOpacity
-                key={cnt}
-                onPress={() => {
-                  setTotalChips(cnt);
-                  setIsCustomChips(false);
-                }}
-                style={[
-                  styles.pill,
-                  !isCustomChips && totalChips === cnt && styles.pillActive
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.pillText,
-                    !isCustomChips && totalChips === cnt && styles.pillTextActive
-                  ]}
-                >
-                  {cnt} chips
-                </Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              onPress={() => setIsCustomChips(true)}
-              style={[styles.pill, isCustomChips && styles.pillActive]}
-            >
-              <Text style={[styles.pillText, isCustomChips && styles.pillTextActive]}>
-                Custom
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {isCustomChips && (
-            <TextInput
-              style={[styles.input, { marginTop: 10 }]}
-              placeholder="Enter total chips count"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="numeric"
-              value={customChips}
-              onChangeText={setCustomChips}
-            />
-          )}
-        </View>
-
-        {/* Chip Valuation Mode Toggle */}
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Chip Valuation Mode</Text>
-          <Text style={styles.hint}>
-            Choose whether all chips share one equal value, or play by real poker chip denominations (₹1, ₹2, ₹5, ₹10...).
-          </Text>
-
-          <View style={styles.modeToggleRow}>
-            <TouchableOpacity
-              style={[styles.modeToggleBtn, chipMode === 'EQUAL' && styles.modeToggleBtnActive]}
-              onPress={() => setChipMode('EQUAL')}
-              activeOpacity={0.8}
-            >
-              <Coins size={16} color={chipMode === 'EQUAL' ? '#FFF' : colors.textMuted} style={{ marginRight: 8 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.modeToggleText, chipMode === 'EQUAL' && styles.modeToggleTextActive]}>
-                  Equal Chip Value
-                </Text>
-                <Text style={styles.modeToggleSub}>All chips share 1 face value</Text>
-              </View>
-              {chipMode === 'EQUAL' && <Check size={16} color="#FFF" />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.modeToggleBtn, chipMode === 'DENOMINATION' && styles.modeToggleBtnActive]}
-              onPress={() => setChipMode('DENOMINATION')}
-              activeOpacity={0.8}
-            >
-              <Layers size={16} color={chipMode === 'DENOMINATION' ? '#FFF' : colors.textMuted} style={{ marginRight: 8 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.modeToggleText, chipMode === 'DENOMINATION' && styles.modeToggleTextActive]}>
-                  By Denomination
-                </Text>
-                <Text style={styles.modeToggleSub}>Real chip set (₹1, ₹2, ₹5, ₹10...)</Text>
-              </View>
-              {chipMode === 'DENOMINATION' && <Check size={16} color="#FFF" />}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* IF EQUAL VALUE MODE: Single Chip Value Selector */}
-        {chipMode === 'EQUAL' ? (
+        {isPoker ? (
+          /* POKER: CHIP VALUATION BY DENOMINATION & PHYSICAL CHIP INVENTORY */
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Amount Assigned to 1 Chip</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={styles.label}>Poker Chip Valuation Mode</Text>
+              <View style={styles.pokerModeBadge}>
+                <Layers size={12} color="#FFF" style={{ marginRight: 4 }} />
+                <Text style={styles.pokerModeBadgeText}>By Denomination</Text>
+              </View>
+            </View>
             <Text style={styles.hint}>
-              All chips have the exact same value. Money is derived automatically.
+              Custom denomination mode: Define the chip values (₹) and the exact count of physical chips in your poker set.
             </Text>
-            <View style={styles.pillsRow}>
-              {['1', '2', '5', '10', '20', '50'].map(val => (
-                <TouchableOpacity
-                  key={val}
-                  onPress={() => {
-                    setChipValue(val);
-                    setIsCustomValue(false);
-                  }}
-                  style={[
-                    styles.pill,
-                    !isCustomValue && chipValue === val && styles.pillActive
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.pillText,
-                      !isCustomValue && chipValue === val && styles.pillTextActive
-                    ]}
-                  >
-                    ₹{val}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+
+            {/* List of Custom Denominations */}
+            <View style={styles.pokerDenomContainer}>
+              <View style={styles.pokerDenomHeaderRow}>
+                <Text style={[styles.pokerDenomColHeader, { width: 44, textAlign: 'center' }]}>CHIP</Text>
+                <Text style={[styles.pokerDenomColHeader, { flex: 1.2, paddingLeft: 8 }]}>VALUE (₹)</Text>
+                <Text style={[styles.pokerDenomColHeader, { flex: 1.2, paddingLeft: 8 }]}>QTY (COUNT)</Text>
+                <Text style={[styles.pokerDenomColHeader, { width: 80, textAlign: 'right', paddingRight: 4 }]}>TOTAL (₹)</Text>
+                <Text style={[styles.pokerDenomColHeader, { width: 36 }]}></Text>
+              </View>
+
+              {pokerDenoms.map((row) => {
+                const rowVal = parseFloat(row.value) || 0;
+                const rowCount = parseInt(row.count, 10) || 0;
+                const rowTotal = rowVal * rowCount;
+                return (
+                  <View key={row.id} style={styles.pokerDenomRow}>
+                    <View style={[styles.pokerChipDisc, { backgroundColor: row.color }]}>
+                      <Text style={styles.pokerChipDiscText}>₹{rowVal || '?'}</Text>
+                    </View>
+
+                    <View style={{ flex: 1.2, paddingHorizontal: 4 }}>
+                      <TextInput
+                        style={styles.pokerDenomInput}
+                        keyboardType="numeric"
+                        placeholder="₹ Val"
+                        placeholderTextColor={colors.textMuted}
+                        value={row.value}
+                        onChangeText={t => updatePokerDenom(row.id, 'value', t)}
+                      />
+                    </View>
+
+                    <View style={{ flex: 1.2, paddingHorizontal: 4 }}>
+                      <TextInput
+                        style={styles.pokerDenomInput}
+                        keyboardType="numeric"
+                        placeholder="Count"
+                        placeholderTextColor={colors.textMuted}
+                        value={row.count}
+                        onChangeText={t => updatePokerDenom(row.id, 'count', t)}
+                      />
+                    </View>
+
+                    <View style={{ width: 80, alignItems: 'flex-end', justifyContent: 'center', paddingRight: 4 }}>
+                      <Text style={styles.pokerDenomRowTotal}>₹{rowTotal.toLocaleString('en-IN')}</Text>
+                      <Text style={styles.pokerDenomRowSub}>{rowCount} chips</Text>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => removePokerDenom(row.id)}
+                      disabled={pokerDenoms.length <= 1}
+                      style={[styles.pokerDenomDeleteBtn, pokerDenoms.length <= 1 && { opacity: 0.3 }]}
+                      activeOpacity={0.7}
+                    >
+                      <Trash2 size={16} color={colors.dangerText} />
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+
               <TouchableOpacity
-                onPress={() => setIsCustomValue(true)}
-                style={[styles.pill, isCustomValue && styles.pillActive]}
+                style={styles.addDenomBtn}
+                onPress={addPokerDenom}
+                activeOpacity={0.8}
               >
-                <Text style={[styles.pillText, isCustomValue && styles.pillTextActive]}>
-                  Custom
-                </Text>
+                <Plus size={15} color={colors.primary} style={{ marginRight: 6 }} />
+                <Text style={styles.addDenomBtnText}>+ Add Custom Denomination</Text>
               </TouchableOpacity>
             </View>
 
-            {isCustomValue && (
-              <TextInput
-                style={[styles.input, { marginTop: 10 }]}
-                placeholder="Enter custom ₹ value per chip"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="numeric"
-                value={customValue}
-                onChangeText={setCustomValue}
-              />
-            )}
+            {/* Inventory Distribution Summary */}
+            <View style={styles.breakdownBox}>
+              <Text style={styles.breakdownTitle}>
+                PHYSICAL CHIP INVENTORY ({pokerTotalChips} TOTAL CHIPS • ₹{pokerTotalPot.toLocaleString('en-IN')} VAULT):
+              </Text>
+              <View style={styles.breakdownRow}>
+                {pokerDenoms.map(d => {
+                  const val = parseFloat(d.value) || 0;
+                  const cnt = parseInt(d.count, 10) || 0;
+                  return (
+                    <View key={d.id} style={[styles.breakdownPill, { borderColor: d.color }]}>
+                      <View style={[styles.miniDot, { backgroundColor: d.color }]} />
+                      <Text style={styles.breakdownPillText}>
+                        {cnt} × ₹{val} = ₹{(cnt * val).toLocaleString('en-IN')}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
           </View>
         ) : (
-          /* IF DENOMINATION MODE: Denomination Presets & Visual Chips */
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Select Chip Set Denominations</Text>
-            <Text style={styles.hint}>
-              Play with real casino/home chip sets. Equal counts of each chip will be created.
-            </Text>
-
-            <View style={styles.presetsColumn}>
-              {DENOMINATION_PRESETS.map((preset, idx) => (
-                <TouchableOpacity
-                  key={preset.name}
-                  onPress={() => {
-                    setSelectedPresetIndex(idx);
-                    setIsCustomDenom(false);
-                  }}
-                  style={[
-                    styles.presetCard,
-                    !isCustomDenom && selectedPresetIndex === idx && styles.presetCardActive
-                  ]}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.presetHeader}>
-                    <Text style={[styles.presetName, !isCustomDenom && selectedPresetIndex === idx && styles.presetNameActive]}>
-                      {preset.name}
+          /* TEEN PATTI: STANDARD EQUAL CHIP / DENOMINATION FLOW */
+          <>
+            {/* Total Physical Chips */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Total Physical Chips</Text>
+              <Text style={styles.hint}>
+                Default is exactly 100 chips. You can increase or set custom quantities.
+              </Text>
+              <View style={styles.pillsRow}>
+                {['50', '100', '150', '200'].map(cnt => (
+                  <TouchableOpacity
+                    key={cnt}
+                    onPress={() => {
+                      setTotalChips(cnt);
+                      setIsCustomChips(false);
+                    }}
+                    style={[
+                      styles.pill,
+                      !isCustomChips && totalChips === cnt && styles.pillActive
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.pillText,
+                        !isCustomChips && totalChips === cnt && styles.pillTextActive
+                      ]}
+                    >
+                      {cnt} chips
                     </Text>
-                    {!isCustomDenom && selectedPresetIndex === idx && (
-                      <Check size={16} color={colors.primary} />
-                    )}
-                  </View>
-                  <View style={styles.chipBadgesRow}>
-                    {preset.chipDetails.map(c => (
-                      <View key={c.val} style={[styles.chipBadge, { backgroundColor: c.color }]}>
-                        <Text style={[styles.chipBadgeVal, { color: c.textColor }]}>₹{c.val}</Text>
-                        <Text style={[styles.chipBadgeLabel, { color: c.textColor }]}>{c.label}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </TouchableOpacity>
-              ))}
-
-              {/* Custom Denomination Option */}
-              <TouchableOpacity
-                onPress={() => setIsCustomDenom(true)}
-                style={[styles.presetCard, isCustomDenom && styles.presetCardActive]}
-                activeOpacity={0.8}
-              >
-                <View style={styles.presetHeader}>
-                  <Text style={[styles.presetName, isCustomDenom && styles.presetNameActive]}>
-                    Custom Denominations
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  onPress={() => setIsCustomChips(true)}
+                  style={[styles.pill, isCustomChips && styles.pillActive]}
+                >
+                  <Text style={[styles.pillText, isCustomChips && styles.pillTextActive]}>
+                    Custom
                   </Text>
-                  {isCustomDenom && <Check size={16} color={colors.primary} />}
-                </View>
-                <Text style={styles.customDenomDesc}>
-                  Enter comma-separated chip denominations (e.g. 1, 2, 5, 10 or 2, 4, 8, 16):
-                </Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
 
-              {isCustomDenom && (
+              {isCustomChips && (
                 <TextInput
-                  style={[styles.input, { marginTop: 8 }]}
-                  placeholder="e.g. 1, 2, 5, 10"
+                  style={[styles.input, { marginTop: 10 }]}
+                  placeholder="Enter total chips count"
                   placeholderTextColor={colors.textMuted}
-                  value={customDenominations}
-                  onChangeText={setCustomDenominations}
+                  keyboardType="numeric"
+                  value={customChips}
+                  onChangeText={setCustomChips}
                 />
               )}
             </View>
 
-            {/* Live Physical Chip Distribution */}
-            {activeDenominations.length > 0 && (
-              <View style={styles.breakdownBox}>
-                <Text style={styles.breakdownTitle}>
-                  PHYSICAL CHIP DISTRIBUTION ({numChips} TOTAL CHIPS):
+            {/* Chip Valuation Mode Toggle */}
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Chip Valuation Mode</Text>
+              <Text style={styles.hint}>
+                Choose whether all chips share one equal value, or play by real poker chip denominations (₹1, ₹2, ₹5, ₹10...).
+              </Text>
+
+              <View style={styles.modeToggleRow}>
+                <TouchableOpacity
+                  style={[styles.modeToggleBtn, chipMode === 'EQUAL' && styles.modeToggleBtnActive]}
+                  onPress={() => setChipMode('EQUAL')}
+                  activeOpacity={0.8}
+                >
+                  <Coins size={16} color={chipMode === 'EQUAL' ? '#FFF' : colors.textMuted} style={{ marginRight: 8 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.modeToggleText, chipMode === 'EQUAL' && styles.modeToggleTextActive]}>
+                      Equal Chip Value
+                    </Text>
+                    <Text style={styles.modeToggleSub}>All chips share 1 face value</Text>
+                  </View>
+                  {chipMode === 'EQUAL' && <Check size={16} color="#FFF" />}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modeToggleBtn, chipMode === 'DENOMINATION' && styles.modeToggleBtnActive]}
+                  onPress={() => setChipMode('DENOMINATION')}
+                  activeOpacity={0.8}
+                >
+                  <Layers size={16} color={chipMode === 'DENOMINATION' ? '#FFF' : colors.textMuted} style={{ marginRight: 8 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.modeToggleText, chipMode === 'DENOMINATION' && styles.modeToggleTextActive]}>
+                      By Denomination
+                    </Text>
+                    <Text style={styles.modeToggleSub}>Real chip set (₹1, ₹2, ₹5, ₹10...)</Text>
+                  </View>
+                  {chipMode === 'DENOMINATION' && <Check size={16} color="#FFF" />}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* IF EQUAL VALUE MODE: Single Chip Value Selector */}
+            {chipMode === 'EQUAL' ? (
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Amount Assigned to 1 Chip</Text>
+                <Text style={styles.hint}>
+                  All chips have the exact same value. Money is derived automatically.
                 </Text>
-                <View style={styles.breakdownRow}>
-                  {activeDenominations.map(d => (
-                    <View key={d} style={styles.breakdownPill}>
-                      <Text style={styles.breakdownPillText}>
-                        {chipsPerDenom} × ₹{d} = ₹{chipsPerDenom * d}
+                <View style={styles.pillsRow}>
+                  {['1', '2', '5', '10', '20', '50'].map(val => (
+                    <TouchableOpacity
+                      key={val}
+                      onPress={() => {
+                        setChipValue(val);
+                        setIsCustomValue(false);
+                      }}
+                      style={[
+                        styles.pill,
+                        !isCustomValue && chipValue === val && styles.pillActive
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.pillText,
+                          !isCustomValue && chipValue === val && styles.pillTextActive
+                        ]}
+                      >
+                        ₹{val}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   ))}
+                  <TouchableOpacity
+                    onPress={() => setIsCustomValue(true)}
+                    style={[styles.pill, isCustomValue && styles.pillActive]}
+                  >
+                    <Text style={[styles.pillText, isCustomValue && styles.pillTextActive]}>
+                      Custom
+                    </Text>
+                  </TouchableOpacity>
                 </View>
+
+                {isCustomValue && (
+                  <TextInput
+                    style={[styles.input, { marginTop: 10 }]}
+                    placeholder="Enter custom ₹ value per chip"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="numeric"
+                    value={customValue}
+                    onChangeText={setCustomValue}
+                  />
+                )}
+              </View>
+            ) : (
+              /* IF DENOMINATION MODE: Denomination Presets & Visual Chips */
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Select Chip Set Denominations</Text>
+                <Text style={styles.hint}>
+                  Play with real casino/home chip sets. Equal counts of each chip will be created.
+                </Text>
+
+                <View style={styles.presetsColumn}>
+                  {DENOMINATION_PRESETS.map((preset, idx) => (
+                    <TouchableOpacity
+                      key={preset.name}
+                      onPress={() => {
+                        setSelectedPresetIndex(idx);
+                        setIsCustomDenom(false);
+                      }}
+                      style={[
+                        styles.presetCard,
+                        !isCustomDenom && selectedPresetIndex === idx && styles.presetCardActive
+                      ]}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.presetHeader}>
+                        <Text style={[styles.presetName, !isCustomDenom && selectedPresetIndex === idx && styles.presetNameActive]}>
+                          {preset.name}
+                        </Text>
+                        {!isCustomDenom && selectedPresetIndex === idx && (
+                          <Check size={16} color={colors.primary} />
+                        )}
+                      </View>
+                      <View style={styles.chipBadgesRow}>
+                        {preset.chipDetails.map(c => (
+                          <View key={c.val} style={[styles.chipBadge, { backgroundColor: c.color }]}>
+                            <Text style={[styles.chipBadgeVal, { color: c.textColor }]}>₹{c.val}</Text>
+                            <Text style={[styles.chipBadgeLabel, { color: c.textColor }]}>{c.label}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+
+                  {/* Custom Denomination Option */}
+                  <TouchableOpacity
+                    onPress={() => setIsCustomDenom(true)}
+                    style={[styles.presetCard, isCustomDenom && styles.presetCardActive]}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.presetHeader}>
+                      <Text style={[styles.presetName, isCustomDenom && styles.presetNameActive]}>
+                        Custom Denominations
+                      </Text>
+                      {isCustomDenom && <Check size={16} color={colors.primary} />}
+                    </View>
+                    <Text style={styles.customDenomDesc}>
+                      Enter comma-separated chip denominations (e.g. 1, 2, 5, 10 or 2, 4, 8, 16):
+                    </Text>
+                  </TouchableOpacity>
+
+                  {isCustomDenom && (
+                    <TextInput
+                      style={[styles.input, { marginTop: 8 }]}
+                      placeholder="e.g. 1, 2, 5, 10"
+                      placeholderTextColor={colors.textMuted}
+                      value={customDenominations}
+                      onChangeText={setCustomDenominations}
+                    />
+                  )}
+                </View>
+
+                {/* Live Physical Chip Distribution */}
+                {activeDenominations.length > 0 && (
+                  <View style={styles.breakdownBox}>
+                    <Text style={styles.breakdownTitle}>
+                      PHYSICAL CHIP DISTRIBUTION ({numChips} TOTAL CHIPS):
+                    </Text>
+                    <View style={styles.breakdownRow}>
+                      {activeDenominations.map(d => (
+                        <View key={d} style={styles.breakdownPill}>
+                          <Text style={styles.breakdownPillText}>
+                            {chipsPerDenom} × ₹{d} = ₹{chipsPerDenom * d}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
               </View>
             )}
-          </View>
+          </>
         )}
 
         {/* Seat Friends Instantly (Frictionless - No Codes Needed) */}
@@ -534,15 +738,19 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
             <Text style={styles.calcHeaderTitle}>TOTAL PHYSICAL POT VALUE</Text>
           </View>
           <Text style={styles.calcFormula}>
-            {chipMode === 'EQUAL'
-              ? `${numChips} chips × ₹${numValue} / chip`
-              : `${numChips} chips across ${activeDenominations.map(d => '₹' + d).join(', ')} (${chipsPerDenom} each)`}
+            {isPoker
+              ? `${pokerTotalChips} physical chips across ${pokerDenoms.map(d => '₹' + (d.value || '0')).join(', ')}`
+              : (chipMode === 'EQUAL'
+                ? `${numChips} chips × ₹${numValue} / chip`
+                : `${numChips} chips across ${activeDenominations.map(d => '₹' + d).join(', ')} (${chipsPerDenom} each)`)}
           </Text>
-          <Text style={styles.calcTotalMoney}>₹{totalPot.toLocaleString('en-IN')}</Text>
+          <Text style={styles.calcTotalMoney}>₹{finalTotalPot.toLocaleString('en-IN')}</Text>
           <Text style={styles.calcNote}>
-            {chipMode === 'DENOMINATION'
-              ? `✓ Multi-denomination game • Effective avg ₹${effectiveChipValue.toFixed(1)}/chip.`
-              : '✓ Reconciles 100% against bank and player inventories at all times.'}
+            {isPoker
+              ? `✓ Poker Denominations • Total ${pokerTotalChips} physical chips • Effective avg ₹${pokerEffectiveChipValue.toFixed(1)}/chip.`
+              : (chipMode === 'DENOMINATION'
+                ? `✓ Multi-denomination game • Effective avg ₹${effectiveChipValue.toFixed(1)}/chip.`
+                : '✓ Reconciles 100% against bank and player inventories at all times.')}
           </Text>
         </View>
 
@@ -929,5 +1137,111 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: colors.primary
+  },
+  pokerModeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8
+  },
+  pokerModeBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFF'
+  },
+  pokerDenomContainer: {
+    backgroundColor: colors.cardInset,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 6
+  },
+  pokerDenomHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+    marginBottom: 8
+  },
+  pokerDenomColHeader: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.textMuted,
+    letterSpacing: 0.5
+  },
+  pokerDenomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  pokerChipDisc: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.4)'
+  },
+  pokerChipDiscText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#FFF'
+  },
+  pokerDenomInput: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center'
+  },
+  pokerDenomRowTotal: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.text
+  },
+  pokerDenomRowSub: {
+    fontSize: 10,
+    color: colors.textMuted
+  },
+  pokerDenomDeleteBtn: {
+    width: 34,
+    height: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)'
+  },
+  addDenomBtn: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 10,
+    backgroundColor: 'rgba(235, 94, 40, 0.08)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(235, 94, 40, 0.25)',
+    borderStyle: 'dashed',
+    marginTop: 4
+  },
+  addDenomBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary
+  },
+  miniDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 5
   }
 });

@@ -47,6 +47,7 @@ router.post('/tables/:tableId/leave', requireAuth, tableCtrl.leaveTable);
 
 // Ledger & Transaction routes (Host actions)
 router.post('/tables/:tableId/buy-in', requireAuth, ledgerCtrl.buyIn);
+router.post('/tables/:tableId/batch-buy-in', requireAuth, ledgerCtrl.batchBuyIn);
 router.post('/tables/:tableId/lend', requireAuth, ledgerCtrl.lendChips);
 router.post('/tables/:tableId/return', requireAuth, ledgerCtrl.returnChips);
 router.post('/tables/:tableId/transfer', requireAuth, ledgerCtrl.transferChips);

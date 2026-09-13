@@ -511,4 +511,144 @@ describe('ChipMate Authoritative Zero-Sum Accounting Engine & Invariants', () =>
     const finalizeRes = settlementService.finalizeGame(hostA.id, table.id);
     expect(finalizeRes.success).toBe(true);
   });
+
+  // TEST CASE: POKER CUSTOM DENOMINATION TABLE
+  test('Poker Custom Denomination Table sets exact physical chip inventory and derived valuation', () => {
+    const [hostA] = setupPlayers(1);
+    const customDenominations: tableService.DenominationConfig[] = [
+      { value: 5, count: 40, label: 'Red' },
+      { value: 10, count: 30, label: 'Blue' },
+      { value: 25, count: 20, label: 'Green' },
+      { value: 50, count: 10, label: 'Purple' }
+    ];
+
+    const { table } = tableService.createTable({
+      hostUserId: hostA.id,
+      name: 'Texas Holdem Custom Denom',
+      gameType: 'POKER',
+      chipMode: 'DENOMINATION',
+      denominations: customDenominations
+    });
+
+    // 40 + 30 + 20 + 10 = 100 chips
+    expect(table.total_chips).toBe(100);
+    expect(table.bank_chips).toBe(100);
+    // Pot value: 40*5 + 30*10 + 20*25 + 10*50 = 200 + 300 + 500 + 500 = 1500
+    // Avg chip value = 1500 / 100 = 15
+    expect(table.chip_value).toBe(15);
+    expect(table.chip_mode).toBe('DENOMINATION');
+
+    const denoms = JSON.parse(table.denominations!);
+    expect(denoms).toHaveLength(4);
+    expect(denoms[0].value).toBe(5);
+    expect(denoms[0].count).toBe(40);
+  });
+
+  // TEST CASE: ATOMIC MULTI-PLAYER BATCH BUY-IN
+  test('Multi-player atomic batch buy-in assigns equal chips to all selected players simultaneously', () => {
+    const [hostA, playerB, playerC, playerD] = setupPlayers(4);
+    const { table } = tableService.createTable({
+      hostUserId: hostA.id,
+      name: 'Batch Buyin Table',
+      gameType: 'POKER',
+      totalChips: 100,
+      chipValue: 10
+    });
+
+    const aId = db.prepare('SELECT id FROM game_players WHERE game_id = ? AND user_id = ?').get(table.id, hostA.id).id;
+    const { playerId: bId } = tableService.joinTableByCode(playerB.id, table.join_code);
+    const { playerId: cId } = tableService.joinTableByCode(playerC.id, table.join_code);
+    const { playerId: dId } = tableService.joinTableByCode(playerD.id, table.join_code);
+
+    // Batch buy-in for 4 players: 20 chips each = 80 chips total (Bank: 100 - 80 = 20 chips left)
+    const result = ledgerService.recordBatchBuyIn({
+      gameId: table.id,
+      hostUserId: hostA.id,
+      playerIds: [aId, bId, cId, dId],
+      chipAmount: 20
+    });
+
+    expect(result.newBankChips).toBe(20);
+    expect(result.transactions).toHaveLength(4);
+    expect(result.updatedPlayers).toHaveLength(4);
+
+    for (const p of result.updatedPlayers) {
+      expect(p.currentChips).toBe(20);
+      expect(p.totalBuyinChips).toBe(20);
+      expect(p.totalBuyinAmount).toBe(200);
+    }
+
+    // Overdraft protection
+    expect(() => {
+      ledgerService.recordBatchBuyIn({
+        gameId: table.id,
+        hostUserId: hostA.id,
+        playerIds: [aId, bId],
+        chipAmount: 15 // 2 * 15 = 30 > 20 remaining
+      });
+    }).toThrow(/Bank vault only has 20 chips available/);
+  });
+
+  // TEST CASE: DENOMINATION-ADAPTIVE LENDING & EXACT ZERO-SUM SETTLEMENT
+  test('Denomination-adaptive lending records exact valuation and reconciles strictly zero-sum', () => {
+    const [hostA, playerB] = setupPlayers(2);
+    const { table } = tableService.createTable({
+      hostUserId: hostA.id,
+      name: 'Denom Lending Table',
+      gameType: 'POKER',
+      chipMode: 'DENOMINATION',
+      denominations: [
+        { value: 10, count: 50 },
+        { value: 25, count: 50 },
+        { value: 50, count: 20 }
+      ] // 120 total chips
+    });
+
+    const aId = db.prepare('SELECT id FROM game_players WHERE game_id = ? AND user_id = ?').get(table.id, hostA.id).id;
+    const { playerId: bId } = tableService.joinTableByCode(playerB.id, table.join_code);
+
+    // Batch buy-in: 30 chips each
+    ledgerService.recordBatchBuyIn({
+      gameId: table.id,
+      hostUserId: hostA.id,
+      playerIds: [aId, bId],
+      chipAmount: 30
+    });
+
+    // Host lends specific chips to Player B: 2 chips of ₹25 + 1 chip of ₹50 = 3 chips, exact value ₹100
+    const loanResult = ledgerService.recordLend({
+      gameId: table.id,
+      hostUserId: hostA.id,
+      lenderPlayerId: aId,
+      borrowerPlayerId: bId,
+      chipAmount: 3,
+      moneyValue: 100,
+      denominationsBreakdown: [
+        { denom: 25, count: 2 },
+        { denom: 50, count: 1 }
+      ]
+    });
+
+    expect(loanResult.loanId).toBeDefined();
+
+    const loanRow = db.prepare('SELECT * FROM loans WHERE id = ?').get(loanResult.loanId) as any;
+    expect(loanRow.original_chip_amount).toBe(3);
+    expect(loanRow.chip_value).toBeCloseTo(100 / 3, 2);
+
+    // End game: Host finishes with 27 chips, Player B finishes with 33 chips
+    const preview = settlementService.submitFinalChipCounts(hostA.id, table.id, {
+      [aId]: 27,
+      [bId]: 33
+    });
+
+    expect(preview.isReconciled).toBe(true);
+    const balA = preview.players.find(p => p.playerId === aId)!;
+    const balB = preview.players.find(p => p.playerId === bId)!;
+
+    // A lent ₹100 debt -> Net loan impact +₹100
+    // B borrowed ₹100 debt -> Net loan impact -₹100
+    expect(balA.netLoanImpact).toBe(100);
+    expect(balB.netLoanImpact).toBe(-100);
+    expect(balA.netPosition + balB.netPosition).toBe(0);
+  });
 });

@@ -42,6 +42,7 @@ import { ChipCard } from '../../components/ChipCard';
 import { PlayerCard } from '../../components/PlayerCard';
 import { ActionSheet } from '../../components/ActionSheet';
 import { QRCodeModal } from '../../components/QRCodeModal';
+import { BatchBuyInModal } from '../../components/BatchBuyInModal';
 
 export function formatTxSummary(tx: any): { title: string; subtitle: string; icon: string } {
   const fromName = tx.from_player_name || 'Bank';
@@ -140,6 +141,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const [finalChipInputs, setFinalChipInputs] = useState<Record<string, string>>({});
   const [submittingFinalChips, setSubmittingFinalChips] = useState(false);
   const [finalChipError, setFinalChipError] = useState<string | null>(null);
+  const [showBatchBuyInModal, setShowBatchBuyInModal] = useState(false);
 
   const fetchTableData = useCallback(async () => {
     try {
@@ -326,6 +328,34 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   };
 
   // Quick Action Submissions
+  const handleBatchBuyIn = async (
+    playerIds: string[],
+    chipAmount: number,
+    moneyValue?: number,
+    denominationsBreakdown?: Array<{ denom: number; count: number }>
+  ) => {
+    try {
+      const res = await apiRequest(`/tables/${tableId}/batch-buy-in`, {
+        method: 'POST',
+        body: {
+          playerIds,
+          chipAmount,
+          moneyValue,
+          denominationsBreakdown,
+          idempotencyKey: `batch_${Date.now()}`
+        }
+      });
+      if (res.success) {
+        fetchTableData();
+      } else {
+        throw new Error(res.error || 'Failed to record batch buy-in');
+      }
+    } catch (err: any) {
+      Alert.alert('Buy-In Error', err.message || 'Failed to record batch buy-in');
+      throw err;
+    }
+  };
+
   const handleBuy = async (playerId: string, chipAmount: number, isRebuy: boolean) => {
     await apiRequest(`/tables/${tableId}/buy-in`, {
       method: 'POST',
@@ -334,10 +364,23 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
     fetchTableData();
   };
 
-  const handleLend = async (lenderPlayerId: string, borrowerPlayerId: string, chipAmount: number) => {
+  const handleLend = async (
+    lenderPlayerId: string,
+    borrowerPlayerId: string,
+    chipAmount: number,
+    moneyValue?: number,
+    denominationsBreakdown?: Array<{ denom: number; count: number }>
+  ) => {
     await apiRequest(`/tables/${tableId}/lend`, {
       method: 'POST',
-      body: { lenderPlayerId, borrowerPlayerId, chipAmount, idempotencyKey: `lend_${Date.now()}` }
+      body: {
+        lenderPlayerId,
+        borrowerPlayerId,
+        chipAmount,
+        moneyValue,
+        denominationsBreakdown,
+        idempotencyKey: `lend_${Date.now()}`
+      }
     });
     fetchTableData();
   };
@@ -564,7 +607,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
             <View style={styles.primaryActionRow}>
               <TouchableOpacity
                 style={[styles.actionBtn, styles.actionBuy]}
-                onPress={() => setActiveSheet('BUY')}
+                onPress={() => setShowBatchBuyInModal(true)}
               >
                 <Text style={styles.actionBtnText}>BUY CHIPS</Text>
               </TouchableOpacity>
@@ -743,6 +786,15 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
         onSubmitTransfer={handleTransfer}
         onSubmitCorrection={handleCorrection}
         onSubmitUndo={handleUndo}
+      />
+
+      {/* Batch Multi-Player Buy-In Modal */}
+      <BatchBuyInModal
+        visible={showBatchBuyInModal}
+        table={table}
+        players={players}
+        onClose={() => setShowBatchBuyInModal(false)}
+        onSubmitBatchBuyIn={handleBatchBuyIn}
       />
 
       {/* SEAT FRIEND MODAL (Frictionless - No Codes Needed) */}

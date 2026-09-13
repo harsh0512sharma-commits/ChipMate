@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   Alert
 } from 'react-native';
-import { X, ArrowRight, AlertCircle, RefreshCw, Check } from 'lucide-react-native';
+import { X, ArrowRight, AlertCircle, RefreshCw, Check, Plus, Minus } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 
 interface ActionSheetProps {
@@ -24,7 +24,13 @@ interface ActionSheetProps {
   initialPlayerId?: string;
   onClose: () => void;
   onSubmitBuy: (playerId: string, chipAmount: number, isRebuy: boolean) => Promise<void>;
-  onSubmitLend: (lenderPlayerId: string, borrowerPlayerId: string, chipAmount: number) => Promise<void>;
+  onSubmitLend: (
+    lenderPlayerId: string,
+    borrowerPlayerId: string,
+    chipAmount: number,
+    moneyValue?: number,
+    denominationsBreakdown?: Array<{ denom: number; count: number }>
+  ) => Promise<void>;
   onSubmitReturn: (loanId: string, chipAmount: number) => Promise<void>;
   onSubmitTransfer: (fromPlayerId: string, toPlayerId: string, chipAmount: number) => Promise<void>;
   onSubmitCorrection: (playerId: string, newChipCount: number, reason?: string) => Promise<void>;
@@ -56,11 +62,61 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const isDenomTable = table?.chip_mode === 'DENOMINATION';
+
+  // Parse denominations for table
+  let tableDenomList: Array<{ denom: number; color?: string; label?: string }> = [];
+  if (isDenomTable && table?.denominations) {
+    try {
+      const parsed = typeof table.denominations === 'string' ? JSON.parse(table.denominations) : table.denominations;
+      if (Array.isArray(parsed)) {
+        tableDenomList = parsed.map((item: any) => {
+          if (typeof item === 'object' && item !== null) {
+            return {
+              denom: Number(item.value) || 0,
+              color: item.color,
+              label: item.label
+            };
+          }
+          return { denom: Number(item) || 0 };
+        }).filter(d => d.denom > 0);
+      }
+    } catch (_) {}
+  }
+
+  const [denomLendCounts, setDenomLendCounts] = useState<Record<number, number>>({});
+
+  const updateDenomLendCount = (denom: number, delta: number) => {
+    setDenomLendCounts(prev => {
+      const current = prev[denom] || 0;
+      const next = Math.max(0, current + delta);
+      return { ...prev, [denom]: next };
+    });
+  };
+
+  const setDenomLendDirect = (denom: number, countStr: string) => {
+    const val = parseInt(countStr, 10) || 0;
+    setDenomLendCounts(prev => ({
+      ...prev,
+      [denom]: Math.max(0, val)
+    }));
+  };
+
+  const totalDenomLendChips = Object.values(denomLendCounts).reduce((acc, c) => acc + c, 0);
+  const totalDenomLendMoney = Object.entries(denomLendCounts).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * c), 0);
+
   React.useEffect(() => {
     if (initialPlayerId) {
       setSelectedPlayerId(initialPlayerId);
     }
   }, [initialPlayerId, visible]);
+
+  // Reset lend denomination counts when sheet opens
+  React.useEffect(() => {
+    if (visible && type === 'LEND') {
+      setDenomLendCounts({});
+    }
+  }, [visible, type]);
 
   if (!visible || !type) return null;
 
@@ -77,9 +133,17 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
         if (numChips > table.bank_chips) throw new Error(`Bank only has ${table.bank_chips} chips available.`);
         await onSubmitBuy(selectedPlayerId, numChips, isRebuy);
       } else if (type === 'LEND') {
-        if (numChips <= 0) throw new Error('Chip amount must be greater than 0');
         if (selectedPlayerId === secondPlayerId) throw new Error('Lender and borrower cannot be the same');
-        await onSubmitLend(selectedPlayerId, secondPlayerId, numChips);
+        if (isDenomTable && tableDenomList.length > 0) {
+          if (totalDenomLendChips <= 0) throw new Error('Please specify at least one chip denomination to lend');
+          const breakdown = Object.entries(denomLendCounts)
+            .map(([d, cnt]) => ({ denom: parseFloat(d), count: cnt }))
+            .filter(item => item.count > 0);
+          await onSubmitLend(selectedPlayerId, secondPlayerId, totalDenomLendChips, totalDenomLendMoney, breakdown);
+        } else {
+          if (numChips <= 0) throw new Error('Chip amount must be greater than 0');
+          await onSubmitLend(selectedPlayerId, secondPlayerId, numChips, calculatedMoney);
+        }
       } else if (type === 'RETURN') {
         if (!selectedLoanId) throw new Error('Please select an active loan');
         if (numChips <= 0) throw new Error('Repayment amount must be greater than 0');
@@ -234,19 +298,80 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
                   ))}
                 </View>
 
-                <Text style={styles.sectionLabel}>Chips to Lend</Text>
-                <TextInput
-                  keyboardType="numeric"
-                  value={chipAmount}
-                  onChangeText={setChipAmount}
-                  style={styles.input}
-                />
+                {isDenomTable && tableDenomList.length > 0 ? (
+                  /* DENOMINATION-BASED LENDING SELECTOR */
+                  <View style={{ marginTop: 12 }}>
+                    <Text style={styles.sectionLabel}>Select Chips to Lend by Denomination</Text>
+                    <View style={styles.denomLendList}>
+                      {tableDenomList.map(item => {
+                        const cnt = denomLendCounts[item.denom] || 0;
+                        const subtotal = cnt * item.denom;
+                        const chipColor = item.color || '#3B82F6';
+                        return (
+                          <View key={item.denom} style={styles.denomLendRow}>
+                            <View style={[styles.denomLendBadge, { backgroundColor: chipColor }]}>
+                              <Text style={styles.denomLendBadgeText}>₹{item.denom}</Text>
+                            </View>
 
-                <View style={styles.calcCard}>
-                  <Text style={styles.calcText}>
-                    {numChips} chips × ₹{chipVal} = <Text style={styles.calcHighlight}>₹{calculatedMoney.toLocaleString('en-IN')}</Text>
-                  </Text>
-                </View>
+                            <View style={{ flex: 1, paddingHorizontal: 10 }}>
+                              <Text style={styles.denomLendTitle}>₹{item.denom} Chip</Text>
+                              <Text style={styles.denomLendSub}>Subtotal: ₹{subtotal.toLocaleString('en-IN')}</Text>
+                            </View>
+
+                            <View style={styles.counterRow}>
+                              <TouchableOpacity
+                                style={styles.counterBtn}
+                                onPress={() => updateDenomLendCount(item.denom, -1)}
+                                activeOpacity={0.7}
+                              >
+                                <Minus size={14} color={colors.text} />
+                              </TouchableOpacity>
+
+                              <TextInput
+                                style={styles.counterInput}
+                                keyboardType="numeric"
+                                value={cnt.toString()}
+                                onChangeText={t => setDenomLendDirect(item.denom, t)}
+                              />
+
+                              <TouchableOpacity
+                                style={styles.counterBtn}
+                                onPress={() => updateDenomLendCount(item.denom, 1)}
+                                activeOpacity={0.7}
+                              >
+                                <Plus size={14} color={colors.text} />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+
+                    <View style={styles.calcCard}>
+                      <Text style={styles.calcText}>
+                        Total: <Text style={{ fontWeight: '800', color: colors.text }}>{totalDenomLendChips} chips</Text> ={' '}
+                        <Text style={styles.calcHighlight}>₹{totalDenomLendMoney.toLocaleString('en-IN')}</Text> debt
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  /* EQUAL CHIP VALUE LENDING */
+                  <>
+                    <Text style={styles.sectionLabel}>Chips to Lend</Text>
+                    <TextInput
+                      keyboardType="numeric"
+                      value={chipAmount}
+                      onChangeText={setChipAmount}
+                      style={styles.input}
+                    />
+
+                    <View style={styles.calcCard}>
+                      <Text style={styles.calcText}>
+                        {numChips} chips × ₹{chipVal} = <Text style={styles.calcHighlight}>₹{calculatedMoney.toLocaleString('en-IN')}</Text>
+                      </Text>
+                    </View>
+                  </>
+                )}
               </View>
             )}
 
@@ -684,5 +809,68 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFF',
     letterSpacing: 0.3
+  },
+  denomLendList: {
+    gap: 8,
+    marginTop: 6,
+    marginBottom: 10
+  },
+  denomLendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardInset,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    padding: 10
+  },
+  denomLendBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.4)'
+  },
+  denomLendBadgeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#FFF'
+  },
+  denomLendTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text
+  },
+  denomLendSub: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 1
+  },
+  counterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    padding: 2
+  },
+  counterBtn: {
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 6,
+    backgroundColor: colors.cardRaised
+  },
+  counterInput: {
+    width: 38,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.text,
+    paddingVertical: 2
   }
 });

@@ -30,11 +30,40 @@ export function buyIn(req: AuthenticatedRequest, res: Response): void {
   }
 }
 
+export function batchBuyIn(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const hostUserId = req.user!.userId;
+    const tableId = req.params.tableId as string;
+    const { playerIds, chipAmount, moneyValue, isRebuy, denominationsBreakdown, idempotencyKey } = req.body;
+
+    if (!playerIds || !Array.isArray(playerIds) || playerIds.length === 0 || !chipAmount) {
+      res.status(400).json({ success: false, error: 'Selected players list and chip amount are required' });
+      return;
+    }
+
+    const result = ledgerService.recordBatchBuyIn({
+      gameId: tableId,
+      hostUserId,
+      playerIds,
+      chipAmount: parseInt(chipAmount, 10),
+      moneyValue: moneyValue !== undefined ? parseFloat(moneyValue) : undefined,
+      isRebuy: !!isRebuy,
+      denominationsBreakdown,
+      idempotencyKey
+    });
+
+    broadcastTableUpdate(tableId, 'BATCH_BUY_IN', result);
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to record batch buy-in' });
+  }
+}
+
 export function lendChips(req: AuthenticatedRequest, res: Response): void {
   try {
     const hostUserId = req.user!.userId;
     const tableId = req.params.tableId as string;
-    const { lenderPlayerId, borrowerPlayerId, chipAmount, idempotencyKey } = req.body;
+    const { lenderPlayerId, borrowerPlayerId, chipAmount, moneyValue, denominationsBreakdown, idempotencyKey } = req.body;
 
     if (!lenderPlayerId || !borrowerPlayerId || !chipAmount) {
       res.status(400).json({ success: false, error: 'Lender ID, borrower ID, and chip amount are required' });
@@ -47,6 +76,8 @@ export function lendChips(req: AuthenticatedRequest, res: Response): void {
       lenderPlayerId,
       borrowerPlayerId,
       chipAmount: parseInt(chipAmount, 10),
+      moneyValue: moneyValue !== undefined ? parseFloat(moneyValue) : undefined,
+      denominationsBreakdown,
       idempotencyKey
     });
 

@@ -90,7 +90,8 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
   const loanCreditMap = new Map<string, number>(); // playerId -> money owed to player as lender
 
   for (const l of loans) {
-    const loanMoney = l.remaining_chip_amount * table.chip_value;
+    const effectiveLoanChipValue = (l.chip_value && l.chip_value > 0) ? l.chip_value : table.chip_value;
+    const loanMoney = l.remaining_chip_amount * effectiveLoanChipValue;
     loanDebtMap.set(l.borrower_id, (loanDebtMap.get(l.borrower_id) || 0) + loanMoney);
     loanCreditMap.set(l.lender_id, (loanCreditMap.get(l.lender_id) || 0) + loanMoney);
   }
