@@ -1,4 +1,4 @@
-﻿{
+{
   "short_name": "ChipMate",
   "name": "ChipMate - Home Game Chip Ledger",
   "description": "Real-time physical chip ledger, loans, settlement & player statistics for home Poker and Teen Patti.",
@@ -22,8 +22,8 @@
     }
   ],
   "start_url": "/",
-  "background_color": "#0E1015",
-  "theme_color": "#0E1015",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "display": "standalone",
   "orientation": "portrait-primary",
   "scope": "/"

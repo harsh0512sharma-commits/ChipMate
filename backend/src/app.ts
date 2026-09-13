@@ -15,15 +15,15 @@ export function createApp() {
 
   // Health check
   app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.14', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.15', timestamp: new Date().toISOString() });
   });
 
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.14',
-      buildTime: 1789260000000,
-      releaseNotes: 'Uncapped shots and credit lending in Teen Patti & Poker, pot value expansion with active shots, seamless video splash auto-entry, and user profile picture upload.'
+      version: '1.0.15',
+      buildTime: 1789265000000,
+      releaseNotes: 'Completely remove splash screen logo and fallback elements for seamless pitch-black video boot.'
     });
   };
   app.get('/version', versionHandler);

@@ -76,12 +76,21 @@ function MainNavigator() {
     return () => clearInterval(interval);
   }, [token, user]);
 
-  if (!isSplashDone || isLoading) {
+  if (!isSplashDone) {
     return (
       <SplashScreen
         isLoading={isLoading}
         onAnimationEnd={() => setIsSplashDone(true)}
       />
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' }}>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
     );
   }
 
