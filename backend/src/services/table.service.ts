@@ -43,7 +43,7 @@ export function getUserActiveGame(userId: string, excludeGameId?: string): { id:
     SELECT g.id, g.name, g.status
     FROM game_players gp
     JOIN games g ON gp.game_id = g.id
-    WHERE gp.user_id = ? AND g.status IN ('WAITING', 'ACTIVE', 'SETTLING')
+    WHERE gp.user_id = ? AND gp.left_at IS NULL AND g.status IN ('WAITING', 'ACTIVE', 'SETTLING')
   `;
   const params: any[] = [userId];
   if (excludeGameId) {
@@ -176,6 +176,10 @@ export function joinTableByCode(userId: string, code: string): { table: GameTabl
   // Check if user already in table
   const existingPlayer = db.prepare('SELECT * FROM game_players WHERE game_id = ? AND user_id = ?').get(table.id, userId) as any;
   if (existingPlayer) {
+    if (existingPlayer.left_at) {
+      const now = new Date().toISOString();
+      db.prepare('UPDATE game_players SET left_at = NULL, joined_at = ? WHERE id = ?').run(now, existingPlayer.id);
+    }
     return { table, playerId: existingPlayer.id };
   }
 
@@ -208,8 +212,15 @@ export function addPlayerToTable(hostUserId: string, tableId: string, targetFrie
   const targetUser = getUserByFriendCode(targetFriendCode);
   if (!targetUser) throw new Error('Player not found with that friend code');
 
-  const existing = db.prepare('SELECT id FROM game_players WHERE game_id = ? AND user_id = ?').get(tableId, targetUser.id) as any;
-  if (existing) throw new Error('Player is already in this table');
+  const existing = db.prepare('SELECT id, left_at FROM game_players WHERE game_id = ? AND user_id = ?').get(tableId, targetUser.id) as any;
+  if (existing) {
+    if (!existing.left_at) {
+      throw new Error('Player is already in this table');
+    }
+    const now = new Date().toISOString();
+    db.prepare('UPDATE game_players SET left_at = NULL, joined_at = ? WHERE id = ?').run(now, existing.id);
+    return { success: true, playerId: existing.id, displayName: targetUser.display_name };
+  }
 
   // Concurrency check: Ensure target player is not already playing in another active game
   const targetActiveGame = getUserActiveGame(targetUser.id, tableId);
@@ -252,9 +263,14 @@ export function addFriendToTable(hostUserId: string, tableId: string, friendUser
     throw new Error('Friend user record not found');
   }
 
-  const existing = db.prepare('SELECT id FROM game_players WHERE game_id = ? AND user_id = ?').get(tableId, friendUserId) as any;
+  const existing = db.prepare('SELECT id, left_at FROM game_players WHERE game_id = ? AND user_id = ?').get(tableId, friendUserId) as any;
   if (existing) {
-    throw new Error('Friend is already seated at this table');
+    if (!existing.left_at) {
+      throw new Error('Friend is already seated at this table');
+    }
+    const now = new Date().toISOString();
+    db.prepare('UPDATE game_players SET left_at = NULL, joined_at = ? WHERE id = ?').run(now, existing.id);
+    return { success: true, playerId: existing.id, displayName: friendUser.display_name };
   }
 
   // Concurrency check: Ensure friend is not already playing in another active game
@@ -327,14 +343,15 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
   }
 
   // Fetch players
+  const isSettlingOrFinal = table.status === 'SETTLING' || table.status === 'FINALIZED' || table.status === 'ARCHIVED';
   const players = db.prepare(`
-    SELECT gp.id, gp.user_id, gp.role, gp.current_chips, gp.total_buyin_amount, gp.total_buyin_chips, gp.joined_at,
+    SELECT gp.id, gp.user_id, gp.role, gp.current_chips, gp.total_buyin_amount, gp.total_buyin_chips, gp.joined_at, gp.left_at,
       gp.is_guest, gp.guest_name,
       COALESCE(gp.guest_name, u.display_name) as display_name,
       u.friend_code, u.phone_number, u.avatar_url
     FROM game_players gp
     JOIN users u ON gp.user_id = u.id
-    WHERE gp.game_id = ?
+    WHERE gp.game_id = ? ${isSettlingOrFinal ? '' : 'AND gp.left_at IS NULL'}
     ORDER BY CASE WHEN gp.role = 'HOST' THEN 0 ELSE 1 END, gp.joined_at ASC
   `).all(tableId) as any[];
 
@@ -444,10 +461,10 @@ export function getActiveUserTables(userId: string) {
   const db = getDb();
   return db.prepare(`
     SELECT g.*, gp.role as player_role, gp.current_chips as my_chips,
-      (SELECT COUNT(*) FROM game_players WHERE game_id = g.id) as player_count
+      (SELECT COUNT(*) FROM game_players WHERE game_id = g.id AND left_at IS NULL) as player_count
     FROM game_players gp
     JOIN games g ON gp.game_id = g.id
-    WHERE gp.user_id = ? AND g.status IN ('WAITING', 'ACTIVE', 'SETTLING')
+    WHERE gp.user_id = ? AND gp.left_at IS NULL AND g.status IN ('WAITING', 'ACTIVE', 'SETTLING')
     ORDER BY g.created_at DESC
   `).all(userId) as any[];
 }
@@ -610,7 +627,14 @@ export function leaveTable(userId: string, tableId: string): {
   }
 
   const player = db.prepare('SELECT * FROM game_players WHERE game_id = ? AND user_id = ?').get(tableId, userId) as any;
-  if (!player) throw new Error('You are not seated at this table');
+  if (!player || player.left_at) {
+    return {
+      success: true,
+      tableDeleted: false,
+      departingUserId: userId,
+      message: 'You have left the table.'
+    };
+  }
 
   // Check active loans
   const loanCount = db.prepare(`
@@ -639,11 +663,11 @@ export function leaveTable(userId: string, tableId: string): {
   }
 
   if (isHost) {
-    // Find remaining non-guest players ordered by join time
+    // Find remaining non-guest active players ordered by join time
     const remainingRegistered = db.prepare(`
       SELECT gp.*, u.display_name FROM game_players gp
       JOIN users u ON gp.user_id = u.id
-      WHERE gp.game_id = ? AND gp.user_id != ? AND gp.is_guest = 0
+      WHERE gp.game_id = ? AND gp.user_id != ? AND gp.is_guest = 0 AND gp.left_at IS NULL
       ORDER BY gp.joined_at ASC
     `).all(tableId, userId) as any[];
 

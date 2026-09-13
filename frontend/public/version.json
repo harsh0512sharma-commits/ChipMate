@@ -1,5 +1,5 @@
 {
-  "version": "1.0.16",
-  "buildTime": 1789274000000,
-  "releaseNotes": "Sequential Turso Cloud replication queue, prevent player deletion on table leave, robust transaction name resolution, and restored ₹75 game history."
+  "version": "1.0.17",
+  "buildTime": 1789277000000,
+  "releaseNotes": "Properly filter departed players from active games and table creation concurrency checks."
 }
