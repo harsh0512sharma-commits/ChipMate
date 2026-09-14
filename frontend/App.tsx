@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Home, Trophy, Users, User, ShieldCheck } from 'lucide-react-native';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { UpdateProvider } from './src/context/UpdateContext';
 import { colors } from './src/theme/colors';
 import { apiRequest } from './src/api/client';
 import { InstallPromptModal } from './src/components/InstallPromptModal';
@@ -341,9 +342,11 @@ function MainNavigator() {
 export default function App() {
   return (
     <AuthProvider>
-      <MainNavigator />
-      <InstallPromptModal />
-      <UpdatePromptModal />
+      <UpdateProvider>
+        <MainNavigator />
+        <InstallPromptModal />
+        <UpdatePromptModal />
+      </UpdateProvider>
     </AuthProvider>
   );
 }

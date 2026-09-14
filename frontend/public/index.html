@@ -78,9 +78,20 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function() {
-          navigator.serviceWorker.register('/sw.js')
+          navigator.serviceWorker.register('/sw.js?v=1.0.27')
             .then(function(reg) {
               console.log('[ChipMate PWA] Service Worker registered:', reg.scope);
+              
+              // Force background check for sw update
+              try { reg.update(); } catch (_) {}
+
+              // Re-check for sw update when user returns to app
+              document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') {
+                  try { reg.update(); } catch (_) {}
+                }
+              });
+
               reg.onupdatefound = function() {
                 var installingWorker = reg.installing;
                 if (installingWorker) {

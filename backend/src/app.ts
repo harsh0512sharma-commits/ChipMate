@@ -18,7 +18,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.0.26',
+      version: '1.0.27',
       timestamp: new Date().toISOString()
     });
   });
@@ -26,9 +26,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.26',
-      buildTime: 1789371000000,
-      releaseNotes: 'Foreign key cascade fixes for clean table/game deletion, scoped guest rankings (only played-with guests), default 5-10-25-100 denominations, and host game history deletion.'
+      version: '1.0.27',
+      buildTime: 1789379000000,
+      releaseNotes: 'Pure financial valuation mode, bank vault money enforcement, and foolproof auto-update system.'
     });
   };
   app.get('/version', versionHandler);

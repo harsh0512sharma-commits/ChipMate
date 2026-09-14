@@ -24,10 +24,12 @@ import {
   History,
   ArrowRight,
   Camera,
-  Trash2
+  Trash2,
+  RefreshCw
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
+import { useUpdate } from '../../context/UpdateContext';
 import { Header } from '../../components/Header';
 import { apiRequest } from '../../api/client';
 import { APP_BUILD_VERSION } from '../../version';
@@ -65,6 +67,44 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary, onO
   const [deletingGameId, setDeletingGameId] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<any>(null);
+  const {
+    updateAvailable,
+    currentVersion,
+    latestVersion,
+    isChecking: isCheckingUpdates,
+    isUpdating: isApplyingUpdate,
+    checkForUpdates,
+    applyUpdate,
+    forceCleanCache
+  } = useUpdate();
+  const [updateMsg, setUpdateMsg] = useState<string | null>(null);
+
+  const handleManualCheckUpdates = async () => {
+    setUpdateMsg('Checking cloud servers for latest build...');
+    try {
+      const res = await checkForUpdates(true);
+      if (res.updateAvailable) {
+        setUpdateMsg(`Update available: v${res.latestVersion}!`);
+        Alert.alert('Update Available', `ChipMate v${res.latestVersion} is ready to install. Tap "Update to v${res.latestVersion} Now" to apply.`);
+      } else {
+        setUpdateMsg(`App is running the latest build (v${currentVersion}).`);
+        Alert.alert('Up to Date', `ChipMate is running the latest build (v${currentVersion}).`);
+      }
+    } catch (_) {
+      setUpdateMsg('Check completed.');
+    }
+  };
+
+  const handleForceClearCache = () => {
+    Alert.alert(
+      'Force Clear Cache',
+      'This will clear offline cache storage, unregister service workers, and hard reload the application from the server. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Clear & Refresh', style: 'destructive', onPress: () => forceCleanCache() }
+      ]
+    );
+  };
 
   const handlePickImage = () => {
     if (fileInputRef.current) {
@@ -542,6 +582,89 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary, onO
               );
             })
           )}
+        </View>
+
+        {/* APP VERSION & SYSTEM UPDATES */}
+        <View style={styles.card}>
+          <View style={styles.updateCardHeader}>
+            <Sparkles size={18} color={colors.primary} style={{ marginRight: 8 }} />
+            <Text style={styles.sectionTitle}>APP VERSION & SYSTEM UPDATES</Text>
+          </View>
+          <Text style={styles.sectionSubtitle}>
+            Live build tracking, instant cloud releases, and cache-busting tools
+          </Text>
+
+          {/* Version Details Box */}
+          <View style={styles.versionDetailsBox}>
+            <View style={styles.versionDetailRow}>
+              <Text style={styles.versionDetailLabel}>Current Installed Build</Text>
+              <Text style={styles.versionDetailValue}>v{currentVersion}</Text>
+            </View>
+            <View style={styles.versionDetailRow}>
+              <Text style={styles.versionDetailLabel}>Latest Cloud Release</Text>
+              <Text style={[styles.versionDetailValue, { color: updateAvailable ? colors.primary : colors.successText }]}>
+                v{latestVersion}
+              </Text>
+            </View>
+            <View style={styles.versionStatusRow}>
+              <View style={[styles.statusDot, { backgroundColor: updateAvailable ? colors.primary : colors.successText }]} />
+              <Text style={[styles.statusText, { color: updateAvailable ? colors.primary : colors.successText }]}>
+                {updateAvailable
+                  ? `Update Available! (v${latestVersion} ready to apply)`
+                  : 'You are running the latest version'}
+              </Text>
+            </View>
+          </View>
+
+          {updateMsg ? (
+            <Text style={styles.updateMsgText}>{updateMsg}</Text>
+          ) : null}
+
+          {/* If update available: Big prominent update button */}
+          {updateAvailable && (
+            <TouchableOpacity
+              style={styles.profileUpdateNowBtn}
+              onPress={applyUpdate}
+              disabled={isApplyingUpdate}
+              activeOpacity={0.8}
+            >
+              {isApplyingUpdate ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Sparkles size={16} color="#FFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.profileUpdateNowText}>🚀 Update to v{latestVersion} Now</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* Actions Row */}
+          <View style={styles.updateActionsRow}>
+            <TouchableOpacity
+              style={styles.checkUpdateBtn}
+              onPress={handleManualCheckUpdates}
+              disabled={isCheckingUpdates}
+              activeOpacity={0.7}
+            >
+              {isCheckingUpdates ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <>
+                  <RefreshCw size={14} color={colors.primary} style={{ marginRight: 6 }} />
+                  <Text style={styles.checkUpdateBtnText}>Check for Updates</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.clearCacheBtn}
+              onPress={handleForceClearCache}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.clearCacheBtnText}>🧹 Clear Cache</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Logout Button */}
@@ -1025,4 +1148,116 @@ const styles = StyleSheet.create({
     marginTop: 3,
     lineHeight: 15,
   },
+  updateCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4
+  },
+  versionDetailsBox: {
+    backgroundColor: colors.cardInset,
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.borderDark
+  },
+  versionDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4
+  },
+  versionDetailLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500'
+  },
+  versionDetailValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.text
+  },
+  versionStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderDark
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '700'
+  },
+  updateMsgText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 10,
+    fontWeight: '500'
+  },
+  profileUpdateNowBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 13,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#FFD700',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  profileUpdateNowText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: 0.3
+  },
+  updateActionsRow: {
+    flexDirection: 'row',
+    gap: 10
+  },
+  checkUpdateBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryLight,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder
+  },
+  checkUpdateBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary
+  },
+  clearCacheBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.cardRaised,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  clearCacheBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary
+  }
 });

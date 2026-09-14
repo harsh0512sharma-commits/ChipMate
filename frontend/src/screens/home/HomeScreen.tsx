@@ -8,7 +8,8 @@ import {
   TextInput,
   RefreshControl,
   Platform,
-  Image
+  Image,
+  ActivityIndicator
 } from 'react-native';
 import {
   Plus,
@@ -19,11 +20,13 @@ import {
   History,
   TrendingUp,
   Coins,
-  Users
+  Users,
+  Sparkles
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import { useUpdate } from '../../context/UpdateContext';
 
 interface HomeScreenProps {
   onOpenLiveTable: (tableId: string) => void;
@@ -59,6 +62,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenSummary
 }) => {
   const { user, refreshUser } = useAuth();
+  const { updateAvailable, latestVersion, isUpdating, applyUpdate } = useUpdate();
   const [activeTables, setActiveTables] = useState<any[]>([]);
   const [recentCompleted, setRecentCompleted] = useState<any[]>([]);
   const [joinCodeInput, setJoinCodeInput] = useState('');
@@ -121,7 +125,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       >
         {/* Welcome Header */}
         <View style={styles.welcomeRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
             {user?.avatar_url ? (
               <Image source={{ uri: user.avatar_url }} style={styles.headerAvatar} />
             ) : (
@@ -136,7 +140,54 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <Text style={styles.userName}>{user?.display_name || 'Player'}</Text>
             </View>
           </View>
+
+          {updateAvailable && (
+            <TouchableOpacity
+              style={styles.headerUpdateBtn}
+              onPress={applyUpdate}
+              disabled={isUpdating}
+              activeOpacity={0.8}
+            >
+              {isUpdating ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Sparkles size={14} color="#FFF" style={{ marginRight: 5 }} />
+                  <Text style={styles.headerUpdateBtnText}>Update v{latestVersion}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* PROMINENT UPDATE NOTICE CARD (If update available) */}
+        {updateAvailable && (
+          <View style={styles.homeUpdateBanner}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 }}>
+              <View style={styles.homeUpdateIconWrap}>
+                <Sparkles size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.homeUpdateTitle}>New Release Available: v{latestVersion}</Text>
+                <Text style={styles.homeUpdateSub}>
+                  A newer build of ChipMate is ready. Update now to ensure instant data sync and latest features.
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.homeUpdateActionBtn}
+              onPress={applyUpdate}
+              disabled={isUpdating}
+              activeOpacity={0.8}
+            >
+              {isUpdating ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={styles.homeUpdateActionText}>Update Now</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* ACTIVE GAME CARD (Highest Priority) */}
         {primaryActiveTable ? (
@@ -363,6 +414,77 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     paddingTop: 8
+  },
+  headerUpdateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#FFD700',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4
+  },
+  headerUpdateBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: 0.2
+  },
+  homeUpdateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1E1712',
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 4
+  },
+  homeUpdateIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10
+  },
+  homeUpdateTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: -0.2
+  },
+  homeUpdateSub: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
+    lineHeight: 15
+  },
+  homeUpdateActionBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  homeUpdateActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFF'
   },
   headerChipIcon: {
     width: 42,

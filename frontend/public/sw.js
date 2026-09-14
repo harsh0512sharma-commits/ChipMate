@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chipmate-pwa-v4';
+const CACHE_NAME = 'chipmate-pwa-v1.0.27';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -36,8 +36,15 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Never cache API requests, WebSocket connections, or version check files
-  if (url.pathname.startsWith('/api') || url.pathname.startsWith('/socket.io') || url.pathname.includes('version.json') || event.request.method !== 'GET') {
+  // Never cache API requests, WebSocket connections, version checks, or the service worker itself
+  if (
+    url.pathname.startsWith('/api') ||
+    url.pathname.startsWith('/socket.io') ||
+    url.pathname.includes('version.json') ||
+    url.pathname.includes('/version') ||
+    url.pathname.endsWith('sw.js') ||
+    event.request.method !== 'GET'
+  ) {
     return;
   }
 
@@ -58,10 +65,10 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Network-first for navigation, stale-while-revalidate for assets
+  // Network-first for navigation, stale-while-revalidate for static assets
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match('/'))
+      fetch(event.request, { cache: 'no-cache' }).catch(() => caches.match('/'))
     );
     return;
   }
@@ -84,8 +91,11 @@ self.addEventListener('fetch', event => {
 });
 
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+  if (event.data && (event.data.type === 'SKIP_WAITING' || event.data === 'skipWaiting')) {
     self.skipWaiting();
+  }
+  if (event.data && event.data.type === 'CLEAR_CACHE') {
+    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
   }
 });
 

@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, StatusBar } from 'react-native';
-import { ArrowLeft, WifiOff } from 'lucide-react-native';
+import { ArrowLeft, WifiOff, Sparkles } from 'lucide-react-native';
 import { colors } from '../theme/colors';
+import { useUpdate } from '../context/UpdateContext';
 
 interface HeaderProps {
   title: string;
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   rightAction,
   isConnected = true
 }) => {
+  const { updateAvailable, isUpdating, applyUpdate } = useUpdate();
   return (
     <View style={styles.container}>
       <View style={styles.contentRow}>
@@ -45,6 +47,17 @@ export const Header: React.FC<HeaderProps> = ({
         </View>
 
         <View style={styles.rightSection}>
+          {updateAvailable && (
+            <TouchableOpacity
+              style={styles.headerUpdatePill}
+              onPress={applyUpdate}
+              disabled={isUpdating}
+              activeOpacity={0.8}
+            >
+              <Sparkles size={11} color="#FFF" style={{ marginRight: 3 }} />
+              <Text style={styles.headerUpdatePillText}>Update</Text>
+            </TouchableOpacity>
+          )}
           {!isConnected && (
             <View style={styles.offlineBadge}>
               <WifiOff size={12} color={colors.dangerText} />
@@ -124,5 +137,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.dangerText,
     marginLeft: 4
+  },
+  headerUpdatePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#FFD700'
+  },
+  headerUpdatePillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFF'
   }
 });
