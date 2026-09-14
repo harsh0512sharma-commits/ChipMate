@@ -165,7 +165,7 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
       return;
     }
     if (chipsPerPlayer <= 0) {
-      setErrorMsg(isValueMode ? 'Please enter a buy-in value greater than ₹0' : isDenomMode ? 'Please specify at least 1 chip in the denomination bundle' : 'Buy-in chip count must be greater than 0');
+      setErrorMsg(isValueMode ? 'Please enter a buy-in amount greater than ₹0' : isDenomMode ? 'Please specify at least 1 chip in the denomination bundle' : 'Buy-in chip count must be greater than 0');
       return;
     }
     if (denomOverdraftError) {
@@ -173,7 +173,7 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
       return;
     }
     if (!bankHasEnough) {
-      setErrorMsg(isValueMode ? `Bank vault only has ₹${(table?.bank_chips ?? 0).toLocaleString('en-IN')} available. Need ₹${totalChipsNeeded.toLocaleString('en-IN')}.` : `Bank vault only has ${table?.bank_chips ?? 0} chips available. Need ${totalChipsNeeded} chips.`);
+      setErrorMsg(isValueMode ? `Total buy-in (₹${totalMoneyValue.toLocaleString('en-IN')}) exceeds bank vault balance of ₹${(table?.bank_chips ?? 0).toLocaleString('en-IN')}.` : `Bank vault only has ${table?.bank_chips ?? 0} chips available. Need ${totalChipsNeeded} chips.`);
       return;
     }
 
@@ -206,7 +206,9 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
               </View>
               <View>
                 <Text style={styles.headerTitle}>Buy-In for Table Members</Text>
-                <Text style={styles.headerSubtitle}>Assign equal buy-ins to selected or all players</Text>
+                <Text style={styles.headerSubtitle}>
+                  {isValueMode ? 'Assign initial buy-in amount to selected or all players' : 'Assign equal buy-ins to selected or all players'}
+                </Text>
               </View>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
@@ -227,7 +229,7 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
               {isValueMode ? (
                 <View>
                   <View style={styles.configHeaderRow}>
-                    <Text style={styles.sectionLabel}>BUY-IN VALUE PER PLAYER</Text>
+                    <Text style={styles.sectionLabel}>AMOUNT PER PLAYER</Text>
                     <Text style={styles.rateLabel}>By Value Mode</Text>
                   </View>
                   <Text style={[styles.perPlayerNoteText, { marginBottom: 10 }]}>
@@ -304,7 +306,7 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
                     <Sparkles size={13} color={colors.primary} />
                     <Text style={styles.perPlayerNoteText}>
                       Each selected player receives{' '}
-                      <Text style={{ fontWeight: '800', color: colors.primary }}>₹{moneyPerPlayer.toLocaleString('en-IN')}</Text> in chips
+                      <Text style={{ fontWeight: '800', color: colors.primary }}>₹{moneyPerPlayer.toLocaleString('en-IN')}</Text>
                     </Text>
                   </View>
                 </View>
@@ -531,7 +533,7 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
                         </View>
                         <Text style={styles.playerHolding}>
                           {isValueMode
-                            ? `Holding: ₹${(p.money_equivalent ?? p.current_chips ?? 0).toLocaleString('en-IN')}`
+                            ? `Balance: ₹${(p.money_equivalent ?? p.current_chips ?? 0).toLocaleString('en-IN')}`
                             : isDenomMode
                               ? `Holding: ${p.current_chips} chips (₹${(p.money_equivalent ?? p.total_buyin_amount ?? 0).toLocaleString('en-IN')})`
                               : `Holding: ${p.current_chips} chips (₹${(p.current_chips * chipVal).toLocaleString('en-IN')})`}
@@ -548,9 +550,18 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
           <View style={styles.footerContainer}>
             <View style={styles.summaryStatsRow}>
               <View style={styles.summaryCol}>
-                <Text style={styles.summaryLabel}>{isValueMode ? 'TOTAL BUY-IN' : 'TOTAL CHIPS REQUIRED'}</Text>
+                <Text style={styles.summaryLabel}>{isValueMode ? 'AMOUNT / PLAYER' : 'TOTAL CHIPS'}</Text>
                 <Text style={[styles.summaryVal, !bankHasEnough && { color: colors.dangerText }]}>
-                  {isValueMode ? `₹${totalMoneyValue.toLocaleString('en-IN')}` : `${totalChipsNeeded} chips`}
+                  {isValueMode ? `₹${moneyPerPlayer.toLocaleString('en-IN')}` : `${totalChipsNeeded} chips`}
+                </Text>
+              </View>
+
+              <View style={styles.summaryDivider} />
+
+              <View style={styles.summaryCol}>
+                <Text style={styles.summaryLabel}>TOTAL BUY-IN</Text>
+                <Text style={[styles.summaryVal, { color: colors.chipGold }]}>
+                  ₹{totalMoneyValue.toLocaleString('en-IN')}
                 </Text>
               </View>
 
@@ -562,15 +573,6 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
                   {isValueMode ? `₹${(table?.bank_chips ?? 0).toLocaleString('en-IN')}` : `${table?.bank_chips ?? 0} avail`}
                 </Text>
               </View>
-
-              <View style={styles.summaryDivider} />
-
-              <View style={styles.summaryCol}>
-                <Text style={styles.summaryLabel}>TOTAL MONEY</Text>
-                <Text style={[styles.summaryVal, { color: colors.chipGold }]}>
-                  ₹{totalMoneyValue.toLocaleString('en-IN')}
-                </Text>
-              </View>
             </View>
 
             {!bankHasEnough && (
@@ -578,7 +580,7 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
                 <AlertCircle size={13} color={colors.dangerText} />
                 <Text style={styles.overdraftAlertText}>
                   {isValueMode
-                    ? `Bank vault only has ₹${(table?.bank_chips ?? 0).toLocaleString('en-IN')} available. Reduce amount or players.`
+                    ? `Total buy-in (₹${totalMoneyValue.toLocaleString('en-IN')}) exceeds bank vault balance of ₹${(table?.bank_chips ?? 0).toLocaleString('en-IN')}. Reduce amount or players.`
                     : isDenomMode && denomOverdraftError
                     ? denomOverdraftError
                     : `Bank vault only has ${table?.bank_chips ?? 0} chips available. Reduce amount or players.`}
@@ -601,7 +603,9 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
                 <ActivityIndicator color="#FFF" />
               ) : (
                 <Text style={styles.submitBtnText}>
-                  Confirm Buy-in for {selectedPlayerIds.length} Players (₹{totalMoneyValue.toLocaleString('en-IN')})
+                  {isValueMode
+                    ? `Confirm Buy-In of ₹${moneyPerPlayer.toLocaleString('en-IN')} for ${selectedPlayerIds.length} Players (Total ₹${totalMoneyValue.toLocaleString('en-IN')})`
+                    : `Confirm Buy-in for ${selectedPlayerIds.length} Players (₹${totalMoneyValue.toLocaleString('en-IN')})`}
                 </Text>
               )}
             </TouchableOpacity>

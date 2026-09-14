@@ -353,7 +353,7 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
                 <Text style={[styles.modeToggleText, chipMode === 'VALUE' && styles.modeToggleTextActive]}>
                   By Value (Recommended)
                 </Text>
-                <Text style={styles.modeToggleSub}>Custom chip inventory with direct ₹ value buy-ins & loans (no chip counting)</Text>
+                <Text style={styles.modeToggleSub}>Pure ₹ buy-ins, loans & settlement. Chip set sets the total bank vault money.</Text>
               </View>
               {chipMode === 'VALUE' && <Check size={16} color="#FFF" />}
             </TouchableOpacity>
@@ -707,16 +707,22 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
         <View style={styles.calculationCard}>
           <View style={styles.calcHeaderRow}>
             <Sparkles size={16} color={colors.primary} />
-            <Text style={styles.calcHeaderTitle}>TOTAL PHYSICAL POT VALUE</Text>
+            <Text style={styles.calcHeaderTitle}>
+              {chipMode === 'VALUE' ? 'TOTAL BANK VAULT MONEY' : 'TOTAL PHYSICAL POT VALUE'}
+            </Text>
           </View>
           <Text style={styles.calcFormula}>
-            {chipMode === 'DENOMINATION'
+            {chipMode === 'VALUE'
+              ? `Vault money calculated from physical set of ${denomTotalChips} chips`
+              : chipMode === 'DENOMINATION'
               ? `${denomTotalChips} physical chips across ${denomRows.map(d => '₹' + (d.value || '0')).join(', ')}`
               : `${numChips} chips × ₹${numValue} / chip`}
           </Text>
           <Text style={styles.calcTotalMoney}>₹{finalTotalPot.toLocaleString('en-IN')}</Text>
           <Text style={styles.calcNote}>
-            {chipMode === 'DENOMINATION'
+            {chipMode === 'VALUE'
+              ? '✓ In this mode, buy-ins and loans are direct ₹ amounts and cannot exceed the bank vault balance.'
+              : chipMode === 'DENOMINATION'
               ? `✓ Custom Denominations • Total ${denomTotalChips} physical chips in vault • Effective avg ₹${denomEffectiveChipValue.toFixed(1)}/chip.`
               : '✓ Reconciles 100% against bank and player inventories at all times.'}
           </Text>

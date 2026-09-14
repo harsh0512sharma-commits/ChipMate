@@ -1017,5 +1017,130 @@ describe('ChipMate Authoritative Zero-Sum Accounting Engine & Invariants', () =>
     const finalRes = settlementService.finalizeGame(hostA.id, table.id);
     expect(finalRes.success).toBe(true);
   });
+
+  // TEST CASE 14: VALUE MODE BANK VAULT MONEY OVERDRAFT PROTECTION & SETTLEMENT
+  test('VALUE mode enforces strict bank vault money limits for single & batch buy-ins and reconciles zero-sum', () => {
+    const [hostA, playerB] = setupPlayers(2);
+    // Setup table with total physical valuation = (50 * 10) + (20 * 25) + (10 * 100) = 500 + 500 + 1000 = ₹2,000
+    const { table } = tableService.createTable({
+      hostUserId: hostA.id,
+      name: 'Vault Limit Valuation Table',
+      gameType: 'POKER',
+      chipMode: 'VALUE',
+      denominations: [
+        { value: 10, count: 50 },
+        { value: 25, count: 20 },
+        { value: 100, count: 10 }
+      ]
+    });
+
+    const aId = db.prepare('SELECT id FROM game_players WHERE game_id = ? AND user_id = ?').get(table.id, hostA.id).id;
+    const { playerId: bId } = tableService.joinTableByCode(playerB.id, table.join_code);
+
+    // Initial bank vault balance is ₹2,000
+    const initialDetails = tableService.getTableDetails(table.id, hostA.id);
+    expect(initialDetails!.table.bank_chips).toBe(2000);
+    expect(initialDetails!.table.total_chips).toBe(2000);
+
+    // 1. Single buy-in of ₹2,500 exceeds vault of ₹2,000 -> throws error
+    expect(() => {
+      ledgerService.recordBuyIn({
+        gameId: table.id,
+        hostUserId: hostA.id,
+        playerId: aId,
+        chipAmount: 2500,
+        moneyValue: 2500
+      });
+    }).toThrow(/exceeds bank vault balance of ₹2000/);
+
+    // 2. Batch buy-in of ₹1,200 each for 2 players (total ₹2,400) exceeds vault of ₹2,000 -> throws error
+    expect(() => {
+      ledgerService.recordBatchBuyIn({
+        gameId: table.id,
+        hostUserId: hostA.id,
+        playerIds: [aId, bId],
+        chipAmount: 1200,
+        moneyValue: 1200
+      });
+    }).toThrow(/exceeds bank vault balance of ₹2000/);
+
+    // 3. Valid batch buy-in: ₹500 each for 2 players (total ₹1,000) -> succeeds
+    ledgerService.recordBatchBuyIn({
+      gameId: table.id,
+      hostUserId: hostA.id,
+      playerIds: [aId, bId],
+      chipAmount: 500,
+      moneyValue: 500
+    });
+
+    // Check bank vault remaining: 2,000 - 1,000 = ₹1,000
+    const midDetails = tableService.getTableDetails(table.id, hostA.id);
+    expect(midDetails!.table.bank_chips).toBe(1000);
+
+    // 4. Another batch buy-in of ₹600 each (total ₹1,200 > ₹1,000 remaining) -> throws error
+    expect(() => {
+      ledgerService.recordBatchBuyIn({
+        gameId: table.id,
+        hostUserId: hostA.id,
+        playerIds: [aId, bId],
+        chipAmount: 600,
+        moneyValue: 600
+      });
+    }).toThrow(/exceeds bank vault balance of ₹1000/);
+
+    // 5. Valid single rebuy of ₹1,000 for Player A -> succeeds, vault now exactly ₹0
+    ledgerService.recordBuyIn({
+      gameId: table.id,
+      hostUserId: hostA.id,
+      playerId: aId,
+      chipAmount: 1000,
+      moneyValue: 1000,
+      isRebuy: true
+    });
+
+    const emptyVaultDetails = tableService.getTableDetails(table.id, hostA.id);
+    expect(emptyVaultDetails!.table.bank_chips).toBe(0);
+
+    // 6. Any further buy-in when vault is empty -> throws error
+    expect(() => {
+      ledgerService.recordBuyIn({
+        gameId: table.id,
+        hostUserId: hostA.id,
+        playerId: bId,
+        chipAmount: 100,
+        moneyValue: 100,
+        isRebuy: true
+      });
+    }).toThrow(/exceeds bank vault balance of ₹0/);
+
+    // Total Buy-in Pot: A has ₹1,500, B has ₹500 -> Total Pot = ₹2,000
+    // Settlement: A has ₹1,200, B has ₹800
+    const preview = settlementService.submitFinalChipCounts(hostA.id, table.id, [
+      { playerId: aId, finalChips: 1200, finalChipsMoney: 1200 },
+      { playerId: bId, finalChips: 800, finalChipsMoney: 800 }
+    ]);
+
+    expect(preview.isReconciled).toBe(true);
+    expect(preview.discrepancy).toBe(0);
+
+    const balA = preview.players.find(p => p.playerId === aId)!;
+    const balB = preview.players.find(p => p.playerId === bId)!;
+
+    // A: 1200 - 1500 = -300
+    expect(balA.netPosition).toBe(-300);
+    // B: 800 - 500 = +300
+    expect(balB.netPosition).toBe(300);
+    expect(balA.netPosition + balB.netPosition).toBe(0);
+
+    // Optimized payment: A pays B ₹300
+    expect(preview.optimizedSettlements).toHaveLength(1);
+    expect(preview.optimizedSettlements[0].fromPlayerId).toBe(aId);
+    expect(preview.optimizedSettlements[0].toPlayerId).toBe(bId);
+    expect(preview.optimizedSettlements[0].amount).toBe(300);
+
+    const finalizeRes = settlementService.finalizeGame(hostA.id, table.id);
+    expect(finalizeRes.success).toBe(true);
+  });
 });
+
 

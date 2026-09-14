@@ -333,7 +333,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
         {/* RECONCILIATION SUMMARY CARD */}
         <View style={styles.reconcileCard}>
           <View style={styles.reconcileHeader}>
-            <Text style={styles.sectionHeaderTitle}>CHIP RECONCILIATION CHECK</Text>
+            <Text style={styles.sectionHeaderTitle}>{isValueMode ? 'FINANCIAL RECONCILIATION CHECK' : 'CHIP RECONCILIATION CHECK'}</Text>
             {data.isReconciled ? (
               <View style={styles.reconciledPill}>
                 <CheckCircle2 size={13} color={colors.successText} />
@@ -342,7 +342,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
             ) : (
               <View style={styles.mismatchPill}>
                 <AlertTriangle size={13} color={colors.dangerText} />
-                <Text style={styles.mismatchPillText}>{data.discrepancy} chip mismatch</Text>
+                <Text style={styles.mismatchPillText}>{isValueMode ? `₹${Math.abs(data.discrepancy || 0)} mismatch` : `${data.discrepancy} chip mismatch`}</Text>
               </View>
             )}
           </View>
@@ -383,7 +383,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
           {isHost && !isFinalized && (
             <TouchableOpacity style={styles.recountBtn} onPress={handleOpenEditChips}>
               <Edit3 size={14} color={colors.primary} style={{ marginRight: 6 }} />
-              <Text style={styles.recountBtnText}>Edit Final Chip Counts</Text>
+              <Text style={styles.recountBtnText}>{isValueMode ? 'Edit In-Hand Balances' : 'Edit Final Chip Counts'}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -405,7 +405,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                   {l.borrower_name} owes {l.lender_name}
                 </Text>
                 <Text style={styles.loanAmountText}>
-                  {l.remaining_chip_amount} chips (₹{l.moneyEquivalent})
+                  {isValueMode ? `₹${l.moneyEquivalent}` : `${l.remaining_chip_amount} chips (₹${l.moneyEquivalent})`}
                 </Text>
               </View>
             ))}
@@ -571,7 +571,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Edit Final In-Hand Chips</Text>
+              <Text style={styles.modalTitle}>{isValueMode ? 'Edit In-Hand Balances' : 'Edit Final In-Hand Chips'}</Text>
               <TouchableOpacity
                 onPress={() => setShowEditChipsModal(false)}
                 disabled={submittingChips}
@@ -582,7 +582,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
 
             <Text style={styles.modalSub}>
               {isValueMode
-                ? `Enter the final in-hand ₹ value for each player. Total must balance with the total buy-in pot (₹${expectedTotalMoney.toLocaleString('en-IN')}).`
+                ? `Enter the final in-hand ₹ balance for each player. Total must balance with the total buy-in pot (₹${expectedTotalMoney.toLocaleString('en-IN')}).`
                 : isDenomMode
                 ? `Enter the physical chip denominations held by each player. Total chips must equal ${expectedTotalChips} and total value must equal ₹${expectedTotalMoney.toLocaleString('en-IN')}.`
                 : `Enter the exact count of physical chips each player has right now. Total must equal ${expectedTotalChips} chips.`}
@@ -591,11 +591,19 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
             <View style={styles.countSummaryBox}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.countSummaryText}>
-                  Entered: <Text style={{ fontWeight: '800', color: colors.text }}>{totalEditEnteredChips}</Text> / {expectedTotalChips} chips
-                  {isCustomOrValue && (
-                    <Text style={{ color: colors.textMuted }}>
-                      {'\n'}Value: ₹<Text style={{ fontWeight: '800', color: colors.chipGold }}>{totalEditEnteredMoney.toLocaleString('en-IN')}</Text> / ₹{expectedTotalMoney.toLocaleString('en-IN')}
-                    </Text>
+                  {isValueMode ? (
+                    <>
+                      Entered: ₹<Text style={{ fontWeight: '800', color: colors.chipGold }}>{totalEditEnteredMoney.toLocaleString('en-IN')}</Text> / ₹{expectedTotalMoney.toLocaleString('en-IN')}
+                    </>
+                  ) : (
+                    <>
+                      Entered: <Text style={{ fontWeight: '800', color: colors.text }}>{totalEditEnteredChips}</Text> / {expectedTotalChips} chips
+                      {isCustomOrValue && (
+                        <Text style={{ color: colors.textMuted }}>
+                          {'\n'}Value: ₹<Text style={{ fontWeight: '800', color: colors.chipGold }}>{totalEditEnteredMoney.toLocaleString('en-IN')}</Text> / ₹{expectedTotalMoney.toLocaleString('en-IN')}
+                        </Text>
+                      )}
+                    </>
                   )}
                 </Text>
               </View>

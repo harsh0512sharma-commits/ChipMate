@@ -66,9 +66,12 @@ export function recordBuyIn(params: {
       const money = (params.moneyValue !== undefined && params.moneyValue > 0)
         ? params.moneyValue
         : params.chipAmount;
+      if (money > table.bank_chips) {
+        throw new Error(`Buy-in amount (₹${money}) exceeds bank vault balance of ₹${table.bank_chips}.`);
+      }
       totalChipsToDeduct = money;
       actualMoneyValue = money;
-      updatedBank = Math.max(0, table.bank_chips - money);
+      updatedBank = table.bank_chips - money;
       db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(updatedBank, table.id);
     } else if (params.denominationsBreakdown && params.denominationsBreakdown.length > 0) {
       const breakdownChips = params.denominationsBreakdown.reduce((sum, d) => sum + (Number(d.count) || 0), 0);
@@ -197,7 +200,10 @@ export function recordBatchBuyIn(params: {
       perPlayerChips = money;
       perPlayerMoney = money;
       totalChipsRequired = money * params.playerIds.length;
-      newBankChips = Math.max(0, table.bank_chips - totalChipsRequired);
+      if (totalChipsRequired > table.bank_chips) {
+        throw new Error(`Total buy-in (₹${totalChipsRequired}) exceeds bank vault balance of ₹${table.bank_chips}.`);
+      }
+      newBankChips = table.bank_chips - totalChipsRequired;
       db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(newBankChips, table.id);
     } else if (params.denominationsBreakdown && params.denominationsBreakdown.length > 0) {
       const bundleChips = params.denominationsBreakdown.reduce((sum, d) => sum + (Number(d.count) || 0), 0);

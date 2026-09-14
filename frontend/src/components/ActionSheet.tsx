@@ -230,11 +230,11 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
           {/* Header */}
           <View style={styles.headerRow}>
             <Text style={styles.headerTitle}>
-              {type === 'BUY' && 'Buy Chips'}
-              {type === 'LEND' && 'Lend Chips (Loan)'}
-              {type === 'RETURN' && 'Return Lent Chips'}
-              {type === 'TRANSFER' && 'Transfer Chips (No Debt)'}
-              {type === 'CORRECTION' && 'Correct Chip Count'}
+              {type === 'BUY' && (isValueMode ? 'Buy-In / Rebuy' : 'Buy Chips')}
+              {type === 'LEND' && (isValueMode ? 'Lend Money (Loan)' : 'Lend Chips (Loan)')}
+              {type === 'RETURN' && (isValueMode ? 'Repay Loan' : 'Return Lent Chips')}
+              {type === 'TRANSFER' && (isValueMode ? 'Transfer Money' : 'Transfer Chips (No Debt)')}
+              {type === 'CORRECTION' && (isValueMode ? 'Correct In-Hand Balance' : 'Correct Chip Count')}
               {type === 'UNDO' && 'Undo Transaction'}
             </Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -295,9 +295,9 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
 
                     <View style={styles.calcCard}>
                       <Text style={styles.calcText}>
-                        Buy-in Value: <Text style={styles.calcHighlight}>₹{numChips.toLocaleString('en-IN')}</Text>
+                        Buy-in Amount: <Text style={styles.calcHighlight}>₹{numChips.toLocaleString('en-IN')}</Text>
                       </Text>
-                      <Text style={styles.bankAvailText}>Bank has ₹{(table?.bank_chips ?? 0).toLocaleString('en-IN')} available</Text>
+                      <Text style={styles.bankAvailText}>Bank vault has ₹{(table?.bank_chips ?? 0).toLocaleString('en-IN')} available</Text>
                     </View>
                   </View>
                 ) : isDenomTable && tableDenomList.length > 0 ? (
@@ -423,7 +423,10 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
               <View>
                 <View style={styles.infoBanner}>
                   <Text style={styles.infoBannerText}>
-                    🤝 <Text style={{ fontWeight: '700' }}>Credit / Shot Lending:</Text> You can lend beyond current in-hand chips. Creates an obligation debt tracked until final settlement.
+                    🤝 <Text style={{ fontWeight: '700' }}>Credit / Shot Lending:</Text>{' '}
+                    {isValueMode
+                      ? 'You can lend money beyond current in-hand balance. Creates an obligation debt tracked until final settlement.'
+                      : 'You can lend beyond current in-hand chips. Creates an obligation debt tracked until final settlement.'}
                   </Text>
                 </View>
 
@@ -586,7 +589,9 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
                         {loan.borrower_name} owes {loan.lender_name}
                       </Text>
                       <Text style={styles.loanCardAmount}>
-                        {loan.remaining_chip_amount} chips (₹{loan.remaining_chip_amount * chipVal})
+                        {isValueMode
+                          ? `₹${loan.moneyEquivalent ?? (loan.remaining_chip_amount * (loan.chip_value || 1))}`
+                          : `${loan.remaining_chip_amount} chips (₹${loan.moneyEquivalent ?? (loan.remaining_chip_amount * chipVal)})`}
                       </Text>
                     </TouchableOpacity>
                   ))
@@ -594,7 +599,7 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
 
                 {activeLoans.length > 0 && (
                   <>
-                    <Text style={styles.sectionLabel}>Chips to Return</Text>
+                    <Text style={styles.sectionLabel}>{isValueMode ? 'Repayment Amount (₹)' : 'Chips to Return'}</Text>
                     <TextInput
                       keyboardType="numeric"
                       value={chipAmount}
@@ -611,7 +616,10 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
               <View>
                 <View style={styles.infoBanner}>
                   <Text style={styles.infoBannerText}>
-                    ↔️ <Text style={{ fontWeight: '700' }}>Normal Chip Transfer.</Text> Moves physical chips between players without creating debt.
+                    ↔️ <Text style={{ fontWeight: '700' }}>{isValueMode ? 'Normal Money Transfer.' : 'Normal Chip Transfer.'}</Text>{' '}
+                    {isValueMode
+                      ? 'Moves money balance between players without creating debt.'
+                      : 'Moves physical chips between players without creating debt.'}
                   </Text>
                 </View>
 
@@ -676,7 +684,7 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
                   ))}
                 </View>
 
-                <Text style={styles.sectionLabel}>{isValueMode ? 'Actual Correct Value (₹)' : 'Actual Correct Chip Count'}</Text>
+                <Text style={styles.sectionLabel}>{isValueMode ? 'Actual Correct In-Hand Balance (₹)' : 'Actual Correct Chip Count'}</Text>
                 <TextInput
                   keyboardType="numeric"
                   value={chipAmount}
@@ -704,10 +712,17 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
                       Type: <Text style={{ fontWeight: '700' }}>{lastTransaction.type}</Text>
                     </Text>
                     <Text style={styles.undoDetail}>
-                      Amount: <Text style={{ fontWeight: '700' }}>{lastTransaction.chip_amount} chips (₹{lastTransaction.money_value})</Text>
+                      Amount:{' '}
+                      <Text style={{ fontWeight: '700' }}>
+                        {isValueMode
+                          ? `₹${lastTransaction.money_value ?? lastTransaction.chip_amount}`
+                          : `${lastTransaction.chip_amount} chips (₹${lastTransaction.money_value})`}
+                      </Text>
                     </Text>
                     <Text style={styles.undoWarning}>
-                      An auditable reversal record will be created to reverse the chip counts safely.
+                      {isValueMode
+                        ? 'An auditable reversal record will be created to reverse the balance safely.'
+                        : 'An auditable reversal record will be created to reverse the chip counts safely.'}
                     </Text>
                   </View>
                 ) : (

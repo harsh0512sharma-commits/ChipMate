@@ -153,12 +153,15 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
   const optimizedSettlements = optimizeDebts(playerBalances);
 
   // Check reconciliation against expected chips / money
-  const isDenomMode = table.chip_mode === 'DENOMINATION' || table.chip_mode === 'VALUE';
+  const isValueMode = table.chip_mode === 'VALUE';
+  const isDenomMode = table.chip_mode === 'DENOMINATION' || isValueMode;
   const totalAccounted = sumPlayerChips;
-  const isReconciled = isDenomMode
-    ? (totalPotMoney === 0 || Math.abs(sumFinalChipsMoney - totalPotMoney) < 1 || totalAccounted === expectedTotalChips)
-    : (totalAccounted === expectedTotalChips);
-  const discrepancy = isReconciled ? 0 : (expectedTotalChips - totalAccounted);
+  const isReconciled = isValueMode
+    ? (totalPotMoney === 0 || Math.abs(sumFinalChipsMoney - totalPotMoney) < 1)
+    : (isDenomMode
+        ? (totalPotMoney === 0 || Math.abs(sumFinalChipsMoney - totalPotMoney) < 1 || totalAccounted === expectedTotalChips)
+        : (totalAccounted === expectedTotalChips));
+  const discrepancy = isReconciled ? 0 : (isValueMode ? Math.round((totalPotMoney - sumFinalChipsMoney) * 100) / 100 : (expectedTotalChips - totalAccounted));
 
   // Identify biggest winner & loser
   let biggestWinner: { displayName: string; amount: number } | undefined;

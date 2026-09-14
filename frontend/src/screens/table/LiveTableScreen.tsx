@@ -45,58 +45,59 @@ import { ActionSheet } from '../../components/ActionSheet';
 import { QRCodeModal } from '../../components/QRCodeModal';
 import { BatchBuyInModal } from '../../components/BatchBuyInModal';
 
-export function formatTxSummary(tx: any): { title: string; subtitle: string; icon: string } {
+export function formatTxSummary(tx: any, isValueMode?: boolean): { title: string; subtitle: string; icon: string } {
   const fromName = tx.from_player_name || 'Bank';
   const toName = tx.to_player_name || 'Bank';
   const amount = tx.chip_amount;
   const money = tx.money_value;
+  const isPureMoney = isValueMode || (tx.chip_value === 1 && tx.chip_amount === tx.money_value);
 
   switch (tx.type) {
     case 'BUY_IN':
       return {
-        title: `Bank issued ${amount} chips to ${toName}`,
-        subtitle: `Buy-in: ₹${money} • Vault chips issued`,
+        title: isPureMoney ? `Bank issued ₹${money} to ${toName}` : `Bank issued ${amount} chips to ${toName}`,
+        subtitle: isPureMoney ? `Buy-in: ₹${money} • Vault balance updated` : `Buy-in: ₹${money} • Vault chips issued`,
         icon: '💰'
       };
     case 'RE_BUY':
       return {
-        title: `Bank issued ${amount} chips (Re-buy) to ${toName}`,
+        title: isPureMoney ? `Bank issued ₹${money} (Re-buy) to ${toName}` : `Bank issued ${amount} chips (Re-buy) to ${toName}`,
         subtitle: `Re-buy: ₹${money} • Added to table`,
         icon: '🔄'
       };
     case 'LEND':
       return {
-        title: `${fromName} lent ${amount} chips to ${toName}`,
+        title: isPureMoney ? `${fromName} lent ₹${money} to ${toName}` : `${fromName} lent ${amount} chips to ${toName}`,
         subtitle: `Loan: ₹${money} • Tracked until settled`,
         icon: '🤝'
       };
     case 'RETURN':
       return {
-        title: `${fromName} repaid ${amount} chips to ${toName}`,
+        title: isPureMoney ? `${fromName} repaid ₹${money} to ${toName}` : `${fromName} repaid ${amount} chips to ${toName}`,
         subtitle: `Loan Repayment: ₹${money}`,
         icon: '↩️'
       };
     case 'TRANSFER':
       return {
-        title: `${fromName} transferred ${amount} chips to ${toName}`,
-        subtitle: `Direct chip transfer: ₹${money}`,
+        title: isPureMoney ? `${fromName} transferred ₹${money} to ${toName}` : `${fromName} transferred ${amount} chips to ${toName}`,
+        subtitle: isPureMoney ? `Direct transfer: ₹${money}` : `Direct chip transfer: ₹${money}`,
         icon: '↔️'
       };
     case 'CORRECTION':
       return {
-        title: `Chip count corrected for ${toName || fromName}`,
-        subtitle: `Set to ${amount} chips`,
+        title: isPureMoney ? `Balance corrected for ${toName || fromName}` : `Chip count corrected for ${toName || fromName}`,
+        subtitle: isPureMoney ? `Set to ₹${money ?? amount}` : `Set to ${amount} chips`,
         icon: '✏️'
       };
     case 'REVERSAL':
       return {
         title: `Reversal of transaction`,
-        subtitle: `${amount} chips (₹${money}) reversed`,
+        subtitle: isPureMoney ? `₹${money} reversed` : `${amount} chips (₹${money}) reversed`,
         icon: '⏪'
       };
     default:
       return {
-        title: `${tx.type} (${amount} chips)`,
+        title: isPureMoney ? `${tx.type} (₹${money})` : `${tx.type} (${amount} chips)`,
         subtitle: `₹${money} • By ${tx.actor_name}`,
         icon: '⚡'
       };
@@ -816,14 +817,14 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                 style={[styles.actionBtn, styles.actionBuy]}
                 onPress={() => setShowBatchBuyInModal(true)}
               >
-                <Text style={styles.actionBtnText}>BUY CHIPS</Text>
+                <Text style={styles.actionBtnText}>{isValueMode ? 'BUY-IN' : 'BUY CHIPS'}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.actionBtn, styles.actionLend]}
                 onPress={() => setActiveSheet('LEND')}
               >
-                <Text style={styles.actionBtnText}>🤝 LEND</Text>
+                <Text style={styles.actionBtnText}>{isValueMode ? '🤝 LEND (₹)' : '🤝 LEND'}</Text>
               </TouchableOpacity>
             </View>
 
@@ -902,7 +903,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
               <Text style={styles.emptyActivityText}>No transactions recorded yet.</Text>
             ) : (
               recentTransactions.map((tx: any) => {
-                const summary = formatTxSummary(tx);
+                const summary = formatTxSummary(tx, isValueMode);
                 return (
                   <View key={tx.id} style={styles.txRow}>
                     <Text style={styles.txIcon}>{summary.icon}</Text>
@@ -1336,9 +1337,13 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
           <View style={[styles.modalCard, { maxHeight: '90%' }]}>
             <View style={styles.modalHeaderRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>End Game — Final Chip Count</Text>
+                <Text style={styles.modalTitle}>
+                  {isValueMode ? 'End Game — Final In-Hand Balances' : 'End Game — Final Chip Count'}
+                </Text>
                 <Text style={styles.modalSubtitle}>
-                  Enter the physical in-hand chips held by each player to compute the zero-sum settlement.
+                  {isValueMode
+                    ? 'Enter the final in-hand money (₹) held by each player to compute the zero-sum settlement.'
+                    : 'Enter the physical in-hand chips held by each player to compute the zero-sum settlement.'}
                 </Text>
               </View>
               <TouchableOpacity
@@ -1365,8 +1370,10 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                   <Text style={styles.finalChipsExpectVal}>₹{chipValue}</Text>
                 </View>
               )}
-              <View style={[styles.finalChipsExpectRow, { marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: colors.borderDark }]}>
-                <Text style={[styles.finalChipsExpectLabel, { fontWeight: '700', color: colors.text }]}>Expected total value:</Text>
+              <View style={[styles.finalChipsExpectRow, { marginTop: isValueMode ? 0 : 4, paddingTop: isValueMode ? 0 : 4, borderTopWidth: isValueMode ? 0 : 1, borderTopColor: colors.borderDark }]}>
+                <Text style={[styles.finalChipsExpectLabel, { fontWeight: '700', color: colors.text }]}>
+                  {isValueMode ? 'Total Table Buy-in Pot:' : 'Expected total value:'}
+                </Text>
                 <Text style={[styles.finalChipsExpectVal, { fontWeight: '800', color: colors.primary }]}>₹{expectedTotalValue.toLocaleString('en-IN')}</Text>
               </View>
             </View>
@@ -1387,10 +1394,14 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                   { color: isCountsMatched ? colors.successText : colors.dangerText }
                 ]}>
                   {isCountsMatched
-                    ? (isCustomOrValue
+                    ? (isValueMode
+                        ? `100% Reconciled • Total Pot ₹${expectedTotalValue.toLocaleString('en-IN')} Balanced`
+                        : isCustomOrValue
                         ? `100% Reconciled • Total Value ₹${expectedTotalValue.toLocaleString('en-IN')} Balanced`
                         : `Chip count and values match perfectly (${expectedTotalChips} chips / ₹${expectedTotalValue.toLocaleString('en-IN')})`)
-                    : (isCustomOrValue
+                    : (isValueMode
+                        ? `Amount mismatch: ₹${totalFinalDenomMoney.toLocaleString('en-IN')} entered, but ₹${expectedTotalValue.toLocaleString('en-IN')} was bought in.`
+                        : isCustomOrValue
                         ? `Value mismatch: ₹${totalFinalDenomMoney.toLocaleString('en-IN')} entered, but ₹${expectedTotalValue.toLocaleString('en-IN')} was bought in.`
                         : `Chip count mismatch: ${totalEnteredChips} chips entered, but ${expectedTotalChips} chips are expected.`)}
                 </Text>
@@ -1448,9 +1459,11 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                       {/* Direct Total Chip Value input row */}
                       <View style={styles.directValueInputRow}>
                         <View style={{ flex: 1, marginRight: 8 }}>
-                          <Text style={styles.directValueLabel}>Total In-Hand Value:</Text>
+                          <Text style={styles.directValueLabel}>
+                            {isValueMode ? 'In-Hand Balance:' : 'Total In-Hand Value:'}
+                          </Text>
                           <Text style={styles.directValueSubtext}>
-                            {isValueMode ? 'Enter final ₹ value held by this player' : 'Write total ₹ directly, or enter chips below'}
+                            {isValueMode ? 'Enter final ₹ balance held by this player' : 'Write total ₹ directly, or enter chips below'}
                           </Text>
                         </View>
                         <View style={styles.directValueBox}>
