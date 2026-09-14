@@ -13,7 +13,7 @@ export interface GameTableRecord {
   total_chips: number;
   chip_value: number;
   bank_chips: number;
-  chip_mode?: 'EQUAL' | 'DENOMINATION';
+  chip_mode?: 'EQUAL' | 'DENOMINATION' | 'VALUE';
   denominations?: string | null;
   status: 'WAITING' | 'ACTIVE' | 'SETTLING' | 'FINALIZED' | 'ARCHIVED';
   created_at: string;
@@ -69,7 +69,7 @@ export function createTable(params: {
   gameType: 'TEEN_PATTI' | 'POKER';
   totalChips?: number;
   chipValue?: number;
-  chipMode?: 'EQUAL' | 'DENOMINATION';
+  chipMode?: 'EQUAL' | 'DENOMINATION' | 'VALUE';
   denominations?: DenominationConfig[] | number[] | string;
   initialFriendUserIds?: string[];
   initialGuestIds?: string[];
@@ -103,7 +103,7 @@ export function createTable(params: {
   }
 
   // If custom denomination configs provided with count and value, derive physical chips & bank valuation
-  if (chipMode === 'DENOMINATION' && Array.isArray(parsedDenoms) && parsedDenoms.length > 0) {
+  if ((chipMode === 'DENOMINATION' || chipMode === 'VALUE') && Array.isArray(parsedDenoms) && parsedDenoms.length > 0) {
     const isObjectConfig = typeof parsedDenoms[0] === 'object' && parsedDenoms[0] !== null && 'value' in parsedDenoms[0] && 'count' in parsedDenoms[0];
     if (isObjectConfig) {
       parsedDenoms = parsedDenoms.map((d: any) => ({
@@ -115,7 +115,11 @@ export function createTable(params: {
       }));
       const sumChips = parsedDenoms.reduce((sum: number, d: any) => sum + (Number(d.count) || 0), 0);
       const sumMoney = parsedDenoms.reduce((sum: number, d: any) => sum + ((Number(d.count) || 0) * (Number(d.value) || 0)), 0);
-      if (sumChips > 0) {
+      if (chipMode === 'VALUE') {
+        // In VALUE mode, bank chips represent total monetary pot available, 1 chip unit = ₹1
+        totalChips = sumMoney > 0 ? sumMoney : 100000;
+        chipValue = 1.0;
+      } else if (sumChips > 0) {
         totalChips = sumChips;
         chipValue = Math.round((sumMoney / sumChips) * 100) / 100;
       }
@@ -424,12 +428,20 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
       const status = getFriendshipStatusBetween(requestingUserId, p.user_id);
       friendshipStatus = status as any;
     }
+
+    let moneyEquivalent = p.current_chips * table.chip_value;
+    if (table.chip_mode === 'VALUE') {
+      moneyEquivalent = p.current_chips;
+    } else if (table.chip_mode === 'DENOMINATION') {
+      moneyEquivalent = p.total_buyin_amount;
+    }
+
     return {
       ...p,
       is_guest: isGuest,
       friend_code: isGuest ? 'GUEST' : (p.phone_number || p.friend_code),
       friendshipStatus,
-      moneyEquivalent: p.current_chips * table.chip_value
+      moneyEquivalent
     };
   });
 
@@ -495,7 +507,7 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
   return {
     table: {
       ...table,
-      totalMoneyValue: table.total_chips * table.chip_value
+      totalMoneyValue: table.chip_mode === 'VALUE' ? table.total_chips : (table.total_chips * table.chip_value)
     },
     host: hostUser,
     isHost: table.host_user_id === requestingUserId,

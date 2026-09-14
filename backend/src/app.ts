@@ -15,13 +15,18 @@ export function createApp() {
 
   // Health check
   app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'chipmate-backend', version: '1.0.20', timestamp: new Date().toISOString() });
+    res.json({
+      status: 'ok',
+      service: 'ChipMate Backend',
+      version: '1.0.26',
+      timestamp: new Date().toISOString()
+    });
   });
 
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.25',
+      version: '1.0.26',
       buildTime: 1789371000000,
       releaseNotes: 'Foreign key cascade fixes for clean table/game deletion, scoped guest rankings (only played-with guests), default 5-10-25-100 denominations, and host game history deletion.'
     });

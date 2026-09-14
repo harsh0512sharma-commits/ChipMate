@@ -875,5 +875,147 @@ describe('ChipMate Authoritative Zero-Sum Accounting Engine & Invariants', () =>
     const finalRes = settlementService.finalizeGame(hostA.id, table.id);
     expect(finalRes.success).toBe(true);
   });
+
+  // TEST CASE 13 — "By Value" Mode (VALUE)
+  test('Test Case 13 — By Value Mode (VALUE): 6 players @ ₹500, rebuy ₹500, lend ₹100 with ZERO averaging distortion', () => {
+    const [hostA, playerB, playerC, playerD, playerE, playerF] = setupPlayers(6);
+
+    // Create table in VALUE mode with physical chip set inventory
+    // 5x100 + 10x100 + 25x100 + 100x50 = 500 + 1000 + 2500 + 5000 = ₹9,000 pot
+    const { table } = tableService.createTable({
+      hostUserId: hostA.id,
+      name: 'High Stakes By Value',
+      gameType: 'POKER',
+      chipMode: 'VALUE',
+      denominations: [
+        { value: 5, count: 100 },
+        { value: 10, count: 100 },
+        { value: 25, count: 100 },
+        { value: 100, count: 50 }
+      ]
+    });
+
+    expect(table.chip_mode).toBe('VALUE');
+    expect(table.chip_value).toBe(1.0);
+    expect(table.total_chips).toBe(9000);
+    expect(table.bank_chips).toBe(9000);
+
+    const aId = db.prepare('SELECT id FROM game_players WHERE game_id = ? AND user_id = ?').get(table.id, hostA.id).id;
+    const { playerId: bId } = tableService.joinTableByCode(playerB.id, table.join_code);
+    const { playerId: cId } = tableService.joinTableByCode(playerC.id, table.join_code);
+    const { playerId: dId } = tableService.joinTableByCode(playerD.id, table.join_code);
+    const { playerId: eId } = tableService.joinTableByCode(playerE.id, table.join_code);
+    const { playerId: fId } = tableService.joinTableByCode(playerF.id, table.join_code);
+
+    const allPlayerIds = [aId, bId, cId, dId, eId, fId];
+
+    // Batch buy-in for all 6 players @ ₹500 each
+    ledgerService.recordBatchBuyIn({
+      gameId: table.id,
+      hostUserId: hostA.id,
+      playerIds: allPlayerIds,
+      chipAmount: 500,
+      moneyValue: 500
+    });
+
+    // Verify bank vault deducted ₹3000 (9000 - 3000 = 6000)
+    const tableAfterBatch = tableService.getTableDetails(table.id, hostA.id)!;
+    expect(tableAfterBatch.table.bank_chips).toBe(6000);
+
+    // Verify each player has exactly ₹500 (NOT ₹770!)
+    for (const p of tableAfterBatch.players) {
+      expect(p.total_buyin_amount).toBe(500);
+      expect(p.current_chips).toBe(500);
+      expect(p.moneyEquivalent).toBe(500); // Guarantees UI displays ₹500, NOT ₹770!
+    }
+
+    // Player 6 (F) rebuys for ₹500
+    ledgerService.recordBuyIn({
+      gameId: table.id,
+      hostUserId: hostA.id,
+      playerId: fId,
+      chipAmount: 500,
+      isRebuy: true,
+      moneyValue: 500
+    });
+
+    const tableAfterRebuy = tableService.getTableDetails(table.id, hostA.id)!;
+    expect(tableAfterRebuy.table.bank_chips).toBe(5500);
+
+    const playerFData = tableAfterRebuy.players.find(p => p.id === fId)!;
+    expect(playerFData.total_buyin_amount).toBe(1000);
+    expect(playerFData.current_chips).toBe(1000);
+    expect(playerFData.moneyEquivalent).toBe(1000); // Guarantees UI displays ₹1000, NOT ₹1365!
+
+    // The other 5 players still have exactly ₹500
+    for (const p of tableAfterRebuy.players.filter(p => p.id !== fId)) {
+      expect(p.total_buyin_amount).toBe(500);
+      expect(p.current_chips).toBe(500);
+      expect(p.moneyEquivalent).toBe(500); // Still ₹500, NEVER ₹770!
+    }
+
+    // Host A lends ₹100 to Player B
+    ledgerService.recordLend({
+      gameId: table.id,
+      hostUserId: hostA.id,
+      lenderPlayerId: aId,
+      borrowerPlayerId: bId,
+      chipAmount: 100,
+      moneyValue: 100
+    });
+
+    // Check loan in database: must be exactly ₹100 (NOT ₹125!)
+    const loans = db.prepare('SELECT * FROM loans WHERE game_id = ?').all(table.id) as any[];
+    expect(loans).toHaveLength(1);
+    expect(loans[0].chip_value).toBe(1.0);
+    expect(loans[0].original_chip_amount).toBe(100);
+    expect(loans[0].remaining_chip_amount).toBe(100);
+    expect(loans[0].remaining_chip_amount * loans[0].chip_value).toBe(100);
+
+    // End Game: Total pot = (5 * 500) + 1000 = ₹3,500
+    // Final in-hand chip values:
+    // A: 600, B: 400, C: 500, D: 500, E: 500, F: 1000 (Total = 3500)
+    const preview = settlementService.submitFinalChipCounts(hostA.id, table.id, [
+      { playerId: aId, finalChips: 600, finalChipsMoney: 600 },
+      { playerId: bId, finalChips: 400, finalChipsMoney: 400 },
+      { playerId: cId, finalChips: 500, finalChipsMoney: 500 },
+      { playerId: dId, finalChips: 500, finalChipsMoney: 500 },
+      { playerId: eId, finalChips: 500, finalChipsMoney: 500 },
+      { playerId: fId, finalChips: 1000, finalChipsMoney: 1000 }
+    ]);
+
+    expect(preview.isReconciled).toBe(true);
+
+    const balA = preview.players.find(p => p.playerId === aId)!;
+    const balB = preview.players.find(p => p.playerId === bId)!;
+    const balC = preview.players.find(p => p.playerId === cId)!;
+    const balD = preview.players.find(p => p.playerId === dId)!;
+    const balE = preview.players.find(p => p.playerId === eId)!;
+    const balF = preview.players.find(p => p.playerId === fId)!;
+
+    // A: 600 final - 500 buyin - 0 debt + 100 loan credit = +200
+    expect(balA.netPosition).toBe(200);
+    // B: 400 final - 500 buyin - 100 loan debt + 0 credit = -200
+    expect(balB.netPosition).toBe(-200);
+    // C, D, E, F: 0 net
+    expect(balC.netPosition).toBe(0);
+    expect(balD.netPosition).toBe(0);
+    expect(balE.netPosition).toBe(0);
+    expect(balF.netPosition).toBe(0);
+
+    // Zero-sum invariant: sum of all net positions must be 0
+    const sumNet = preview.players.reduce((sum, p) => sum + p.netPosition, 0);
+    expect(sumNet).toBe(0);
+
+    // Optimized settlement: B pays A ₹200
+    expect(preview.optimizedSettlements).toHaveLength(1);
+    expect(preview.optimizedSettlements[0].fromPlayerId).toBe(bId);
+    expect(preview.optimizedSettlements[0].toPlayerId).toBe(aId);
+    expect(preview.optimizedSettlements[0].amount).toBe(200);
+
+    // Finalize game
+    const finalRes = settlementService.finalizeGame(hostA.id, table.id);
+    expect(finalRes.success).toBe(true);
+  });
 });
 

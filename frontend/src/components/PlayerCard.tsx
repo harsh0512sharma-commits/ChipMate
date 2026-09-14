@@ -21,6 +21,7 @@ export interface PlayerCardData {
 interface PlayerCardProps {
   player: PlayerCardData;
   chipValue: number;
+  chipMode?: 'EQUAL' | 'DENOMINATION' | 'VALUE';
   loansDescription?: string[];
   isHostView?: boolean;
   onAddFriend?: (friendCode: string) => void;
@@ -30,6 +31,7 @@ interface PlayerCardProps {
 export const PlayerCard: React.FC<PlayerCardProps> = ({
   player,
   chipValue,
+  chipMode = 'EQUAL',
   loansDescription = [],
   isHostView = false,
   onAddFriend,
@@ -37,7 +39,15 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
 }) => {
   const isHost = player.role === 'HOST';
   const isGuest = Boolean(player.is_guest || player.friend_code === 'GUEST' || (player.user_id && player.user_id.startsWith('guest_')));
-  const currentMoney = player.current_chips * chipValue;
+  const isValueMode = chipMode === 'VALUE';
+  const isDenomMode = chipMode === 'DENOMINATION';
+
+  const currentMoney = isValueMode
+    ? (player.moneyEquivalent ?? player.current_chips)
+    : isDenomMode
+      ? (player.moneyEquivalent ?? player.total_buyin_amount)
+      : (player.current_chips * chipValue);
+
   const netPnL = currentMoney - player.total_buyin_amount;
   const isProfit = netPnL > 0;
   const isLoss = netPnL < 0;
@@ -110,8 +120,12 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
       {/* Main Stats: Chips & Financial P&L */}
       <View style={styles.statsContainer}>
         <View style={styles.chipSection}>
-          <Text style={styles.bigChipNumber}>{player.current_chips}</Text>
-          <Text style={styles.chipLabel}>CHIPS HELD</Text>
+          <Text style={styles.bigChipNumber}>
+            {isValueMode ? `₹${player.current_chips.toLocaleString('en-IN')}` : player.current_chips}
+          </Text>
+          <Text style={styles.chipLabel}>
+            {isValueMode ? 'IN-HAND VALUE' : 'CHIPS HELD'}
+          </Text>
         </View>
 
         <View style={styles.moneySection}>

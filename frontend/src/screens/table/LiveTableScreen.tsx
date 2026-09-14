@@ -510,6 +510,9 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
 
   // Expected chips calculation for final settlement
   const isDenomMode = table?.chip_mode === 'DENOMINATION';
+  const isValueMode = table?.chip_mode === 'VALUE';
+  const isCustomOrValue = isDenomMode || isValueMode;
+
   let tableDenomList: Array<{ denom: number; color?: string; label?: string }> = [];
   if (isDenomMode && table?.denominations) {
     try {
@@ -585,11 +588,11 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const chipValue = table.chip_value || 10;
 
   const totalBuyinMoney = (players || []).reduce((sum: number, p: any) => sum + (p.total_buyin_amount || 0), 0);
-  const expectedTotalValue = isDenomMode ? totalBuyinMoney : expectedTotalChips * chipValue;
+  const expectedTotalValue = isCustomOrValue ? totalBuyinMoney : expectedTotalChips * chipValue;
 
   let totalFinalDenomChips = 0;
   let totalFinalDenomMoney = 0;
-  if (isDenomMode) {
+  if (isCustomOrValue) {
     for (const p of (players || [])) {
       totalFinalDenomMoney += getPlayerFinalValue(p.id);
       const pDenoms = finalPlayerDenoms[p.id] || {};
@@ -599,25 +602,25 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
     }
   }
 
-  const totalEnteredChips = isDenomMode
-    ? totalFinalDenomChips
+  const totalEnteredChips = isCustomOrValue
+    ? (isValueMode ? totalFinalDenomMoney : totalFinalDenomChips)
     : (players || []).reduce((sum: number, p: any) => {
         const raw = finalChipInputs[p.id];
         const val = raw !== undefined ? parseInt(raw, 10) : p.current_chips;
         return sum + (isNaN(val) || val < 0 ? 0 : val);
       }, 0);
 
-  const totalEnteredMoney = isDenomMode
+  const totalEnteredMoney = isCustomOrValue
     ? totalFinalDenomMoney
     : totalEnteredChips * chipValue;
 
   const chipDiscrepancy = expectedTotalChips - totalEnteredChips;
   const isChipCountMatched = totalEnteredChips === expectedTotalChips;
-  const isMoneyMatched = isDenomMode ? (Math.abs(totalFinalDenomMoney - expectedTotalValue) < 1) : true;
-  const isCountsMatched = isDenomMode ? isMoneyMatched : (isChipCountMatched && isMoneyMatched);
+  const isMoneyMatched = isCustomOrValue ? (Math.abs(totalFinalDenomMoney - expectedTotalValue) < 1) : true;
+  const isCountsMatched = isCustomOrValue ? isMoneyMatched : (isChipCountMatched && isMoneyMatched);
 
   const handleOpenFinalChipsModal = () => {
-    if (isDenomMode) {
+    if (isCustomOrValue) {
       const initialDenoms: Record<string, Record<number, number>> = {};
       const initialDirect: Record<string, string> = {};
       for (const p of (players || [])) {
@@ -638,7 +641,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
           initialDirect[p.id] = String(p.final_chips_value);
         } else {
           const sumMoney = Object.entries(initialDenoms[p.id]).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * (c || 0)), 0);
-          initialDirect[p.id] = sumMoney > 0 ? String(sumMoney) : String(p.total_buyin_amount || 0);
+          initialDirect[p.id] = sumMoney > 0 ? String(sumMoney) : String(p.current_chips ?? p.total_buyin_amount ?? 0);
         }
       }
       setFinalPlayerDenoms(initialDenoms);
@@ -656,7 +659,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
 
   const handleFinalChipsSubmit = async () => {
     if (!isCountsMatched) {
-      if (isDenomMode) {
+      if (isCustomOrValue) {
         setFinalChipError(`Total value mismatch: ₹${totalFinalDenomMoney.toLocaleString('en-IN')} entered, but ₹${expectedTotalValue.toLocaleString('en-IN')} was bought in.`);
       } else {
         setFinalChipError(`Chip count mismatch: ${totalEnteredChips} chips entered, but ${expectedTotalChips} chips are expected.`);
@@ -667,7 +670,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
     setFinalChipError(null);
     try {
       let res;
-      if (isDenomMode) {
+      if (isCustomOrValue) {
         const finalPlayerCounts = (players || []).map((p: any) => {
           const denoms = finalPlayerDenoms[p.id] || {};
           const breakdown = Object.entries(denoms)
@@ -675,7 +678,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
             .filter(item => item.count > 0);
           const denomChips = breakdown.reduce((acc, item) => acc + item.count, 0);
           const money = getPlayerFinalValue(p.id);
-          const chips = denomChips > 0 ? denomChips : (table.chip_value > 0 ? Math.round(money / table.chip_value) : 0);
+          const chips = isValueMode ? money : (denomChips > 0 ? denomChips : (table.chip_value > 0 ? Math.round(money / table.chip_value) : 0));
           return {
             playerId: p.id,
             finalChips: chips,
@@ -966,6 +969,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
             key={p.id}
             player={p}
             chipValue={table.chip_value}
+            chipMode={table.chip_mode}
             loansDescription={loansMap[p.id]}
             isHostView={isHost}
             onAddFriend={handleAddFriend}
@@ -1349,11 +1353,13 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
 
             {/* Expected chips summary */}
             <View style={styles.finalChipsExpectCard}>
-              <View style={styles.finalChipsExpectRow}>
-                <Text style={styles.finalChipsExpectLabel}>Total chips in game:</Text>
-                <Text style={styles.finalChipsExpectVal}>{expectedTotalChips}</Text>
-              </View>
-              {!isDenomMode && (
+              {!isValueMode && (
+                <View style={styles.finalChipsExpectRow}>
+                  <Text style={styles.finalChipsExpectLabel}>Total chips in game:</Text>
+                  <Text style={styles.finalChipsExpectVal}>{expectedTotalChips}</Text>
+                </View>
+              )}
+              {!isCustomOrValue && (
                 <View style={styles.finalChipsExpectRow}>
                   <Text style={styles.finalChipsExpectLabel}>Chip value:</Text>
                   <Text style={styles.finalChipsExpectVal}>₹{chipValue}</Text>
@@ -1381,17 +1387,17 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                   { color: isCountsMatched ? colors.successText : colors.dangerText }
                 ]}>
                   {isCountsMatched
-                    ? (isDenomMode
+                    ? (isCustomOrValue
                         ? `100% Reconciled • Total Value ₹${expectedTotalValue.toLocaleString('en-IN')} Balanced`
                         : `Chip count and values match perfectly (${expectedTotalChips} chips / ₹${expectedTotalValue.toLocaleString('en-IN')})`)
-                    : (isDenomMode
+                    : (isCustomOrValue
                         ? `Value mismatch: ₹${totalFinalDenomMoney.toLocaleString('en-IN')} entered, but ₹${expectedTotalValue.toLocaleString('en-IN')} was bought in.`
                         : `Chip count mismatch: ${totalEnteredChips} chips entered, but ${expectedTotalChips} chips are expected.`)}
                 </Text>
               </View>
               {!isCountsMatched && (
                 <Text style={styles.finalChipsTallyDiff}>
-                  {isDenomMode
+                  {isCustomOrValue
                     ? `₹${Math.abs(expectedTotalValue - totalFinalDenomMoney).toLocaleString('en-IN')} ${totalFinalDenomMoney > expectedTotalValue ? 'extra' : 'short'}`
                     : (chipDiscrepancy > 0
                         ? `Missing ${chipDiscrepancy} chip${chipDiscrepancy === 1 ? '' : 's'}`
@@ -1406,7 +1412,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                 const isHostPlayer = p.role === 'HOST';
                 const isGuestPlayer = Boolean(p.is_guest || p.friend_code === 'GUEST' || (p.user_id && p.user_id.startsWith('guest_')));
 
-                if (isDenomMode) {
+                if (isCustomOrValue) {
                   const pDenoms = finalPlayerDenoms[p.id] || {};
                   const pChips = Object.values(pDenoms).reduce((acc, c) => acc + (c || 0), 0);
                   const pMoney = getPlayerFinalValue(p.id);
@@ -1429,12 +1435,12 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                             )}
                           </View>
                           <Text style={styles.finalChipPlayerMeta}>
-                            Buy-in: ₹{p.total_buyin_amount} ({p.total_buyin_chips} chips)
+                            {isValueMode ? `Buy-in: ₹${p.total_buyin_amount}` : `Buy-in: ₹${p.total_buyin_amount} (${p.total_buyin_chips} chips)`}
                           </Text>
                         </View>
                         <View style={styles.denomPlayerTotalPill}>
                           <Text style={styles.denomPlayerTotalText}>
-                            {pChips > 0 ? `${pChips} chips • ` : ''}₹{pMoney.toLocaleString('en-IN')}
+                            {isValueMode ? `₹${pMoney.toLocaleString('en-IN')}` : `${pChips > 0 ? `${pChips} chips • ` : ''}₹${pMoney.toLocaleString('en-IN')}`}
                           </Text>
                         </View>
                       </View>
@@ -1443,7 +1449,9 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                       <View style={styles.directValueInputRow}>
                         <View style={{ flex: 1, marginRight: 8 }}>
                           <Text style={styles.directValueLabel}>Total In-Hand Value:</Text>
-                          <Text style={styles.directValueSubtext}>Write total ₹ directly, or enter chips below</Text>
+                          <Text style={styles.directValueSubtext}>
+                            {isValueMode ? 'Enter final ₹ value held by this player' : 'Write total ₹ directly, or enter chips below'}
+                          </Text>
                         </View>
                         <View style={styles.directValueBox}>
                           <Text style={styles.rupeeSymbol}>₹</Text>
@@ -1458,43 +1466,45 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                         </View>
                       </View>
 
-                      <View style={styles.denomChipsGrid}>
-                        {tableDenomList.map(item => {
-                          const count = pDenoms[item.denom] || 0;
-                          return (
-                            <View key={item.denom} style={styles.denomChipRow}>
-                              <View style={[styles.denomBadgeSmall, { backgroundColor: item.color || colors.primary }]}>
-                                <Text style={styles.denomBadgeSmallText}>₹{item.denom}</Text>
+                      {isDenomMode && (
+                        <View style={styles.denomChipsGrid}>
+                          {tableDenomList.map(item => {
+                            const count = pDenoms[item.denom] || 0;
+                            return (
+                              <View key={item.denom} style={styles.denomChipRow}>
+                                <View style={[styles.denomBadgeSmall, { backgroundColor: item.color || colors.primary }]}>
+                                  <Text style={styles.denomBadgeSmallText}>₹{item.denom}</Text>
+                                </View>
+                                <View style={{ flex: 1, paddingLeft: 8 }}>
+                                  <Text style={styles.denomChipRowName}>₹{item.denom} Chip</Text>
+                                </View>
+                                <View style={styles.counterBoxSmall}>
+                                  <TouchableOpacity
+                                    onPress={() => updateFinalPlayerDenom(p.id, item.denom, -1)}
+                                    style={[styles.counterBtnSmall, count <= 0 && { opacity: 0.35 }]}
+                                    disabled={count <= 0}
+                                  >
+                                    <Minus size={12} color="#FFF" />
+                                  </TouchableOpacity>
+                                  <TextInput
+                                    style={styles.counterInputSmall}
+                                    keyboardType="numeric"
+                                    value={count.toString()}
+                                    onChangeText={t => setFinalPlayerDenomDirect(p.id, item.denom, t)}
+                                  />
+                                  <TouchableOpacity
+                                    onPress={() => updateFinalPlayerDenom(p.id, item.denom, 1)}
+                                    style={styles.counterBtnSmall}
+                                  >
+                                    <Plus size={12} color="#FFF" />
+                                  </TouchableOpacity>
+                                </View>
+                                <Text style={styles.denomRowSubtotal}>₹{(count * item.denom).toLocaleString('en-IN')}</Text>
                               </View>
-                              <View style={{ flex: 1, paddingLeft: 8 }}>
-                                <Text style={styles.denomChipRowName}>₹{item.denom} Chip</Text>
-                              </View>
-                              <View style={styles.counterBoxSmall}>
-                                <TouchableOpacity
-                                  onPress={() => updateFinalPlayerDenom(p.id, item.denom, -1)}
-                                  style={[styles.counterBtnSmall, count <= 0 && { opacity: 0.35 }]}
-                                  disabled={count <= 0}
-                                >
-                                  <Minus size={12} color="#FFF" />
-                                </TouchableOpacity>
-                                <TextInput
-                                  style={styles.counterInputSmall}
-                                  keyboardType="numeric"
-                                  value={count.toString()}
-                                  onChangeText={t => setFinalPlayerDenomDirect(p.id, item.denom, t)}
-                                />
-                                <TouchableOpacity
-                                  onPress={() => updateFinalPlayerDenom(p.id, item.denom, 1)}
-                                  style={styles.counterBtnSmall}
-                                >
-                                  <Plus size={12} color="#FFF" />
-                                </TouchableOpacity>
-                              </View>
-                              <Text style={styles.denomRowSubtotal}>₹{(count * item.denom).toLocaleString('en-IN')}</Text>
-                            </View>
-                          );
-                        })}
-                      </View>
+                            );
+                          })}
+                        </View>
+                      )}
                     </View>
                   );
                 }

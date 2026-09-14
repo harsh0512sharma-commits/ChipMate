@@ -153,7 +153,7 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
   const optimizedSettlements = optimizeDebts(playerBalances);
 
   // Check reconciliation against expected chips / money
-  const isDenomMode = table.chip_mode === 'DENOMINATION';
+  const isDenomMode = table.chip_mode === 'DENOMINATION' || table.chip_mode === 'VALUE';
   const totalAccounted = sumPlayerChips;
   const isReconciled = isDenomMode
     ? (totalPotMoney === 0 || Math.abs(sumFinalChipsMoney - totalPotMoney) < 1 || totalAccounted === expectedTotalChips)
@@ -305,7 +305,7 @@ export function submitFinalChipCounts(
     throw new Error('No players found in this game');
   }
 
-  const isDenomMode = table.chip_mode === 'DENOMINATION';
+  const isDenomMode = table.chip_mode === 'DENOMINATION' || table.chip_mode === 'VALUE';
   const totalBuyinChips = players.reduce((sum, p) => sum + (p.total_buyin_chips || 0), 0);
   const expectedTotalChips = totalBuyinChips > 0 ? totalBuyinChips : table.total_chips;
   const totalBuyinMoney = players.reduce((sum, p) => sum + (p.total_buyin_amount || 0), 0);
@@ -313,7 +313,7 @@ export function submitFinalChipCounts(
   if (isDenomMode) {
     let totalEnteredMoney = 0;
     for (const p of players) {
-      const moneyVal = moneyMap[p.id] !== undefined ? moneyMap[p.id] : ((countsMap[p.id] || 0) * table.chip_value);
+      const moneyVal = moneyMap[p.id] !== undefined ? moneyMap[p.id] : (table.chip_mode === 'VALUE' ? (countsMap[p.id] || 0) : ((countsMap[p.id] || 0) * table.chip_value));
       if (typeof moneyVal !== 'number' || isNaN(moneyVal) || moneyVal < 0) {
         throw new Error(`Please enter valid total chip value for ${p.guest_name || 'all players'}`);
       }

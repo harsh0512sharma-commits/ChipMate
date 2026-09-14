@@ -61,8 +61,16 @@ export function recordBuyIn(params: {
       : (params.chipAmount * table.chip_value);
     let updatedBank = table.bank_chips;
 
-    // Denomination inventory handling
-    if (params.denominationsBreakdown && params.denominationsBreakdown.length > 0) {
+    // VALUE mode or Denomination inventory handling
+    if (table.chip_mode === 'VALUE') {
+      const money = (params.moneyValue !== undefined && params.moneyValue > 0)
+        ? params.moneyValue
+        : params.chipAmount;
+      totalChipsToDeduct = money;
+      actualMoneyValue = money;
+      updatedBank = Math.max(0, table.bank_chips - money);
+      db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(updatedBank, table.id);
+    } else if (params.denominationsBreakdown && params.denominationsBreakdown.length > 0) {
       const breakdownChips = params.denominationsBreakdown.reduce((sum, d) => sum + (Number(d.count) || 0), 0);
       const breakdownMoney = params.denominationsBreakdown.reduce((sum, d) => sum + ((Number(d.count) || 0) * (Number(d.denom) || 0)), 0);
       if (breakdownChips > 0) {
@@ -181,8 +189,17 @@ export function recordBatchBuyIn(params: {
     let totalChipsRequired = perPlayerChips * params.playerIds.length;
     let newBankChips = table.bank_chips;
 
-    // Denomination inventory handling for batch
-    if (params.denominationsBreakdown && params.denominationsBreakdown.length > 0) {
+    // VALUE mode or Denomination inventory handling for batch
+    if (table.chip_mode === 'VALUE') {
+      const money = (params.moneyValue !== undefined && params.moneyValue > 0)
+        ? params.moneyValue
+        : params.chipAmount;
+      perPlayerChips = money;
+      perPlayerMoney = money;
+      totalChipsRequired = money * params.playerIds.length;
+      newBankChips = Math.max(0, table.bank_chips - totalChipsRequired);
+      db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(newBankChips, table.id);
+    } else if (params.denominationsBreakdown && params.denominationsBreakdown.length > 0) {
       const bundleChips = params.denominationsBreakdown.reduce((sum, d) => sum + (Number(d.count) || 0), 0);
       const bundleMoney = params.denominationsBreakdown.reduce((sum, d) => sum + ((Number(d.count) || 0) * (Number(d.denom) || 0)), 0);
       if (bundleChips > 0) {
@@ -335,24 +352,26 @@ export function recordLend(params: {
     if (lender.id === borrower.id) throw new Error('Lender and borrower cannot be the same');
 
     // Uncapped shots/loans: In home games with limited physical chips, players can lend on credit beyond their in-hand chips.
+    const isValueMode = table.chip_mode === 'VALUE';
     const moneyValue = (params.moneyValue !== undefined && params.moneyValue > 0)
       ? params.moneyValue
-      : (params.chipAmount * table.chip_value);
-    const loanChipValue = params.chipAmount > 0 ? (moneyValue / params.chipAmount) : table.chip_value;
+      : (isValueMode ? params.chipAmount : (params.chipAmount * table.chip_value));
+    const chipAmountToMove = isValueMode ? moneyValue : params.chipAmount;
+    const loanChipValue = isValueMode ? 1.0 : (chipAmountToMove > 0 ? (moneyValue / chipAmountToMove) : table.chip_value);
 
     const loanId = uuidv4();
     const txId = uuidv4();
     const now = new Date().toISOString();
 
     // 1. Move physical chips: Lender -X, Borrower +X
-    db.prepare('UPDATE game_players SET current_chips = current_chips - ? WHERE id = ?').run(params.chipAmount, lender.id);
-    db.prepare('UPDATE game_players SET current_chips = current_chips + ? WHERE id = ?').run(params.chipAmount, borrower.id);
+    db.prepare('UPDATE game_players SET current_chips = current_chips - ? WHERE id = ?').run(chipAmountToMove, lender.id);
+    db.prepare('UPDATE game_players SET current_chips = current_chips + ? WHERE id = ?').run(chipAmountToMove, borrower.id);
 
     // 2. Create obligation loan record with loanChipValue
     db.prepare(`
       INSERT INTO loans (id, game_id, lender_id, borrower_id, original_chip_amount, remaining_chip_amount, chip_value, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?)
-    `).run(loanId, table.id, lender.id, borrower.id, params.chipAmount, params.chipAmount, loanChipValue, now, now);
+    `).run(loanId, table.id, lender.id, borrower.id, chipAmountToMove, chipAmountToMove, loanChipValue, now, now);
 
     // 3. Record transaction with loanId and optional breakdown in metadata
     const metadata = JSON.stringify({
@@ -362,7 +381,7 @@ export function recordLend(params: {
     db.prepare(`
       INSERT INTO transactions (id, game_id, type, actor_user_id, from_player_id, to_player_id, chip_amount, chip_value, money_value, idempotency_key, metadata, created_at)
       VALUES (?, ?, 'LEND', ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(txId, table.id, params.hostUserId, lender.id, borrower.id, params.chipAmount, loanChipValue, moneyValue, params.idempotencyKey || null, metadata, now);
+    `).run(txId, table.id, params.hostUserId, lender.id, borrower.id, chipAmountToMove, loanChipValue, moneyValue, params.idempotencyKey || null, metadata, now);
 
     const tx = db.prepare('SELECT * FROM transactions WHERE id = ?').get(txId) as TransactionRecord;
     return { transaction: tx, loanId };

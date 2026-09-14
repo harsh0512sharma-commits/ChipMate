@@ -72,7 +72,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
   }, [tableId]);
 
   const handleOpenEditChips = () => {
-    const isDenom = data?.chipMode === 'DENOMINATION';
+    const isDenom = data?.chipMode === 'DENOMINATION' || data?.chipMode === 'VALUE';
     if (isDenom) {
       const initialDenoms: Record<string, Record<number, number>> = {};
       const initialDirect: Record<string, string> = {};
@@ -89,7 +89,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
           initialDirect[p.playerId] = String(p.finalChipsMoney);
         } else {
           const sumMoney = Object.entries(initialDenoms[p.playerId]).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * (c || 0)), 0);
-          initialDirect[p.playerId] = sumMoney > 0 ? String(sumMoney) : String(p.totalBuyinMoney || 0);
+          initialDirect[p.playerId] = sumMoney > 0 ? String(sumMoney) : String(p.finalChips ?? p.totalBuyinMoney ?? 0);
         }
       });
       setEditPlayerDenoms(initialDenoms);
@@ -159,7 +159,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
     setEditChipError(null);
     try {
       let res;
-      if (data?.chipMode === 'DENOMINATION') {
+      if (data?.chipMode === 'DENOMINATION' || data?.chipMode === 'VALUE') {
         const finalPlayerCounts = (data?.players || []).map((p: any) => {
           const denoms = editPlayerDenoms[p.playerId] || {};
           const breakdown = Object.entries(denoms)
@@ -167,7 +167,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
             .filter(item => item.count > 0);
           const denomChips = breakdown.reduce((acc, item) => acc + item.count, 0);
           const money = getEditPlayerFinalValue(p.playerId);
-          const chips = denomChips > 0 ? denomChips : ((data?.chipValue || 10) > 0 ? Math.round(money / (data?.chipValue || 10)) : 0);
+          const chips = data?.chipMode === 'VALUE' ? money : (denomChips > 0 ? denomChips : ((data?.chipValue || 10) > 0 ? Math.round(money / (data?.chipValue || 10)) : 0));
           return {
             playerId: p.playerId,
             finalChips: chips,
@@ -267,6 +267,9 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
   const allGenuinelyZero = players.length > 0 && players.every((p: any) => Math.round(Math.abs(p.netPosition || 0) * 100) === 0);
 
   const isDenomMode = data.chipMode === 'DENOMINATION';
+  const isValueMode = data.chipMode === 'VALUE';
+  const isCustomOrValue = isDenomMode || isValueMode;
+
   let tableDenomList: Array<{ denom: number; color?: string; label?: string }> = [];
   if (isDenomMode && data.denominations) {
     try {
@@ -288,7 +291,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
 
   let totalEditDenomChips = 0;
   let totalEditDenomMoney = 0;
-  if (isDenomMode) {
+  if (isCustomOrValue) {
     for (const p of players) {
       totalEditDenomMoney += getEditPlayerFinalValue(p.playerId);
       const pDenoms = editPlayerDenoms[p.playerId] || {};
@@ -298,25 +301,25 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
     }
   }
 
-  const totalEditEnteredChips = isDenomMode
-    ? totalEditDenomChips
+  const totalEditEnteredChips = isCustomOrValue
+    ? (isValueMode ? totalEditDenomMoney : totalEditDenomChips)
     : Object.values(editChipInputs).reduce(
         (acc, val) => acc + (parseInt(val || '0', 10) || 0),
         0
       );
 
-  const totalEditEnteredMoney = isDenomMode
+  const totalEditEnteredMoney = isCustomOrValue
     ? totalEditDenomMoney
     : totalEditEnteredChips * (data.chipValue || 10);
 
   const expectedTotalChips = data.expectedTotalChips || data.totalChips || 0;
-  const expectedTotalMoney = isDenomMode
+  const expectedTotalMoney = isCustomOrValue
     ? (data.summary?.totalBuyinPotMoney ?? data.expectedTotalValue ?? 0)
     : (expectedTotalChips * (data.chipValue || 10));
 
   const isChipCountMatched = totalEditEnteredChips === expectedTotalChips;
-  const isMoneyMatched = isDenomMode ? (Math.abs(totalEditEnteredMoney - expectedTotalMoney) < 1) : true;
-  const isEditMatched = isDenomMode ? isMoneyMatched : (isChipCountMatched && isMoneyMatched);
+  const isMoneyMatched = isCustomOrValue ? (Math.abs(totalEditEnteredMoney - expectedTotalMoney) < 1) : true;
+  const isEditMatched = isCustomOrValue ? isMoneyMatched : (isChipCountMatched && isMoneyMatched);
 
   return (
     <View style={styles.container}>
@@ -344,12 +347,25 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
             )}
           </View>
 
-          <Text style={styles.reconcileCount}>
-            {data.totalAccountedChips} / {expectedTotalChips} Chips
-          </Text>
-          <Text style={styles.reconcileSub}>
-            Total Accounted: {data.totalAccountedChips} chips • Total Expected: {expectedTotalChips} chips (₹{data.chipValue || 1}/chip)
-          </Text>
+          {isValueMode ? (
+            <>
+              <Text style={styles.reconcileCount}>
+                ₹{Number(data.summary?.totalBuyinPotMoney ?? expectedTotalMoney).toLocaleString('en-IN')} Pot
+              </Text>
+              <Text style={styles.reconcileSub}>
+                Zero-Sum Financial Accounting • 1:1 Rupee Reconciliation
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.reconcileCount}>
+                {data.totalAccountedChips} / {expectedTotalChips} Chips
+              </Text>
+              <Text style={styles.reconcileSub}>
+                Total Accounted: {data.totalAccountedChips} chips • Total Expected: {expectedTotalChips} chips (₹{data.chipValue || 1}/chip)
+              </Text>
+            </>
+          )}
 
           {Boolean(data.summary?.totalPotMoney) && (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
@@ -429,7 +445,9 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                       Lent: <Text style={p.loanCreditOwed > 0 ? styles.loanCreditVal : styles.zeroVal}>₹{p.loanCreditOwed || 0}</Text>
                     </Text>
                     <Text style={styles.breakdownItem}>
-                      Final chips: {p.finalChips} chips (<Text style={styles.posVal}>+₹{p.finalChipsMoney}</Text>)
+                      {isValueMode ? 'Final in-hand: ' : `Final chips: ${p.finalChips} chips (`}
+                      <Text style={styles.posVal}>+₹{p.finalChipsMoney}</Text>
+                      {isValueMode ? '' : ')'}
                     </Text>
                   </View>
                 </View>
@@ -563,7 +581,9 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
             </View>
 
             <Text style={styles.modalSub}>
-              {isDenomMode
+              {isValueMode
+                ? `Enter the final in-hand ₹ value for each player. Total must balance with the total buy-in pot (₹${expectedTotalMoney.toLocaleString('en-IN')}).`
+                : isDenomMode
                 ? `Enter the physical chip denominations held by each player. Total chips must equal ${expectedTotalChips} and total value must equal ₹${expectedTotalMoney.toLocaleString('en-IN')}.`
                 : `Enter the exact count of physical chips each player has right now. Total must equal ${expectedTotalChips} chips.`}
             </Text>
@@ -572,7 +592,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
               <View style={{ flex: 1 }}>
                 <Text style={styles.countSummaryText}>
                   Entered: <Text style={{ fontWeight: '800', color: colors.text }}>{totalEditEnteredChips}</Text> / {expectedTotalChips} chips
-                  {isDenomMode && (
+                  {isCustomOrValue && (
                     <Text style={{ color: colors.textMuted }}>
                       {'\n'}Value: ₹<Text style={{ fontWeight: '800', color: colors.chipGold }}>{totalEditEnteredMoney.toLocaleString('en-IN')}</Text> / ₹{expectedTotalMoney.toLocaleString('en-IN')}
                     </Text>
@@ -588,7 +608,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                 <View style={styles.mismatchBadge}>
                   <AlertTriangle size={12} color={colors.dangerText} />
                   <Text style={styles.mismatchBadgeText}>
-                    {isDenomMode
+                    {isCustomOrValue
                       ? `₹${Math.abs(expectedTotalMoney - totalEditEnteredMoney).toLocaleString('en-IN')} ${totalEditEnteredMoney > expectedTotalMoney ? 'over' : 'short'}`
                       : `${Math.abs(expectedTotalChips - totalEditEnteredChips)} chips ${totalEditEnteredChips > expectedTotalChips ? 'over' : 'short'}`}
                   </Text>
@@ -598,7 +618,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
 
             <ScrollView style={{ maxHeight: 320, marginVertical: 10 }} showsVerticalScrollIndicator={false}>
               {players.map((p: any) => {
-                if (isDenomMode) {
+                if (isCustomOrValue) {
                   const pDenoms = editPlayerDenoms[p.playerId] || {};
                   const pChips = Object.values(pDenoms).reduce((acc, c) => acc + (c || 0), 0);
                   const pMoney = getEditPlayerFinalValue(p.playerId);
@@ -612,7 +632,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                         </View>
                         <View style={styles.denomPlayerTotalPill}>
                           <Text style={styles.denomPlayerTotalText}>
-                            {pChips > 0 ? `${pChips} chips • ` : ''}₹{pMoney.toLocaleString('en-IN')}
+                            {isValueMode ? `₹${pMoney.toLocaleString('en-IN')}` : `${pChips > 0 ? `${pChips} chips • ` : ''}₹${pMoney.toLocaleString('en-IN')}`}
                           </Text>
                         </View>
                       </View>
@@ -621,7 +641,9 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                       <View style={styles.directValueInputRow}>
                         <View style={{ flex: 1, marginRight: 8 }}>
                           <Text style={styles.directValueLabel}>Total In-Hand Value:</Text>
-                          <Text style={styles.directValueSubtext}>Write total ₹ directly, or enter chips below</Text>
+                          <Text style={styles.directValueSubtext}>
+                            {isValueMode ? 'Enter final ₹ value held by this player' : 'Write total ₹ directly, or enter chips below'}
+                          </Text>
                         </View>
                         <View style={styles.directValueBox}>
                           <Text style={styles.rupeeSymbol}>₹</Text>
@@ -636,43 +658,45 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                         </View>
                       </View>
 
-                      <View style={styles.denomChipsGrid}>
-                        {tableDenomList.map(item => {
-                          const count = pDenoms[item.denom] || 0;
-                          return (
-                            <View key={item.denom} style={styles.denomChipRow}>
-                              <View style={[styles.denomBadgeSmall, { backgroundColor: item.color || colors.primary }]}>
-                                <Text style={styles.denomBadgeSmallText}>₹{item.denom}</Text>
+                      {isDenomMode && (
+                        <View style={styles.denomChipsGrid}>
+                          {tableDenomList.map(item => {
+                            const count = pDenoms[item.denom] || 0;
+                            return (
+                              <View key={item.denom} style={styles.denomChipRow}>
+                                <View style={[styles.denomBadgeSmall, { backgroundColor: item.color || colors.primary }]}>
+                                  <Text style={styles.denomBadgeSmallText}>₹{item.denom}</Text>
+                                </View>
+                                <View style={{ flex: 1, paddingLeft: 8 }}>
+                                  <Text style={styles.denomChipRowName}>₹{item.denom} Chip</Text>
+                                </View>
+                                <View style={styles.counterBoxSmall}>
+                                  <TouchableOpacity
+                                    onPress={() => updatePlayerDenom(p.playerId, item.denom, -1)}
+                                    style={[styles.counterBtnSmall, count <= 0 && { opacity: 0.35 }]}
+                                    disabled={count <= 0}
+                                  >
+                                    <Minus size={12} color="#FFF" />
+                                  </TouchableOpacity>
+                                  <TextInput
+                                    style={styles.counterInputSmall}
+                                    keyboardType="numeric"
+                                    value={count.toString()}
+                                    onChangeText={t => setPlayerDenomDirect(p.playerId, item.denom, t)}
+                                  />
+                                  <TouchableOpacity
+                                    onPress={() => updatePlayerDenom(p.playerId, item.denom, 1)}
+                                    style={styles.counterBtnSmall}
+                                  >
+                                    <Plus size={12} color="#FFF" />
+                                  </TouchableOpacity>
+                                </View>
+                                <Text style={styles.denomRowSubtotal}>₹{(count * item.denom).toLocaleString('en-IN')}</Text>
                               </View>
-                              <View style={{ flex: 1, paddingLeft: 8 }}>
-                                <Text style={styles.denomChipRowName}>₹{item.denom} Chip</Text>
-                              </View>
-                              <View style={styles.counterBoxSmall}>
-                                <TouchableOpacity
-                                  onPress={() => updatePlayerDenom(p.playerId, item.denom, -1)}
-                                  style={[styles.counterBtnSmall, count <= 0 && { opacity: 0.35 }]}
-                                  disabled={count <= 0}
-                                >
-                                  <Minus size={12} color="#FFF" />
-                                </TouchableOpacity>
-                                <TextInput
-                                  style={styles.counterInputSmall}
-                                  keyboardType="numeric"
-                                  value={count.toString()}
-                                  onChangeText={t => setPlayerDenomDirect(p.playerId, item.denom, t)}
-                                />
-                                <TouchableOpacity
-                                  onPress={() => updatePlayerDenom(p.playerId, item.denom, 1)}
-                                  style={styles.counterBtnSmall}
-                                >
-                                  <Plus size={12} color="#FFF" />
-                                </TouchableOpacity>
-                              </View>
-                              <Text style={styles.denomRowSubtotal}>₹{(count * item.denom).toLocaleString('en-IN')}</Text>
-                            </View>
-                          );
-                        })}
-                      </View>
+                            );
+                          })}
+                        </View>
+                      )}
                     </View>
                   );
                 }

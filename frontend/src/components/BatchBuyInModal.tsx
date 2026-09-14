@@ -44,12 +44,18 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
   // Denomination Bundle State (quantity of each denomination per player)
   const [denomBundleCounts, setDenomBundleCounts] = useState<Record<number, number>>({});
 
+  // Direct Rupee Value State for "VALUE" mode
+  const [valueAmount, setValueAmount] = useState<string>('500');
+  const [isCustomValue, setIsCustomValue] = useState<boolean>(false);
+  const [customValue, setCustomValue] = useState<string>('500');
+
+  const isValueMode = table?.chip_mode === 'VALUE';
   const isDenomMode = table?.chip_mode === 'DENOMINATION';
   const chipVal = table?.chip_value || 10;
 
   // Parse table denominations if present
   let tableDenomList: Array<{ denom: number; count: number; initial_count: number; color?: string; label?: string }> = [];
-  if (isDenomMode && table?.denominations) {
+  if ((isDenomMode || isValueMode) && table?.denominations) {
     try {
       const parsed = typeof table.denominations === 'string' ? JSON.parse(table.denominations) : table.denominations;
       if (Array.isArray(parsed)) {
@@ -101,8 +107,19 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
   const bundleChipsPerPlayer = Object.values(denomBundleCounts).reduce((acc, c) => acc + c, 0);
   const bundleMoneyPerPlayer = Object.entries(denomBundleCounts).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * c), 0);
 
-  const chipsPerPlayer = isDenomMode ? bundleChipsPerPlayer : (isCustomChips ? (parseInt(customChips, 10) || 0) : (parseInt(chipAmount, 10) || 0));
-  const moneyPerPlayer = isDenomMode ? bundleMoneyPerPlayer : (chipsPerPlayer * chipVal);
+  const valueMoneyPerPlayer = isCustomValue ? (parseInt(customValue, 10) || 0) : (parseInt(valueAmount, 10) || 0);
+
+  const chipsPerPlayer = isValueMode
+    ? valueMoneyPerPlayer
+    : isDenomMode
+      ? bundleChipsPerPlayer
+      : (isCustomChips ? (parseInt(customChips, 10) || 0) : (parseInt(chipAmount, 10) || 0));
+
+  const moneyPerPlayer = isValueMode
+    ? valueMoneyPerPlayer
+    : isDenomMode
+      ? bundleMoneyPerPlayer
+      : (chipsPerPlayer * chipVal);
 
   const numPlayers = selectedPlayerIds.length;
   const totalChipsNeeded = chipsPerPlayer * numPlayers;
@@ -148,7 +165,7 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
       return;
     }
     if (chipsPerPlayer <= 0) {
-      setErrorMsg(isDenomMode ? 'Please specify at least 1 chip in the denomination bundle' : 'Buy-in chip count must be greater than 0');
+      setErrorMsg(isValueMode ? 'Please enter a buy-in value greater than ₹0' : isDenomMode ? 'Please specify at least 1 chip in the denomination bundle' : 'Buy-in chip count must be greater than 0');
       return;
     }
     if (denomOverdraftError) {
@@ -156,7 +173,7 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
       return;
     }
     if (!bankHasEnough) {
-      setErrorMsg(`Bank vault only has ${table?.bank_chips ?? 0} chips available. Need ${totalChipsNeeded} chips.`);
+      setErrorMsg(isValueMode ? `Bank vault only has ₹${(table?.bank_chips ?? 0).toLocaleString('en-IN')} available. Need ₹${totalChipsNeeded.toLocaleString('en-IN')}.` : `Bank vault only has ${table?.bank_chips ?? 0} chips available. Need ${totalChipsNeeded} chips.`);
       return;
     }
 
@@ -207,7 +224,91 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
             {/* Top Section: Buy-In Configuration / Presets */}
             <View style={styles.configCard}>
-              {isDenomMode ? (
+              {isValueMode ? (
+                <View>
+                  <View style={styles.configHeaderRow}>
+                    <Text style={styles.sectionLabel}>BUY-IN VALUE PER PLAYER</Text>
+                    <Text style={styles.rateLabel}>By Value Mode</Text>
+                  </View>
+                  <Text style={[styles.perPlayerNoteText, { marginBottom: 10 }]}>
+                    Choose or enter buy-in amount for each selected player:
+                  </Text>
+
+                  {/* Rupee Presets Row */}
+                  <View style={styles.pillsRow}>
+                    {['100', '200', '300', '500', '1000'].map(amt => (
+                      <TouchableOpacity
+                        key={amt}
+                        onPress={() => {
+                          setValueAmount(amt);
+                          setIsCustomValue(false);
+                        }}
+                        style={[
+                          styles.pill,
+                          !isCustomValue && valueAmount === amt && styles.pillActive
+                        ]}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={[
+                            styles.pillText,
+                            !isCustomValue && valueAmount === amt && styles.pillTextActive
+                          ]}
+                        >
+                          ₹{amt}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.pillSubText,
+                            !isCustomValue && valueAmount === amt && styles.pillSubTextActive
+                          ]}
+                        >
+                          buy-in
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsCustomValue(true);
+                        setCustomValue(valueAmount);
+                      }}
+                      style={[styles.pill, isCustomValue && styles.pillActive]}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.pillText, isCustomValue && styles.pillTextActive]}>
+                        Custom
+                      </Text>
+                      <Text style={[styles.pillSubText, isCustomValue && styles.pillSubTextActive]}>
+                        Any ₹
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {isCustomValue && (
+                    <View style={styles.customInputRow}>
+                      <Text style={styles.customInputLabel}>Enter ₹ value per player:</Text>
+                      <TextInput
+                        style={styles.customInput}
+                        keyboardType="numeric"
+                        placeholder="e.g. 750"
+                        placeholderTextColor={colors.textMuted}
+                        value={customValue}
+                        onChangeText={setCustomValue}
+                      />
+                    </View>
+                  )}
+
+                  {/* Individual Player Preview Info */}
+                  <View style={styles.perPlayerNoteRow}>
+                    <Sparkles size={13} color={colors.primary} />
+                    <Text style={styles.perPlayerNoteText}>
+                      Each selected player receives{' '}
+                      <Text style={{ fontWeight: '800', color: colors.primary }}>₹{moneyPerPlayer.toLocaleString('en-IN')}</Text> in chips
+                    </Text>
+                  </View>
+                </View>
+              ) : isDenomMode ? (
                 <View>
                   <View style={styles.configHeaderRow}>
                     <Text style={styles.sectionLabel}>CHIP BUNDLE PER PLAYER</Text>
@@ -429,7 +530,11 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
                           )}
                         </View>
                         <Text style={styles.playerHolding}>
-                          Holding: {p.current_chips} chips (₹{(p.current_chips * chipVal).toLocaleString('en-IN')})
+                          {isValueMode
+                            ? `Holding: ₹${(p.money_equivalent ?? p.current_chips ?? 0).toLocaleString('en-IN')}`
+                            : isDenomMode
+                              ? `Holding: ${p.current_chips} chips (₹${(p.money_equivalent ?? p.total_buyin_amount ?? 0).toLocaleString('en-IN')})`
+                              : `Holding: ${p.current_chips} chips (₹${(p.current_chips * chipVal).toLocaleString('en-IN')})`}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -443,9 +548,9 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
           <View style={styles.footerContainer}>
             <View style={styles.summaryStatsRow}>
               <View style={styles.summaryCol}>
-                <Text style={styles.summaryLabel}>TOTAL CHIPS REQUIRED</Text>
+                <Text style={styles.summaryLabel}>{isValueMode ? 'TOTAL BUY-IN' : 'TOTAL CHIPS REQUIRED'}</Text>
                 <Text style={[styles.summaryVal, !bankHasEnough && { color: colors.dangerText }]}>
-                  {totalChipsNeeded} <Text style={styles.summaryUnit}>chips</Text>
+                  {isValueMode ? `₹${totalMoneyValue.toLocaleString('en-IN')}` : `${totalChipsNeeded} chips`}
                 </Text>
               </View>
 
@@ -454,7 +559,7 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
               <View style={styles.summaryCol}>
                 <Text style={styles.summaryLabel}>BANK VAULT</Text>
                 <Text style={[styles.summaryVal, table?.bank_chips === 0 && { color: colors.warningText }]}>
-                  {table?.bank_chips ?? 0} <Text style={styles.summaryUnit}>avail</Text>
+                  {isValueMode ? `₹${(table?.bank_chips ?? 0).toLocaleString('en-IN')}` : `${table?.bank_chips ?? 0} avail`}
                 </Text>
               </View>
 
@@ -472,7 +577,9 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
               <View style={styles.overdraftAlert}>
                 <AlertCircle size={13} color={colors.dangerText} />
                 <Text style={styles.overdraftAlertText}>
-                  {isDenomMode && denomOverdraftError
+                  {isValueMode
+                    ? `Bank vault only has ₹${(table?.bank_chips ?? 0).toLocaleString('en-IN')} available. Reduce amount or players.`
+                    : isDenomMode && denomOverdraftError
                     ? denomOverdraftError
                     : `Bank vault only has ${table?.bank_chips ?? 0} chips available. Reduce amount or players.`}
                 </Text>

@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator
 } from 'react-native';
-import { ArrowLeft, Sparkles, Check, Users, UserCheck, UserPlus, Coins, Layers, Plus, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Sparkles, Check, Users, UserCheck, UserPlus, Coins, Layers, Banknote, Plus, Trash2 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
 import { Header } from '../../components/Header';
@@ -81,8 +81,8 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
   const [isCustomChips, setIsCustomChips] = useState(false);
   const [isCustomValue, setIsCustomValue] = useState(false);
 
-  // Chip Valuation Mode: EQUAL (Single Value) vs DENOMINATION (Real Game Chip Sets)
-  const [chipMode, setChipMode] = useState<'EQUAL' | 'DENOMINATION'>('EQUAL');
+  // Chip Valuation Mode: EQUAL (Single Value), DENOMINATION (Physical Chip Sets), or VALUE (Direct ₹ Values)
+  const [chipMode, setChipMode] = useState<'EQUAL' | 'DENOMINATION' | 'VALUE'>('EQUAL');
 
   // Custom Denominations with Physical Chip Counts (Unified for both Teen Patti & Poker)
   const [denomRows, setDenomRows] = useState<PokerDenomRow[]>(DEFAULT_POKER_DENOMS);
@@ -151,14 +151,15 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
   const numChips = isCustomChips ? (parseInt(customChips, 10) || 0) : (parseInt(totalChips, 10) || 100);
   const numValue = isCustomValue ? (parseFloat(customValue) || 0) : (parseFloat(chipValue) || 10);
 
-  // Calculations for Custom Denomination mode (values + physical counts)
+  // Calculations for Custom Denomination / Value mode (values + physical counts)
   const denomTotalChips = denomRows.reduce((sum, d) => sum + (parseInt(d.count, 10) || 0), 0);
   const denomTotalPot = denomRows.reduce((sum, d) => sum + ((parseInt(d.count, 10) || 0) * (parseFloat(d.value) || 0)), 0);
   const denomEffectiveChipValue = denomTotalChips > 0 ? (denomTotalPot / denomTotalChips) : 10;
 
-  const finalTotalChips = chipMode === 'DENOMINATION' ? denomTotalChips : numChips;
-  const finalChipValue = chipMode === 'DENOMINATION' ? denomEffectiveChipValue : numValue;
-  const finalTotalPot = chipMode === 'DENOMINATION' ? denomTotalPot : (numChips * numValue);
+  const isCustomInventory = chipMode === 'DENOMINATION' || chipMode === 'VALUE';
+  const finalTotalChips = isCustomInventory ? denomTotalChips : numChips;
+  const finalChipValue = chipMode === 'VALUE' ? 1.0 : (chipMode === 'DENOMINATION' ? denomEffectiveChipValue : numValue);
+  const finalTotalPot = isCustomInventory ? denomTotalPot : (numChips * numValue);
 
   const handleCreate = async () => {
     if (!name.trim()) {
@@ -170,7 +171,7 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
     setLoading(true);
 
     try {
-      if (chipMode === 'DENOMINATION') {
+      if (chipMode === 'DENOMINATION' || chipMode === 'VALUE') {
         if (denomTotalChips <= 0) {
           setError('Total physical chips must be greater than 0');
           setLoading(false);
@@ -198,8 +199,8 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
             name: name.trim(),
             gameType,
             totalChips: denomTotalChips,
-            chipValue: denomEffectiveChipValue,
-            chipMode: 'DENOMINATION',
+            chipValue: chipMode === 'VALUE' ? 1.0 : denomEffectiveChipValue,
+            chipMode,
             denominations: validDenoms,
             initialFriendUserIds: selectedFriendIds,
             initialGuestIds: selectedGuestIds
@@ -317,12 +318,12 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
               onPress={() => setChipMode('EQUAL')}
               activeOpacity={0.8}
             >
-              <Coins size={16} color={chipMode === 'EQUAL' ? '#FFF' : colors.textMuted} style={{ marginRight: 8 }} />
+              <Coins size={18} color={chipMode === 'EQUAL' ? '#FFF' : colors.textMuted} style={{ marginRight: 10 }} />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modeToggleText, chipMode === 'EQUAL' && styles.modeToggleTextActive]}>
                   Equal Chip Value
                 </Text>
-                <Text style={styles.modeToggleSub}>All chips share 1 face value</Text>
+                <Text style={styles.modeToggleSub}>All chips share 1 face value (e.g. 100 chips at ₹10)</Text>
               </View>
               {chipMode === 'EQUAL' && <Check size={16} color="#FFF" />}
             </TouchableOpacity>
@@ -332,14 +333,29 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
               onPress={() => setChipMode('DENOMINATION')}
               activeOpacity={0.8}
             >
-              <Layers size={16} color={chipMode === 'DENOMINATION' ? '#FFF' : colors.textMuted} style={{ marginRight: 8 }} />
+              <Layers size={18} color={chipMode === 'DENOMINATION' ? '#FFF' : colors.textMuted} style={{ marginRight: 10 }} />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.modeToggleText, chipMode === 'DENOMINATION' && styles.modeToggleTextActive]}>
                   By Denomination
                 </Text>
-                <Text style={styles.modeToggleSub}>Custom chips & quantities</Text>
+                <Text style={styles.modeToggleSub}>Custom chips (₹5, ₹10, ₹25, ₹100) with physical chip counting</Text>
               </View>
               {chipMode === 'DENOMINATION' && <Check size={16} color="#FFF" />}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modeToggleBtn, chipMode === 'VALUE' && styles.modeToggleBtnActive]}
+              onPress={() => setChipMode('VALUE')}
+              activeOpacity={0.8}
+            >
+              <Banknote size={18} color={chipMode === 'VALUE' ? '#FFF' : colors.textMuted} style={{ marginRight: 10 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modeToggleText, chipMode === 'VALUE' && styles.modeToggleTextActive]}>
+                  By Value (Recommended)
+                </Text>
+                <Text style={styles.modeToggleSub}>Custom chip inventory with direct ₹ value buy-ins & loans (no chip counting)</Text>
+              </View>
+              {chipMode === 'VALUE' && <Check size={16} color="#FFF" />}
             </TouchableOpacity>
           </View>
         </View>
@@ -449,17 +465,25 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
             </View>
           </>
         ) : (
-          /* BY DENOMINATION: CUSTOM CHIP VALUATION & PHYSICAL INVENTORY */
+          /* CUSTOM CHIP VALUATION & PHYSICAL INVENTORY (DENOMINATION OR VALUE) */
           <View style={styles.formGroup}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
               <Text style={styles.label}>Custom Chip Denominations & Inventory</Text>
               <View style={styles.pokerModeBadge}>
-                <Layers size={12} color="#FFF" style={{ marginRight: 4 }} />
-                <Text style={styles.pokerModeBadgeText}>By Denomination</Text>
+                {chipMode === 'VALUE' ? (
+                  <Banknote size={12} color="#FFF" style={{ marginRight: 4 }} />
+                ) : (
+                  <Layers size={12} color="#FFF" style={{ marginRight: 4 }} />
+                )}
+                <Text style={styles.pokerModeBadgeText}>
+                  {chipMode === 'VALUE' ? 'By Value' : 'By Denomination'}
+                </Text>
               </View>
             </View>
             <Text style={styles.hint}>
-              Define the chip values (₹) and the exact count of physical chips in your game set.
+              {chipMode === 'VALUE'
+                ? 'Define the chips in your physical set to set the total pot valuation. In game, you enter buy-ins, loans, and end-game values directly in rupees without micro-managing physical chip counts.'
+                : 'Define the chip values (₹) and the exact count of physical chips in your game set.'}
             </Text>
 
             {/* List of Custom Denominations */}
@@ -960,9 +984,9 @@ const styles = StyleSheet.create({
     color: '#F59E0B'
   },
   modeToggleRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 4
+    flexDirection: 'column',
+    gap: 8,
+    marginTop: 6
   },
   modeToggleBtn: {
     flex: 1,
