@@ -21,9 +21,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.24',
-      buildTime: 1789360000000,
-      releaseNotes: 'Persistent saved guests with 1-click seating, dedicated guest leaderboard rankings, master admin guest deletion, and player lifetime winnings repair.'
+      version: '1.0.25',
+      buildTime: 1789371000000,
+      releaseNotes: 'Foreign key cascade fixes for clean table/game deletion, scoped guest rankings (only played-with guests), default 5-10-25-100 denominations, and host game history deletion.'
     });
   };
   app.get('/version', versionHandler);

@@ -159,4 +159,77 @@ describe('Persistent Saved Guests & Guest Leaderboard Test Suite', () => {
     const afterGuests = adminService.getAdminAllGuests();
     expect(afterGuests.some(g => g.name === 'Amit')).toBe(false);
   });
+
+  test('6. Scoped Guest Leaderboard only returns guests the player has played with', () => {
+    const now = new Date().toISOString();
+    const future = new Date(Date.now() + 1000000).toISOString();
+
+    // Create User B
+    db.prepare("INSERT INTO otp_codes (id, email, code, expires_at, consumed, created_at) VALUES (?, ?, '123456', ?, 0, ?)")
+      .run('otp_user_b', 'userb@chipmate.test', future, now);
+    const verifiedB = authService.verifyOtp('userb@chipmate.test', '123456').user;
+    authService.updateUserProfile(verifiedB.id, 'User B');
+    const userB = authService.getUserById(verifiedB.id)!;
+
+    // User B creates a table and seats a separate guest "Suresh"
+    const { table: tableB } = tableService.createTable({
+      hostUserId: userB.id,
+      name: 'User B Table',
+      gameType: 'POKER',
+      totalChips: 100,
+      chipValue: 10
+    });
+
+    const sureshResult = tableService.seatGuestPlayer(userB.id, tableB.id, { guestName: 'Suresh' });
+    expect(sureshResult.success).toBe(true);
+
+    const detailsB = tableService.getTableDetails(tableB.id, userB.id)!;
+    const playerBHost = detailsB.players.find(p => p.role === 'HOST')!;
+    const sureshPlayer = detailsB.players.find(p => p.guest_name === 'Suresh')!;
+
+    ledgerService.recordBuyIn({ gameId: tableB.id, hostUserId: userB.id, playerId: playerBHost.id, chipAmount: 50 });
+    ledgerService.recordBuyIn({ gameId: tableB.id, hostUserId: userB.id, playerId: sureshPlayer.id, chipAmount: 50 });
+    settlementService.submitFinalChipCounts(userB.id, tableB.id, [
+      { playerId: playerBHost.id, finalChips: 30 },
+      { playerId: sureshPlayer.id, finalChips: 70 }
+    ]);
+    settlementService.finalizeGame(userB.id, tableB.id);
+
+    // Host User (User A) should only see Rohan, NOT Suresh
+    const hostUserGuests = statsService.getGuestLeaderboard(hostUser.id);
+    expect(hostUserGuests.some(g => g.name === 'Rohan')).toBe(true);
+    expect(hostUserGuests.some(g => g.name === 'Suresh')).toBe(false);
+
+    // User B should only see Suresh, NOT Rohan
+    const userBGuests = statsService.getGuestLeaderboard(userB.id);
+    expect(userBGuests.some(g => g.name === 'Suresh')).toBe(true);
+    expect(userBGuests.some(g => g.name === 'Rohan')).toBe(false);
+
+    // Global / unauthenticated query sees both
+    const globalGuests = statsService.getGuestLeaderboard();
+    expect(globalGuests.some(g => g.name === 'Rohan')).toBe(true);
+    expect(globalGuests.some(g => g.name === 'Suresh')).toBe(true);
+  });
+
+  test('7. Deleting a finalized table with guests succeeds without foreign key errors and recalculates stats', () => {
+    // Find the finalized game hosted by userB
+    const userBHistory = tableService.getUserCompletedTables(db.prepare("SELECT id FROM users WHERE email = 'userb@chipmate.test'").get().id);
+    expect(userBHistory.length).toBe(1);
+    const gameId = userBHistory[0].id;
+
+    // Delete table as host - must not throw foreign key constraint failed
+    expect(() => {
+      tableService.deleteTable(userBHistory[0].host_user_id, gameId);
+    }).not.toThrow();
+
+    // Guest Suresh must STILL exist in saved_guests
+    const guestsAfter = tableService.getSavedGuests();
+    expect(guestsAfter.some(g => g.name === 'Suresh')).toBe(true);
+
+    // Suresh's stats must be recalculated to 0
+    const suresh = guestsAfter.find(g => g.name === 'Suresh')!;
+    const stats = db.prepare('SELECT * FROM player_lifetime_stats WHERE user_id = ?').get(suresh.id) as any;
+    expect(stats.games_played).toBe(0);
+    expect(stats.net_winnings).toBe(0);
+  });
 });

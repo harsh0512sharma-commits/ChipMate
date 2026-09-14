@@ -59,7 +59,7 @@ export const LeaderboardScreen: React.FC = () => {
     <View style={styles.container}>
       <Header
         title={category === 'PLAYERS' ? 'Player Leaderboard' : 'Guest Leaderboard'}
-        subtitle={category === 'PLAYERS' ? 'Ranked among your accepted friend network' : 'Ranked among persistent saved guests across games'}
+        subtitle={category === 'PLAYERS' ? 'Ranked among your accepted friend network' : 'Ranked among guests who have played in your games'}
       />
 
       {/* Category Toggle: Players vs Guests */}
@@ -137,7 +137,7 @@ export const LeaderboardScreen: React.FC = () => {
             <Text style={styles.emptySub}>
               {category === 'PLAYERS'
                 ? 'Play and finalize games with friends to start ranking on the leaderboard!'
-                : 'Seat saved guests in your games and finalize to view their performance rankings!'}
+                : 'Guests who play in your games will appear here once games are finalized.'}
             </Text>
           </View>
         ) : (

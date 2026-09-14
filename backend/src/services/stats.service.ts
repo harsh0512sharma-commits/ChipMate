@@ -260,11 +260,39 @@ export interface GuestLeaderboardItem {
 }
 
 export function getGuestLeaderboard(
+  userIdOrSortBy?: string,
   sortBy: 'NET_WINNINGS' | 'WIN_RATE' | 'GAMES_PLAYED' | 'BIGGEST_WIN' = 'NET_WINNINGS'
 ): GuestLeaderboardItem[] {
   const db = getDb();
 
-  const savedGuests = db.prepare('SELECT id, name FROM saved_guests').all() as { id: string; name: string }[];
+  const validSortOptions = ['NET_WINNINGS', 'WIN_RATE', 'GAMES_PLAYED', 'BIGGEST_WIN'];
+  let userId: string | undefined = undefined;
+  let effectiveSortBy = sortBy;
+
+  if (userIdOrSortBy && validSortOptions.includes(userIdOrSortBy)) {
+    effectiveSortBy = userIdOrSortBy as any;
+    userId = undefined;
+  } else if (userIdOrSortBy) {
+    userId = userIdOrSortBy;
+  }
+
+  let savedGuests: { id: string; name: string }[] = [];
+  if (userId) {
+    savedGuests = db.prepare(`
+      SELECT DISTINCT g.id, g.name
+      FROM saved_guests g
+      WHERE g.created_by = ?
+         OR g.id IN (
+           SELECT gp_guest.user_id
+           FROM game_players gp_user
+           JOIN game_players gp_guest ON gp_user.game_id = gp_guest.game_id
+           WHERE gp_user.user_id = ?
+         )
+    `).all(userId, userId) as { id: string; name: string }[];
+  } else {
+    savedGuests = db.prepare('SELECT id, name FROM saved_guests').all() as { id: string; name: string }[];
+  }
+
   if (!savedGuests || savedGuests.length === 0) return [];
 
   for (const g of savedGuests) {
@@ -277,9 +305,9 @@ export function getGuestLeaderboard(
   const placeholders = guestIds.map(() => '?').join(',');
 
   let orderClause = 's.net_winnings DESC';
-  if (sortBy === 'WIN_RATE') orderClause = 's.win_rate DESC, s.games_played DESC';
-  if (sortBy === 'GAMES_PLAYED') orderClause = 's.games_played DESC, s.net_winnings DESC';
-  if (sortBy === 'BIGGEST_WIN') orderClause = 's.biggest_win DESC';
+  if (effectiveSortBy === 'WIN_RATE') orderClause = 's.win_rate DESC, s.games_played DESC';
+  if (effectiveSortBy === 'GAMES_PLAYED') orderClause = 's.games_played DESC, s.net_winnings DESC';
+  if (effectiveSortBy === 'BIGGEST_WIN') orderClause = 's.biggest_win DESC';
 
   const rows = db.prepare(`
     SELECT g.id, g.name,

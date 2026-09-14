@@ -17,8 +17,9 @@ export function getLeaderboard(req: AuthenticatedRequest, res: Response): void {
 
 export function getGuestLeaderboard(req: AuthenticatedRequest, res: Response): void {
   try {
+    const userId = req.user!.userId;
     const sortBy = (req.query.sortBy as any) || 'NET_WINNINGS';
-    const leaderboard = statsService.getGuestLeaderboard(sortBy);
+    const leaderboard = statsService.getGuestLeaderboard(userId, sortBy);
     res.json({ success: true, leaderboard });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message || 'Failed to fetch guest leaderboard' });

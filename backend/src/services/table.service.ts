@@ -1,7 +1,8 @@
 import { randomUUID as uuidv4 } from 'crypto';
-import { getDb } from '../db';
+import { getDb, flushReplicationQueue } from '../db';
 import { getFriendshipStatusBetween } from './friend.service';
 import { getUserByFriendCode } from './auth.service';
+import { recalculateUserLifetimeStats } from './stats.service';
 
 export interface GameTableRecord {
   id: string;
@@ -691,14 +692,18 @@ export function getTableTransactions(tableId: string) {
   return transactions;
 }
 
-export function deleteTable(hostUserId: string, tableId: string): { success: boolean; tableId: string; message: string } {
+export function deleteTable(hostUserId: string, tableId: string, isAdmin: boolean = false): { success: boolean; tableId: string; message: string } {
   const db = getDb();
   const table = db.prepare('SELECT * FROM games WHERE id = ?').get(tableId) as GameTableRecord | undefined;
   if (!table) throw new Error('Table not found');
-  if (table.host_user_id !== hostUserId) throw new Error('Only the table host can delete the table');
-  if (table.status === 'FINALIZED') {
-    throw new Error('Finalized games cannot be deleted as they are part of permanent lifetime stats');
-  }
+  if (table.host_user_id !== hostUserId && !isAdmin) throw new Error('Only the table host or an administrator can delete the table');
+
+  // Collect all players who participated in this game so we can recalculate their lifetime stats
+  const participatingUserRows = db.prepare(`
+    SELECT DISTINCT user_id 
+    FROM game_players 
+    WHERE game_id = ?
+  `).all(tableId) as { user_id: string }[];
 
   db.transaction(() => {
     // 1. Delete settlement details
@@ -710,18 +715,26 @@ export function deleteTable(hostUserId: string, tableId: string): { success: boo
     db.prepare('DELETE FROM transactions WHERE game_id = ?').run(tableId);
     // 4. Delete player game results if any
     db.prepare('DELETE FROM player_game_results WHERE game_id = ?').run(tableId);
-    // 5. Delete guest users created for this game
-    const guestRows = db.prepare('SELECT user_id FROM game_players WHERE game_id = ? AND is_guest = 1').all(tableId) as any[];
-    // 6. Delete players
+    // 5. Delete game players
     db.prepare('DELETE FROM game_players WHERE game_id = ?').run(tableId);
-    for (const g of guestRows) {
-      if (g.user_id && g.user_id.startsWith('guest_')) {
-        db.prepare("DELETE FROM users WHERE id = ?").run(g.user_id);
-      }
-    }
-    // 7. Delete game table
+    // 6. Delete game table
     db.prepare('DELETE FROM games WHERE id = ?').run(tableId);
   })();
+
+  // Recalculate lifetime stats for all affected players (both registered users & saved guests)
+  for (const row of participatingUserRows) {
+    if (row.user_id) {
+      try {
+        recalculateUserLifetimeStats(row.user_id);
+      } catch (err: any) {
+        console.warn(`[deleteTable] Error recalculating stats for ${row.user_id}:`, err.message);
+      }
+    }
+  }
+
+  flushReplicationQueue().catch(err => {
+    console.warn('[deleteTable] Cloud replication flush error:', err.message);
+  });
 
   return { success: true, tableId, message: 'Table deleted successfully' };
 }

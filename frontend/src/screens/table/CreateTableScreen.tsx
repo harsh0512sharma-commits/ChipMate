@@ -32,7 +32,7 @@ export const DEFAULT_POKER_DENOMS: PokerDenomRow[] = [
   { id: '1', value: '5', count: '25', label: 'Red', color: '#EF4444' },
   { id: '2', value: '10', count: '25', label: 'Blue', color: '#3B82F6' },
   { id: '3', value: '25', count: '25', label: 'Green', color: '#10B981' },
-  { id: '4', value: '50', count: '25', label: 'Purple', color: '#8B5CF6' }
+  { id: '4', value: '100', count: '25', label: 'Black', color: '#1E293B' }
 ];
 
 export const DENOMINATION_PRESETS = [

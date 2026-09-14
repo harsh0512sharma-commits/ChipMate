@@ -245,17 +245,11 @@ export function adminDeleteGame(gameId: string): { success: boolean; message: st
     throw new Error('Game table not found');
   }
 
-  // Collect real users who participated in this game to recalculate their lifetime stats
+  // Collect all players who participated in this game so we can recalculate their lifetime stats
   const participatingUserRows = db.prepare(`
     SELECT DISTINCT user_id 
     FROM game_players 
-    WHERE game_id = ? AND is_guest = 0 AND user_id NOT LIKE 'guest_%'
-  `).all(gameId) as { user_id: string }[];
-
-  const guestRows = db.prepare(`
-    SELECT user_id 
-    FROM game_players 
-    WHERE game_id = ? AND (is_guest = 1 OR user_id LIKE 'guest_%')
+    WHERE game_id = ?
   `).all(gameId) as { user_id: string }[];
 
   db.transaction(() => {
@@ -270,17 +264,11 @@ export function adminDeleteGame(gameId: string): { success: boolean; message: st
     db.prepare('DELETE FROM player_game_results WHERE game_id = ?').run(gameId);
     // 5. Delete game players
     db.prepare('DELETE FROM game_players WHERE game_id = ?').run(gameId);
-    // 6. Delete synthetic guest users from users table
-    for (const g of guestRows) {
-      if (g.user_id && g.user_id.startsWith('guest_')) {
-        db.prepare("DELETE FROM users WHERE id = ?").run(g.user_id);
-      }
-    }
-    // 7. Delete the game record itself
+    // 6. Delete the game record itself
     db.prepare('DELETE FROM games WHERE id = ?').run(gameId);
   })();
 
-  // Recalculate lifetime stats for all affected players
+  // Recalculate lifetime stats for all affected players (both registered users & saved guests)
   for (const row of participatingUserRows) {
     if (row.user_id) {
       try {
@@ -313,9 +301,7 @@ export function adminResetAllGames(): { success: boolean; message: string; delet
     db.prepare('DELETE FROM transactions').run();
     db.prepare('DELETE FROM player_game_results').run();
     db.prepare('DELETE FROM game_players').run();
-    // 2. Delete synthetic guest users
-    db.prepare("DELETE FROM users WHERE id LIKE 'guest_%'").run();
-    // 3. Delete all games
+    // 2. Delete all games
     db.prepare('DELETE FROM games').run();
 
     // 4. Reset all lifetime stats to pure zeros
@@ -423,7 +409,11 @@ export function adminDeletePlayer(userId: string): { success: boolean; message: 
       db.prepare('DELETE FROM otp_codes WHERE email = ?').run(targetUser.email);
     }
 
-    // 10. Finally delete from users table
+    // 10. Clean up saved_guests if user created guests or was saved as guest
+    db.prepare('DELETE FROM saved_guests WHERE id = ?').run(userId);
+    db.prepare('UPDATE saved_guests SET created_by = NULL WHERE created_by = ?').run(userId);
+
+    // 11. Finally delete from users table
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
   })();
 
@@ -492,6 +482,14 @@ export function adminDeleteGuest(guestId: string): { success: boolean; message: 
     throw new Error('Guest not found');
   }
 
+  // Check if guest hosted any game, delete those games first
+  const hostedGames = db.prepare('SELECT id FROM games WHERE host_user_id = ?').all(guestId) as { id: string }[];
+  for (const g of hostedGames) {
+    try {
+      adminDeleteGame(g.id);
+    } catch (_) {}
+  }
+
   db.transaction(() => {
     // 1. Clean up loans involving this guest
     db.prepare(`
@@ -507,12 +505,13 @@ export function adminDeleteGuest(guestId: string): { success: boolean; message: 
          OR to_player_id IN (SELECT id FROM game_players WHERE user_id = ?)
     `).run(guestId, guestId);
 
-    // 3. Clean up transactions where guest was from/to player
+    // 3. Clean up transactions where guest was actor or from/to player
     db.prepare(`
       DELETE FROM transactions 
-      WHERE from_player_id IN (SELECT id FROM game_players WHERE user_id = ?)
+      WHERE actor_user_id = ?
+         OR from_player_id IN (SELECT id FROM game_players WHERE user_id = ?)
          OR to_player_id IN (SELECT id FROM game_players WHERE user_id = ?)
-    `).run(guestId, guestId);
+    `).run(guestId, guestId, guestId);
 
     // 4. Clean up player game results
     db.prepare('DELETE FROM player_game_results WHERE user_id = ?').run(guestId);
@@ -523,10 +522,13 @@ export function adminDeleteGuest(guestId: string): { success: boolean; message: 
     // 6. Clean up lifetime stats
     db.prepare('DELETE FROM player_lifetime_stats WHERE user_id = ?').run(guestId);
 
-    // 7. Delete from saved_guests table
+    // 7. Clean up friendships if any
+    db.prepare('DELETE FROM friendships WHERE user_id = ? OR friend_id = ?').run(guestId, guestId);
+
+    // 8. Delete from saved_guests table
     db.prepare('DELETE FROM saved_guests WHERE id = ?').run(guestId);
 
-    // 8. Delete from users table
+    // 9. Delete from users table
     db.prepare('DELETE FROM users WHERE id = ?').run(guestId);
   })();
 

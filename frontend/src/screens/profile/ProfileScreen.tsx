@@ -23,7 +23,8 @@ import {
   Edit2,
   History,
   ArrowRight,
-  Camera
+  Camera,
+  Trash2
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
@@ -61,6 +62,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary, onO
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [gameHistory, setGameHistory] = useState<any[]>([]);
+  const [deletingGameId, setDeletingGameId] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<any>(null);
 
@@ -168,6 +170,42 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary, onO
       setNameError(err.message || 'Failed to update name');
     } finally {
       setSavingName(false);
+    }
+  };
+
+  const handleDeleteHistoryGame = (game: any) => {
+    const message = `Are you sure you want to permanently delete "${game.name}"? Player statistics and standings will be recalculated.`;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm(message)) {
+        performDeleteGame(game.id);
+      }
+    } else {
+      Alert.alert(
+        'Delete Completed Game',
+        message,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: () => performDeleteGame(game.id) }
+        ]
+      );
+    }
+  };
+
+  const performDeleteGame = async (gameId: string) => {
+    setDeletingGameId(gameId);
+    try {
+      const res = await apiRequest(`/tables/${gameId}`, { method: 'DELETE' });
+      if (res.success) {
+        setGameHistory(prev => prev.filter(g => g.id !== gameId));
+        refreshUser();
+        Alert.alert('Deleted', 'Game record deleted and player stats updated successfully.');
+      } else {
+        Alert.alert('Delete Failed', res.error || 'Could not delete game');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to delete game');
+    } finally {
+      setDeletingGameId(null);
     }
   };
 
@@ -451,38 +489,58 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary, onO
           {gameHistory.length === 0 ? (
             <Text style={styles.emptyHistoryText}>No completed games recorded yet.</Text>
           ) : (
-            gameHistory.map(game => (
-              <TouchableOpacity
-                key={game.id}
-                style={styles.historyGameItem}
-                onPress={() => onOpenSummary && onOpenSummary(game.id)}
-                activeOpacity={0.7}
-              >
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={styles.historyGameName}>{game.name}</Text>
-                  <Text style={styles.historyGameMeta}>
-                    {game.game_type === 'TEEN_PATTI' ? 'Teen Patti' : 'Poker'} • Host: {game.host_name}
-                  </Text>
-                  <Text style={styles.historyGameDate}>
-                    📅 {formatGameDateTime(game.finalized_at || game.created_at)}
-                  </Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text
-                    style={[
-                      styles.historyGameNet,
-                      { color: (game.net_winnings_money || 0) >= 0 ? colors.successText : colors.dangerText }
-                    ]}
+            gameHistory.map(game => {
+              const isHostOrAdmin = game.host_user_id === user?.id || game.player_role === 'HOST' || isMasterAdmin;
+              const isDeleting = deletingGameId === game.id;
+              return (
+                <View key={game.id} style={styles.historyGameRow}>
+                  <TouchableOpacity
+                    style={styles.historyGameItem}
+                    onPress={() => onOpenSummary && onOpenSummary(game.id)}
+                    activeOpacity={0.7}
                   >
-                    {(game.net_winnings_money || 0) >= 0 ? `+₹${game.net_winnings_money || 0}` : `-₹${Math.abs(game.net_winnings_money || 0)}`}
-                  </Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                    <Text style={styles.finalizedBadge}>View Summary</Text>
-                    <ArrowRight size={12} color={colors.primary} style={{ marginLeft: 4 }} />
-                  </View>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={styles.historyGameName}>{game.name}</Text>
+                      <Text style={styles.historyGameMeta}>
+                        {game.game_type === 'TEEN_PATTI' ? 'Teen Patti' : 'Poker'} • Host: {game.host_name}
+                      </Text>
+                      <Text style={styles.historyGameDate}>
+                        📅 {formatGameDateTime(game.finalized_at || game.created_at)}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text
+                        style={[
+                          styles.historyGameNet,
+                          { color: (game.net_winnings_money || 0) >= 0 ? colors.successText : colors.dangerText }
+                        ]}
+                      >
+                        {(game.net_winnings_money || 0) >= 0 ? `+₹${game.net_winnings_money || 0}` : `-₹${Math.abs(game.net_winnings_money || 0)}`}
+                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                        <Text style={styles.finalizedBadge}>View Summary</Text>
+                        <ArrowRight size={12} color={colors.primary} style={{ marginLeft: 4 }} />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+
+                  {isHostOrAdmin && (
+                    <TouchableOpacity
+                      style={styles.deleteHistoryGameBtn}
+                      onPress={() => handleDeleteHistoryGame(game)}
+                      disabled={isDeleting}
+                      activeOpacity={0.7}
+                    >
+                      {isDeleting ? (
+                        <ActivityIndicator size={14} color={colors.dangerText} />
+                      ) : (
+                        <Trash2 size={16} color={colors.dangerText} />
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
-              </TouchableOpacity>
-            ))
+              );
+            })
           )}
         </View>
 
@@ -819,15 +877,30 @@ const styles = StyleSheet.create({
     marginVertical: 12,
     textAlign: 'center'
   },
+  historyGameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    gap: 8,
+  },
   historyGameItem: {
+    flex: 1,
     backgroundColor: colors.cardInset,
     borderRadius: 12,
     padding: 12,
-    marginTop: 10,
     borderWidth: 1,
     borderColor: colors.borderDark,
     flexDirection: 'row',
     alignItems: 'center'
+  },
+  deleteHistoryGameBtn: {
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: colors.dangerLight,
+    borderWidth: 1,
+    borderColor: colors.dangerBorder,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   historyGameName: {
     fontSize: 14,

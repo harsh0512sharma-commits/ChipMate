@@ -160,10 +160,10 @@ describe('Master Admin (7319123393) & Single Account Enforcement Suite', () => {
     settleService.proceedToSettlement(regularUser.id, gameId);
     settleService.finalizeGame(regularUser.id, gameId);
 
-    // Regular user cannot delete finalized game
+    // Non-host non-admin user cannot delete the game
     expect(() => {
-      tableService.deleteTable(regularUser.id, gameId);
-    }).toThrow(/Finalized games cannot be deleted/);
+      tableService.deleteTable('random_non_host_id', gameId);
+    }).toThrow(/Only the table host or an administrator can delete the table/);
 
     // Master Admin can see it in all games
     const gamesRes = await request(app)
