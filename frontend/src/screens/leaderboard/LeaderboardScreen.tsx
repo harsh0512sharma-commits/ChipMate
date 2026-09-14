@@ -9,12 +9,13 @@ import {
   ActivityIndicator,
   Image
 } from 'react-native';
-import { Trophy, Medal, Award, Flame } from 'lucide-react-native';
+import { Trophy, Medal, Award, Flame, Users, User } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
 import { Header } from '../../components/Header';
 
 export const LeaderboardScreen: React.FC = () => {
+  const [category, setCategory] = useState<'PLAYERS' | 'GUESTS'>('PLAYERS');
   const [sortBy, setSortBy] = useState<'NET_WINNINGS' | 'WIN_RATE' | 'GAMES_PLAYED' | 'BIGGEST_WIN'>('NET_WINNINGS');
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +23,10 @@ export const LeaderboardScreen: React.FC = () => {
 
   const loadLeaderboard = async () => {
     try {
-      const res = await apiRequest(`/stats/leaderboard?sortBy=${sortBy}`);
+      const endpoint = category === 'PLAYERS'
+        ? `/stats/leaderboard?sortBy=${sortBy}`
+        : `/stats/guest-leaderboard?sortBy=${sortBy}`;
+      const res = await apiRequest(endpoint);
       if (res.success) {
         setLeaderboard(res.leaderboard || []);
       }
@@ -34,8 +38,9 @@ export const LeaderboardScreen: React.FC = () => {
   };
 
   useEffect(() => {
+    setLoading(true);
     loadLeaderboard();
-  }, [sortBy]);
+  }, [category, sortBy]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -53,9 +58,36 @@ export const LeaderboardScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <Header
-        title="Friend Leaderboard"
-        subtitle="Ranked among your accepted friend network"
+        title={category === 'PLAYERS' ? 'Player Leaderboard' : 'Guest Leaderboard'}
+        subtitle={category === 'PLAYERS' ? 'Ranked among your accepted friend network' : 'Ranked among persistent saved guests across games'}
       />
+
+      {/* Category Toggle: Players vs Guests */}
+      <View style={styles.categoryToggleWrapper}>
+        <View style={styles.categoryToggleContainer}>
+          <TouchableOpacity
+            style={[styles.categoryBtn, category === 'PLAYERS' && styles.categoryBtnActive]}
+            onPress={() => setCategory('PLAYERS')}
+            activeOpacity={0.8}
+          >
+            <Users size={14} color={category === 'PLAYERS' ? '#FFF' : colors.textSecondary} style={{ marginRight: 6 }} />
+            <Text style={[styles.categoryBtnText, category === 'PLAYERS' && styles.categoryBtnTextActive]}>
+              Registered Players
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.categoryBtn, category === 'GUESTS' && styles.categoryBtnActive]}
+            onPress={() => setCategory('GUESTS')}
+            activeOpacity={0.8}
+          >
+            <User size={14} color={category === 'GUESTS' ? '#FFF' : colors.textSecondary} style={{ marginRight: 6 }} />
+            <Text style={[styles.categoryBtnText, category === 'GUESTS' && styles.categoryBtnTextActive]}>
+              Guest Rankings
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* Tabs */}
       <View style={styles.tabsWrapper}>
@@ -99,15 +131,20 @@ export const LeaderboardScreen: React.FC = () => {
         ) : leaderboard.length === 0 ? (
           <View style={styles.emptyCard}>
             <Trophy size={36} color={colors.textMuted} />
-            <Text style={styles.emptyTitle}>No games finalized yet</Text>
+            <Text style={styles.emptyTitle}>
+              {category === 'PLAYERS' ? 'No games finalized yet' : 'No guest games finalized yet'}
+            </Text>
             <Text style={styles.emptySub}>
-              Play and finalize games with friends to start ranking on the leaderboard!
+              {category === 'PLAYERS'
+                ? 'Play and finalize games with friends to start ranking on the leaderboard!'
+                : 'Seat saved guests in your games and finalize to view their performance rankings!'}
             </Text>
           </View>
         ) : (
           leaderboard.map(item => {
-            const isSelf = item.isSelf;
+            const isSelf = category === 'PLAYERS' && item.isSelf;
             const net = item.netWinnings || 0;
+            const displayName = item.displayName || item.name || 'Guest';
             return (
               <View
                 key={item.id}
@@ -120,20 +157,25 @@ export const LeaderboardScreen: React.FC = () => {
                 {item.avatarUrl ? (
                   <Image source={{ uri: item.avatarUrl }} style={styles.rankAvatarImage} />
                 ) : (
-                  <View style={styles.rankAvatar}>
-                    <Text style={styles.rankAvatarText}>
-                      {item.displayName ? item.displayName.charAt(0).toUpperCase() : 'P'}
+                  <View style={[styles.rankAvatar, category === 'GUESTS' && { borderColor: 'rgba(235, 94, 40, 0.4)' }]}>
+                    <Text style={[styles.rankAvatarText, category === 'GUESTS' && { color: colors.primary }]}>
+                      {displayName.charAt(0).toUpperCase()}
                     </Text>
                   </View>
                 )}
 
                 <View style={styles.infoContainer}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={styles.playerName}>{item.displayName}</Text>
+                    <Text style={styles.playerName}>{displayName}</Text>
                     {isSelf && <Text style={styles.youBadge}>(You)</Text>}
+                    {category === 'GUESTS' && (
+                      <View style={styles.guestPill}>
+                        <Text style={styles.guestPillText}>GUEST</Text>
+                      </View>
+                    )}
                   </View>
                   <Text style={styles.playerStats}>
-                    {item.gamesPlayed} games • {item.winRate}% win rate
+                    {item.gamesPlayed} game{item.gamesPlayed === 1 ? '' : 's'} • {item.winRate}% win rate
                     {item.currentStreak > 1 && ` • 🔥 ${item.currentStreak} streak`}
                   </Text>
                 </View>
@@ -179,6 +221,54 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background
+  },
+  categoryToggleWrapper: {
+    backgroundColor: colors.card,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 6
+  },
+  categoryToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.cardInset,
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: colors.borderDark
+  },
+  categoryBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8
+  },
+  categoryBtnActive: {
+    backgroundColor: colors.primary
+  },
+  categoryBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary
+  },
+  categoryBtnTextActive: {
+    color: '#FFF',
+    fontWeight: '700'
+  },
+  guestPill: {
+    backgroundColor: colors.cardRaised,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  guestPillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.textMuted
   },
   tabsWrapper: {
     backgroundColor: colors.card,

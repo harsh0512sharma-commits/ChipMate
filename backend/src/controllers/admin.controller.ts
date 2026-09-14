@@ -119,3 +119,32 @@ export function deletePlayer(req: AuthenticatedRequest, res: Response): void {
     });
   }
 }
+
+export function getAllGuests(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const guests = adminService.getAdminAllGuests();
+    res.json({ success: true, guests, count: guests.length });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to fetch guests' });
+  }
+}
+
+export function deleteGuest(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const rawGuestId = req.params.guestId;
+    const guestId = Array.isArray(rawGuestId) ? rawGuestId[0] : rawGuestId;
+    if (!guestId) {
+      res.status(400).json({ success: false, error: 'Guest ID is required' });
+      return;
+    }
+
+    const result = adminService.adminDeleteGuest(guestId);
+    res.json(result);
+  } catch (err: any) {
+    const status = err.message === 'Guest not found' ? 404 : 500;
+    res.status(status).json({
+      success: false,
+      error: err.message || 'Failed to delete guest',
+    });
+  }
+}

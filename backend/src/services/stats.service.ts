@@ -38,7 +38,7 @@ export function updateLifetimeStatsForFinalizedGame(
   const db = getDb();
 
   for (const p of players) {
-    if (!p.userId || p.userId.startsWith('guest_')) {
+    if (!p.userId) {
       continue;
     }
     // Recompute complete lifetime stats from all finalized games for this user to guarantee mathematical purity
@@ -223,7 +223,7 @@ export function getFriendLeaderboard(userId: string, sortBy: 'NET_WINNINGS' | 'W
       COALESCE(s.current_streak, 0) as current_streak
     FROM users u
     LEFT JOIN player_lifetime_stats s ON u.id = s.user_id
-    WHERE u.id IN (${placeholders})
+    WHERE u.id IN (${placeholders}) AND u.id NOT LIKE 'guest_%'
     ORDER BY ${orderClause}
   `).all(...userIds) as any[];
 
@@ -242,6 +242,72 @@ export function getFriendLeaderboard(userId: string, sortBy: 'NET_WINNINGS' | 'W
     netChips: r.net_chips,
     biggestWin: r.biggest_win,
     currentStreak: r.current_streak
+  }));
+}
+
+export interface GuestLeaderboardItem {
+  rank: number;
+  id: string;
+  name: string;
+  displayName: string;
+  gamesPlayed: number;
+  gamesWon: number;
+  winRate: number;
+  netWinnings: number;
+  netChips: number;
+  biggestWin: number;
+  currentStreak: number;
+}
+
+export function getGuestLeaderboard(
+  sortBy: 'NET_WINNINGS' | 'WIN_RATE' | 'GAMES_PLAYED' | 'BIGGEST_WIN' = 'NET_WINNINGS'
+): GuestLeaderboardItem[] {
+  const db = getDb();
+
+  const savedGuests = db.prepare('SELECT id, name FROM saved_guests').all() as { id: string; name: string }[];
+  if (!savedGuests || savedGuests.length === 0) return [];
+
+  for (const g of savedGuests) {
+    try {
+      recalculateUserLifetimeStats(g.id);
+    } catch (_) {}
+  }
+
+  const guestIds = savedGuests.map(g => g.id);
+  const placeholders = guestIds.map(() => '?').join(',');
+
+  let orderClause = 's.net_winnings DESC';
+  if (sortBy === 'WIN_RATE') orderClause = 's.win_rate DESC, s.games_played DESC';
+  if (sortBy === 'GAMES_PLAYED') orderClause = 's.games_played DESC, s.net_winnings DESC';
+  if (sortBy === 'BIGGEST_WIN') orderClause = 's.biggest_win DESC';
+
+  const rows = db.prepare(`
+    SELECT g.id, g.name,
+      COALESCE(s.games_played, 0) as games_played,
+      COALESCE(s.games_won, 0) as games_won,
+      COALESCE(s.win_rate, 0) as win_rate,
+      COALESCE(s.net_winnings, 0) as net_winnings,
+      COALESCE(s.net_chips, 0) as net_chips,
+      COALESCE(s.biggest_win, 0) as biggest_win,
+      COALESCE(s.current_streak, 0) as current_streak
+    FROM saved_guests g
+    LEFT JOIN player_lifetime_stats s ON g.id = s.user_id
+    WHERE g.id IN (${placeholders})
+    ORDER BY ${orderClause}
+  `).all(...guestIds) as any[];
+
+  return rows.map((r, idx) => ({
+    rank: idx + 1,
+    id: r.id,
+    name: r.name,
+    displayName: r.name,
+    gamesPlayed: Number(r.games_played) || 0,
+    gamesWon: Number(r.games_won) || 0,
+    winRate: Number(r.win_rate) || 0,
+    netWinnings: Number(r.net_winnings) || 0,
+    netChips: Number(r.net_chips) || 0,
+    biggestWin: Number(r.biggest_win) || 0,
+    currentStreak: Number(r.current_streak) || 0
   }));
 }
 

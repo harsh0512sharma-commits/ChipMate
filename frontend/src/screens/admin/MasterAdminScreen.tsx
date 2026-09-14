@@ -79,6 +79,20 @@ interface AdminPlayer {
   games_hosted_count: number;
 }
 
+interface AdminGuest {
+  id: string;
+  name: string;
+  created_at: string;
+  games_played: number;
+  games_won: number;
+  games_lost: number;
+  win_rate: number;
+  net_winnings: number;
+  total_buyins: number;
+  biggest_win: number;
+  biggest_loss: number;
+}
+
 interface AdminGame {
   id: string;
   code: string;
@@ -99,17 +113,19 @@ interface AdminGame {
 }
 
 export const MasterAdminScreen: React.FC<MasterAdminScreenProps> = ({ onBack, onOpenSummary }) => {
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'PLAYERS' | 'GAMES'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'PLAYERS' | 'GUESTS' | 'GAMES'>('OVERVIEW');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   // Data
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [players, setPlayers] = useState<AdminPlayer[]>([]);
+  const [guests, setGuests] = useState<AdminGuest[]>([]);
   const [games, setGames] = useState<AdminGame[]>([]);
 
   // Search
   const [playerSearch, setPlayerSearch] = useState('');
+  const [guestSearch, setGuestSearch] = useState('');
   const [gameSearch, setGameSearch] = useState('');
 
   // Player Dossier Modal
@@ -120,6 +136,7 @@ export const MasterAdminScreen: React.FC<MasterAdminScreenProps> = ({ onBack, on
   // Deleting state
   const [deletingGameId, setDeletingGameId] = useState<string | null>(null);
   const [deletingPlayerId, setDeletingPlayerId] = useState<string | null>(null);
+  const [deletingGuestId, setDeletingGuestId] = useState<string | null>(null);
   const [resettingAll, setResettingAll] = useState(false);
 
   useEffect(() => {
@@ -129,14 +146,16 @@ export const MasterAdminScreen: React.FC<MasterAdminScreenProps> = ({ onBack, on
   const loadAllAdminData = async () => {
     setLoading(true);
     try {
-      const [overviewRes, playersRes, gamesRes] = await Promise.all([
+      const [overviewRes, playersRes, guestsRes, gamesRes] = await Promise.all([
         apiRequest('/admin/overview'),
         apiRequest('/admin/users'),
+        apiRequest('/admin/guests'),
         apiRequest('/admin/games'),
       ]);
 
       if (overviewRes.success) setOverview(overviewRes.overview);
       if (playersRes.success) setPlayers(playersRes.players || []);
+      if (guestsRes.success) setGuests(guestsRes.guests || []);
       if (gamesRes.success) setGames(gamesRes.games || []);
     } catch (err: any) {
       Alert.alert('Admin Error', err.message || 'Failed to load master admin data');
@@ -276,6 +295,42 @@ export const MasterAdminScreen: React.FC<MasterAdminScreenProps> = ({ onBack, on
     }
   };
 
+  const handleDeleteGuest = async (guest: AdminGuest) => {
+    const performDelete = async () => {
+      setDeletingGuestId(guest.id);
+      try {
+        const res = await apiRequest(`/admin/guests/${guest.id}`, {
+          method: 'DELETE'
+        });
+        if (res.success) {
+          Alert.alert('Success', `Guest "${guest.name}" deleted successfully.`);
+          loadAllAdminData();
+        } else {
+          Alert.alert('Error', res.error || 'Failed to delete guest');
+        }
+      } catch (err: any) {
+        Alert.alert('Error', err.message || 'Failed to delete guest');
+      } finally {
+        setDeletingGuestId(null);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Are you sure you want to permanently delete guest "${guest.name}"? This cascades all guest records.`)) {
+        await performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Guest',
+        `Are you sure you want to delete guest "${guest.name}"? This action cannot be undone.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: performDelete }
+        ]
+      );
+    }
+  };
+
   const filteredPlayers = players.filter(p => {
     if (!playerSearch.trim()) return true;
     const q = playerSearch.toLowerCase();
@@ -284,6 +339,15 @@ export const MasterAdminScreen: React.FC<MasterAdminScreenProps> = ({ onBack, on
       p.phone_number?.includes(q) ||
       p.friend_code?.toLowerCase().includes(q) ||
       p.email?.toLowerCase().includes(q)
+    );
+  });
+
+  const filteredGuests = guests.filter(g => {
+    if (!guestSearch.trim()) return true;
+    const q = guestSearch.toLowerCase();
+    return (
+      g.name?.toLowerCase().includes(q) ||
+      g.id?.toLowerCase().includes(q)
     );
   });
 
@@ -332,6 +396,16 @@ export const MasterAdminScreen: React.FC<MasterAdminScreenProps> = ({ onBack, on
           <Users size={16} color={activeTab === 'PLAYERS' ? '#FFD700' : colors.textMuted} />
           <Text style={[styles.tabText, activeTab === 'PLAYERS' && styles.tabTextActive]}>
             Players ({players.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'GUESTS' && styles.tabItemActive]}
+          onPress={() => setActiveTab('GUESTS')}
+        >
+          <UserCheck size={16} color={activeTab === 'GUESTS' ? '#FFD700' : colors.textMuted} />
+          <Text style={[styles.tabText, activeTab === 'GUESTS' && styles.tabTextActive]}>
+            Guests ({guests.length})
           </Text>
         </TouchableOpacity>
 
@@ -516,6 +590,101 @@ export const MasterAdminScreen: React.FC<MasterAdminScreenProps> = ({ onBack, on
                         </View>
                       </View>
                     </TouchableOpacity>
+                  );
+                })
+              )}
+            </View>
+          )}
+
+          {/* GUESTS TAB */}
+          {activeTab === 'GUESTS' && (
+            <View>
+              <View style={styles.searchBar}>
+                <Search size={18} color={colors.textMuted} style={{ marginRight: 8 }} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search guest players by name or ID..."
+                  placeholderTextColor={colors.textMuted}
+                  value={guestSearch}
+                  onChangeText={setGuestSearch}
+                />
+                {guestSearch.length > 0 && (
+                  <TouchableOpacity onPress={() => setGuestSearch('')}>
+                    <X size={16} color={colors.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {filteredGuests.length === 0 ? (
+                <View style={styles.emptyCard}>
+                  <Text style={styles.emptyText}>No saved guests found</Text>
+                </View>
+              ) : (
+                filteredGuests.map(g => {
+                  const isDeleting = deletingGuestId === g.id;
+                  const net = g.net_winnings || 0;
+                  return (
+                    <View key={g.id} style={styles.playerCard}>
+                      <View style={styles.playerCardHeader}>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <Text style={styles.playerName}>{g.name}</Text>
+                            <View style={styles.guestTag}>
+                              <Text style={styles.guestTagText}>SAVED GUEST</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.playerSub}>
+                            ID: {g.id} • Added: {new Date(g.created_at).toLocaleDateString()}
+                          </Text>
+                        </View>
+
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text
+                            style={[
+                              styles.playerNet,
+                              { color: net >= 0 ? colors.successText : colors.dangerText }
+                            ]}
+                          >
+                            {net >= 0 ? `+₹${net.toLocaleString('en-IN')}` : `-₹${Math.abs(net).toLocaleString('en-IN')}`}
+                          </Text>
+                          <Text style={styles.playerWinRate}>{g.win_rate}% Win ({g.games_won}W - {g.games_lost}L)</Text>
+                        </View>
+                      </View>
+
+                      {/* Stats Grid */}
+                      <View style={styles.guestStatRow}>
+                        <View style={styles.guestStatItem}>
+                          <Text style={styles.guestStatLabel}>Games</Text>
+                          <Text style={styles.guestStatVal}>{g.games_played}</Text>
+                        </View>
+                        <View style={styles.guestStatItem}>
+                          <Text style={styles.guestStatLabel}>Total Buy-ins</Text>
+                          <Text style={styles.guestStatVal}>₹{(g.total_buyins || 0).toLocaleString('en-IN')}</Text>
+                        </View>
+                        <View style={styles.guestStatItem}>
+                          <Text style={styles.guestStatLabel}>Biggest Win</Text>
+                          <Text style={styles.guestStatVal}>+₹{(g.biggest_win || 0).toLocaleString('en-IN')}</Text>
+                        </View>
+                      </View>
+
+                      {/* Footer / Delete */}
+                      <View style={[styles.playerFooter, { justifyContent: 'flex-end' }]}>
+                        <TouchableOpacity
+                          style={styles.deletePlayerBtnSmall}
+                          onPress={() => handleDeleteGuest(g)}
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? (
+                            <ActivityIndicator size="small" color={colors.dangerText} />
+                          ) : (
+                            <>
+                              <Trash2 size={12} color={colors.dangerText} style={{ marginRight: 3 }} />
+                              <Text style={styles.deletePlayerTextSmall}>Delete Guest</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   );
                 })
               )}
@@ -1033,6 +1202,44 @@ const styles = StyleSheet.create({
     color: '#FFD700',
     fontSize: 9,
     fontWeight: '800',
+  },
+  guestTag: {
+    backgroundColor: 'rgba(235, 94, 40, 0.15)',
+    borderColor: 'rgba(235, 94, 40, 0.4)',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    marginLeft: 6,
+  },
+  guestTagText: {
+    color: colors.primary,
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  guestStatRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#0D1117',
+    borderRadius: 8,
+    padding: 8,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#21262D',
+  },
+  guestStatItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  guestStatLabel: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginBottom: 2,
+  },
+  guestStatVal: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFF',
   },
   playerSub: {
     fontSize: 12,

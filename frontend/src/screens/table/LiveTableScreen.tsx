@@ -131,6 +131,8 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const [showAddGuestModal, setShowAddGuestModal] = useState(false);
   const [guestNameInput, setGuestNameInput] = useState('');
   const [addingGuest, setAddingGuest] = useState(false);
+  const [savedGuests, setSavedGuests] = useState<any[]>([]);
+  const [loadingSavedGuests, setLoadingSavedGuests] = useState(false);
   const [friends, setFriends] = useState<any[]>([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [addFriendFeedback, setAddFriendFeedback] = useState<string | null>(null);
@@ -294,6 +296,41 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
       }
     } catch (err: any) {
       Alert.alert('Seating Error', err.message || 'Could not seat friend');
+    }
+  };
+
+  const loadSavedGuests = async () => {
+    setLoadingSavedGuests(true);
+    try {
+      const res = await apiRequest('/tables/guests');
+      if (res.success && res.guests) {
+        setSavedGuests(res.guests);
+      }
+    } catch (_) {
+    } finally {
+      setLoadingSavedGuests(false);
+    }
+  };
+
+  const handleSeatSavedGuest = async (guest: { id: string; name: string }) => {
+    setAddingGuest(true);
+    try {
+      const res = await apiRequest(`/tables/${tableId}/seat-guest`, {
+        method: 'POST',
+        body: { guestId: guest.id }
+      });
+      if (res.success) {
+        setShowAddGuestModal(false);
+        setAddFriendFeedback(`✓ Seated guest "${res.displayName}" at the table!`);
+        setTimeout(() => setAddFriendFeedback(null), 3500);
+        fetchTableData();
+      } else {
+        Alert.alert('Error', res.error || 'Failed to add guest player');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to add guest player');
+    } finally {
+      setAddingGuest(false);
     }
   };
 
@@ -894,7 +931,10 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <TouchableOpacity
                 style={styles.seatGuestHeaderBtn}
-                onPress={() => setShowAddGuestModal(true)}
+                onPress={() => {
+                  loadSavedGuests();
+                  setShowAddGuestModal(true);
+                }}
                 activeOpacity={0.7}
               >
                 <Plus size={13} color="#FFF" style={{ marginRight: 3 }} />
@@ -1092,29 +1132,62 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
       {/* ADD GUEST PLAYER MODAL */}
       <Modal visible={showAddGuestModal} transparent animationType="fade" onRequestClose={() => setShowAddGuestModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { maxHeight: '85%' }]}>
             <View style={styles.modalHeaderRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalTitle}>Seat Guest Player</Text>
-                <Text style={styles.modalSubtitle}>Add an offline / non-app player to this table.</Text>
+                <Text style={styles.modalSubtitle}>Pick from saved guests or create a new one.</Text>
               </View>
               <TouchableOpacity onPress={() => setShowAddGuestModal(false)} style={styles.modalCloseBtn} activeOpacity={0.7}>
                 <X size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            <View style={{ marginTop: 14 }}>
-              <Text style={styles.guestInputLabel}>GUEST PLAYER NAME *</Text>
+            {/* SAVED GUESTS LIST */}
+            {loadingSavedGuests ? (
+              <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 14 }} />
+            ) : savedGuests && savedGuests.length > 0 ? (
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.guestInputLabel}>SAVED GUESTS (TAP TO SEAT)</Text>
+                <ScrollView style={{ maxHeight: 150, marginVertical: 6 }} nestedScrollEnabled>
+                  {savedGuests
+                    .filter(sg => !(players || []).some((p: any) => p.user_id === sg.id || p.id === sg.id || (p.is_guest && p.display_name?.toLowerCase() === sg.name?.toLowerCase())))
+                    .map((g: any) => (
+                      <View key={g.id} style={styles.savedGuestRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.savedGuestName}>{g.name}</Text>
+                          <Text style={styles.savedGuestSub}>
+                            {g.games_played > 0 ? `${g.games_played} game${g.games_played === 1 ? '' : 's'} played` : 'Saved Guest'}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.savedGuestSeatBtn}
+                          onPress={() => handleSeatSavedGuest(g)}
+                          disabled={addingGuest}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.savedGuestSeatBtnText}>+ Seat</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                </ScrollView>
+              </View>
+            ) : null}
+
+            {/* CREATE NEW GUEST */}
+            <View style={{ marginTop: 10 }}>
+              <Text style={styles.guestInputLabel}>
+                {savedGuests.length > 0 ? 'OR CREATE NEW GUEST *' : 'GUEST PLAYER NAME *'}
+              </Text>
               <TextInput
                 style={styles.guestTextInput}
-                placeholder="e.g. Rohan, Uncle Dave, Player 4"
+                placeholder="e.g. Rohan, Dev, Uncle Dave"
                 placeholderTextColor={colors.textMuted}
-                autoFocus
                 value={guestNameInput}
                 onChangeText={setGuestNameInput}
               />
               <Text style={styles.guestHintText}>
-                Guest players can buy chips, take loans, transfer chips, and participate in final settlements without an account.
+                New guests are automatically saved so you can seat them in future games with 1 tap.
               </Text>
 
               <TouchableOpacity
@@ -1126,7 +1199,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                 {addingGuest ? (
                   <ActivityIndicator color="#FFF" />
                 ) : (
-                  <Text style={styles.addGuestSubmitBtnText}>Seat Guest at Table</Text>
+                  <Text style={styles.addGuestSubmitBtnText}>+ Create & Seat Guest</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1817,6 +1890,39 @@ const styles = StyleSheet.create({
   seatFriendHeaderBtnText: {
     fontSize: 12,
     color: colors.primary,
+    fontWeight: '700'
+  },
+  savedGuestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.cardInset,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: colors.borderDark
+  },
+  savedGuestName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text
+  },
+  savedGuestSub: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2
+  },
+  savedGuestSeatBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8
+  },
+  savedGuestSeatBtnText: {
+    color: '#FFF',
+    fontSize: 12,
     fontWeight: '700'
   },
   guestInputLabel: {

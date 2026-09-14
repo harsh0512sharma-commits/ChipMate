@@ -109,6 +109,10 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
   const [loadingFriends, setLoadingFriends] = useState(true);
 
+  // Saved Guests Seating
+  const [savedGuests, setSavedGuests] = useState<any[]>([]);
+  const [selectedGuestIds, setSelectedGuestIds] = useState<string[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,11 +125,25 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
       })
       .catch(err => console.warn('Failed to load friends:', err))
       .finally(() => setLoadingFriends(false));
+
+    apiRequest('/tables/guests')
+      .then(res => {
+        if (res.success && res.guests) {
+          setSavedGuests(res.guests);
+        }
+      })
+      .catch(err => console.warn('Failed to load saved guests:', err));
   }, []);
 
   const toggleFriend = (friendId: string) => {
     setSelectedFriendIds(prev =>
       prev.includes(friendId) ? prev.filter(id => id !== friendId) : [...prev, friendId]
+    );
+  };
+
+  const toggleGuest = (guestId: string) => {
+    setSelectedGuestIds(prev =>
+      prev.includes(guestId) ? prev.filter(id => id !== guestId) : [...prev, guestId]
     );
   };
 
@@ -183,7 +201,8 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
             chipValue: denomEffectiveChipValue,
             chipMode: 'DENOMINATION',
             denominations: validDenoms,
-            initialFriendUserIds: selectedFriendIds
+            initialFriendUserIds: selectedFriendIds,
+            initialGuestIds: selectedGuestIds
           }
         });
 
@@ -215,7 +234,8 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
           totalChips: numChips,
           chipValue: numValue,
           chipMode: 'EQUAL',
-          initialFriendUserIds: selectedFriendIds
+          initialFriendUserIds: selectedFriendIds,
+          initialGuestIds: selectedGuestIds
         }
       });
 
@@ -605,6 +625,59 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
             </View>
           )}
         </View>
+
+        {/* Seat Saved Guests (Offline Players) */}
+        {savedGuests.length > 0 && (
+          <View style={styles.formGroup}>
+            <View style={styles.friendHeaderRow}>
+              <Users size={16} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.label}>Seat Saved Guests</Text>
+            </View>
+            <Text style={styles.hint}>
+              Tap offline or recurring guest players to seat them at the table right away.
+            </Text>
+
+            <View style={styles.friendListGrid}>
+              {savedGuests.map(guest => {
+                const isSelected = selectedGuestIds.includes(guest.id);
+                return (
+                  <TouchableOpacity
+                    key={guest.id}
+                    onPress={() => toggleGuest(guest.id)}
+                    style={[
+                      styles.friendItemCard,
+                      isSelected && styles.friendItemCardSelected
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.friendAvatarBadge, { backgroundColor: colors.cardRaised }]}>
+                      <Text style={styles.friendAvatarText}>
+                        {guest.name ? guest.name.charAt(0).toUpperCase() : 'G'}
+                      </Text>
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.friendNameText, isSelected && styles.friendNameTextSelected]} numberOfLines={1}>
+                        {guest.name}
+                      </Text>
+                      <Text style={styles.friendCodeSmall}>
+                        {guest.games_played > 0 ? `${guest.games_played} game${guest.games_played === 1 ? '' : 's'}` : 'Guest'}
+                      </Text>
+                    </View>
+
+                    <View style={[styles.friendCheckCircle, isSelected && styles.friendCheckCircleSelected]}>
+                      {isSelected ? (
+                        <Check size={12} color="#FFF" />
+                      ) : (
+                        <UserPlus size={12} color={colors.textMuted} />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* Real-Time Mathematical Pot Preview */}
         <View style={styles.calculationCard}>

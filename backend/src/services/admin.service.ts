@@ -437,3 +437,106 @@ export function adminDeletePlayer(userId: string): { success: boolean; message: 
   };
 }
 
+export interface AdminGuestSummary {
+  id: string;
+  name: string;
+  created_by: string | null;
+  created_at: string;
+  games_played: number;
+  games_won: number;
+  games_lost: number;
+  net_winnings: number;
+  win_rate: number;
+  total_buyins: number;
+  biggest_win: number;
+  biggest_loss: number;
+}
+
+export function getAdminAllGuests(): AdminGuestSummary[] {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT g.id, g.name, g.created_by, g.created_at,
+      COALESCE(s.games_played, 0) as games_played,
+      COALESCE(s.games_won, 0) as games_won,
+      COALESCE(s.games_lost, 0) as games_lost,
+      COALESCE(s.net_winnings, 0) as net_winnings,
+      COALESCE(s.win_rate, 0) as win_rate,
+      COALESCE(s.total_buyins, 0) as total_buyins,
+      COALESCE(s.biggest_win, 0) as biggest_win,
+      COALESCE(s.biggest_loss, 0) as biggest_loss
+    FROM saved_guests g
+    LEFT JOIN player_lifetime_stats s ON g.id = s.user_id
+    ORDER BY games_played DESC, g.name ASC
+  `).all() as any[];
+
+  return rows.map(r => ({
+    id: r.id,
+    name: r.name,
+    created_by: r.created_by,
+    created_at: r.created_at,
+    games_played: Number(r.games_played) || 0,
+    games_won: Number(r.games_won) || 0,
+    games_lost: Number(r.games_lost) || 0,
+    net_winnings: Number(r.net_winnings) || 0,
+    win_rate: Number(r.win_rate) || 0,
+    total_buyins: Number(r.total_buyins) || 0,
+    biggest_win: Number(r.biggest_win) || 0,
+    biggest_loss: Number(r.biggest_loss) || 0
+  }));
+}
+
+export function adminDeleteGuest(guestId: string): { success: boolean; message: string } {
+  const db = getDb();
+  const guest = db.prepare('SELECT * FROM saved_guests WHERE id = ?').get(guestId) as any;
+  if (!guest) {
+    throw new Error('Guest not found');
+  }
+
+  db.transaction(() => {
+    // 1. Clean up loans involving this guest
+    db.prepare(`
+      DELETE FROM loans 
+      WHERE lender_id IN (SELECT id FROM game_players WHERE user_id = ?)
+         OR borrower_id IN (SELECT id FROM game_players WHERE user_id = ?)
+    `).run(guestId, guestId);
+
+    // 2. Clean up settlement items involving this guest
+    db.prepare(`
+      DELETE FROM settlement_items 
+      WHERE from_player_id IN (SELECT id FROM game_players WHERE user_id = ?)
+         OR to_player_id IN (SELECT id FROM game_players WHERE user_id = ?)
+    `).run(guestId, guestId);
+
+    // 3. Clean up transactions where guest was from/to player
+    db.prepare(`
+      DELETE FROM transactions 
+      WHERE from_player_id IN (SELECT id FROM game_players WHERE user_id = ?)
+         OR to_player_id IN (SELECT id FROM game_players WHERE user_id = ?)
+    `).run(guestId, guestId);
+
+    // 4. Clean up player game results
+    db.prepare('DELETE FROM player_game_results WHERE user_id = ?').run(guestId);
+
+    // 5. Clean up game players
+    db.prepare('DELETE FROM game_players WHERE user_id = ?').run(guestId);
+
+    // 6. Clean up lifetime stats
+    db.prepare('DELETE FROM player_lifetime_stats WHERE user_id = ?').run(guestId);
+
+    // 7. Delete from saved_guests table
+    db.prepare('DELETE FROM saved_guests WHERE id = ?').run(guestId);
+
+    // 8. Delete from users table
+    db.prepare('DELETE FROM users WHERE id = ?').run(guestId);
+  })();
+
+  flushReplicationQueue().catch(err => {
+    console.warn('[adminDeleteGuest] Cloud replication flush error:', err.message);
+  });
+
+  return {
+    success: true,
+    message: `Guest "${guest.name}" permanently deleted.`
+  };
+}
+

@@ -36,6 +36,7 @@ router.post('/tables/join', requireAuth, tableCtrl.joinTable);
 router.post('/tables/:tableId/players', requireAuth, tableCtrl.addPlayer);
 router.post('/tables/:tableId/seat-friend', requireAuth, tableCtrl.seatFriend);
 router.post('/tables/:tableId/seat-guest', requireAuth, tableCtrl.seatGuest);
+router.get('/tables/guests', requireAuth, tableCtrl.getSavedGuests);
 router.delete('/tables/:tableId/players/:playerId', requireAuth, tableCtrl.removePlayer);
 router.post('/tables/:tableId/start', requireAuth, tableCtrl.startTable);
 router.get('/tables/active', requireAuth, tableCtrl.getActiveTables);
@@ -63,6 +64,7 @@ router.post('/tables/:tableId/settle/payment-status', requireAuth, settleCtrl.up
 
 // Stats & Leaderboard routes
 router.get('/stats/leaderboard', requireAuth, statsCtrl.getLeaderboard);
+router.get('/stats/guest-leaderboard', requireAuth, statsCtrl.getGuestLeaderboard);
 router.get('/stats/head-to-head/:otherUserId', requireAuth, statsCtrl.getHeadToHead);
 router.get('/stats/game-insights/:gameId', requireAuth, statsCtrl.getInsights);
 router.get('/stats/user', requireAuth, statsCtrl.getUserStats);
@@ -73,6 +75,8 @@ router.get('/admin/overview', requireAuth, adminCtrl.requireMasterAdmin, adminCt
 router.get('/admin/users', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.getAllPlayers);
 router.get('/admin/users/:userId', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.getPlayerDetails);
 router.delete('/admin/users/:userId', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.deletePlayer);
+router.get('/admin/guests', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.getAllGuests);
+router.delete('/admin/guests/:guestId', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.deleteGuest);
 router.get('/admin/games', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.getAllGames);
 router.delete('/admin/games/:gameId', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.deleteGame);
 router.post('/admin/reset-games', requireAuth, adminCtrl.requireMasterAdmin, adminCtrl.resetAllGames);

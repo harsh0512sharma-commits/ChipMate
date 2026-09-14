@@ -25,7 +25,8 @@ export function createTable(req: AuthenticatedRequest, res: Response): void {
       chipValue: chipValue ? parseFloat(chipValue) : 10,
       chipMode: chipMode === 'DENOMINATION' ? 'DENOMINATION' : 'EQUAL',
       denominations: denominations || undefined,
-      initialFriendUserIds: Array.isArray(initialFriendUserIds) ? initialFriendUserIds : undefined
+      initialFriendUserIds: Array.isArray(initialFriendUserIds) ? initialFriendUserIds : undefined,
+      initialGuestIds: Array.isArray(req.body.initialGuestIds) ? req.body.initialGuestIds : undefined
     });
 
     res.json({ success: true, ...result });
@@ -175,18 +176,27 @@ export function getTableHistory(req: AuthenticatedRequest, res: Response): void 
   }
 }
 
+export function getSavedGuests(_req: AuthenticatedRequest, res: Response): void {
+  try {
+    const guests = tableService.getSavedGuests();
+    res.json({ success: true, guests });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to fetch saved guests' });
+  }
+}
+
 export function seatGuest(req: AuthenticatedRequest, res: Response): void {
   try {
     const hostUserId = req.user!.userId;
     const tableId = req.params.tableId as string;
-    const { guestName } = req.body;
+    const { guestName, guestId } = req.body;
 
-    if (!guestName || !guestName.trim()) {
-      res.status(400).json({ success: false, error: 'guestName is required' });
+    if (!guestName && !guestId) {
+      res.status(400).json({ success: false, error: 'guestName or guestId is required' });
       return;
     }
 
-    const result = tableService.seatGuestPlayer(hostUserId, tableId, guestName.trim());
+    const result = tableService.seatGuestPlayer(hostUserId, tableId, { guestId, guestName });
     broadcastTableUpdate(tableId, 'PLAYER_SEATED', result);
     res.json(result);
   } catch (err: any) {

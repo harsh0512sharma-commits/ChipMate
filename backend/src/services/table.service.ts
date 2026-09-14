@@ -71,7 +71,8 @@ export function createTable(params: {
   chipMode?: 'EQUAL' | 'DENOMINATION';
   denominations?: DenominationConfig[] | number[] | string;
   initialFriendUserIds?: string[];
-}): { table: GameTableRecord; hostPlayerId: string; seatedFriendsCount: number } {
+  initialGuestIds?: string[];
+}): { table: GameTableRecord; hostPlayerId: string; seatedFriendsCount: number; seatedGuestsCount: number } {
   const db = getDb();
 
   // Concurrency check: Ensure host is not already in an active game
@@ -126,6 +127,7 @@ export function createTable(params: {
   const now = new Date().toISOString();
 
   let seatedFriendsCount = 0;
+  let seatedGuestsCount = 0;
 
   const insertGame = db.transaction(() => {
     db.prepare(`
@@ -160,12 +162,27 @@ export function createTable(params: {
         }
       }
     }
+
+    seatedGuestsCount = 0;
+    if (params.initialGuestIds && params.initialGuestIds.length > 0) {
+      for (const guestId of params.initialGuestIds) {
+        const guest = db.prepare('SELECT * FROM saved_guests WHERE id = ?').get(guestId) as any;
+        if (guest) {
+          const gPlayerId = uuidv4();
+          db.prepare(`
+            INSERT INTO game_players (id, game_id, user_id, role, current_chips, total_buyin_amount, total_buyin_chips, is_guest, guest_name, joined_at)
+            VALUES (?, ?, ?, 'PLAYER', 0, 0, 0, 1, ?, ?)
+          `).run(gPlayerId, id, guest.id, guest.name, now);
+          seatedGuestsCount++;
+        }
+      }
+    }
   });
 
   insertGame();
 
   const table = db.prepare('SELECT * FROM games WHERE id = ?').get(id) as GameTableRecord;
-  return { table, hostPlayerId, seatedFriendsCount };
+  return { table, hostPlayerId, seatedFriendsCount, seatedGuestsCount };
 }
 
 export function updateTableSettings(params: {
@@ -529,10 +546,41 @@ export function getUserCompletedTables(userId: string) {
   `).all(userId, userId, userId, userId, userId, userId) as any[];
 }
 
-export function seatGuestPlayer(hostUserId: string, tableId: string, guestName: string): {
+export interface SavedGuestRecord {
+  id: string;
+  name: string;
+  created_by: string | null;
+  created_at: string;
+  games_played: number;
+}
+
+export function getSavedGuests(): SavedGuestRecord[] {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT g.id, g.name, g.created_by, g.created_at,
+      (SELECT COUNT(DISTINCT gp.game_id) FROM game_players gp JOIN games gm ON gp.game_id = gm.id WHERE gp.user_id = g.id AND gm.status = 'FINALIZED') as games_played
+    FROM saved_guests g
+    ORDER BY games_played DESC, g.name ASC
+  `).all() as any[];
+
+  return rows.map(r => ({
+    id: r.id,
+    name: r.name,
+    created_by: r.created_by,
+    created_at: r.created_at,
+    games_played: Number(r.games_played) || 0
+  }));
+}
+
+export function seatGuestPlayer(
+  hostUserId: string,
+  tableId: string,
+  payload: string | { guestId?: string; guestName?: string }
+): {
   success: boolean;
   playerId: string;
   displayName: string;
+  guestId: string;
 } {
   const db = getDb();
   const table = db.prepare('SELECT * FROM games WHERE id = ?').get(tableId) as GameTableRecord | undefined;
@@ -542,32 +590,63 @@ export function seatGuestPlayer(hostUserId: string, tableId: string, guestName: 
     throw new Error('Cannot seat players in a finalized game');
   }
 
-  const cleanName = guestName.trim();
-  if (!cleanName || cleanName.length < 2) {
-    throw new Error('Please enter a valid name for the guest (at least 2 characters)');
+  const guestIdArg = typeof payload === 'object' ? payload.guestId : undefined;
+  const guestNameArg = typeof payload === 'object' ? payload.guestName : payload;
+
+  let guestUserId = '';
+  let cleanName = '';
+  const now = new Date().toISOString();
+
+  if (guestIdArg) {
+    const saved = db.prepare('SELECT * FROM saved_guests WHERE id = ?').get(guestIdArg) as any;
+    if (!saved) throw new Error('Saved guest not found');
+    guestUserId = saved.id;
+    cleanName = saved.name;
+  } else if (guestNameArg) {
+    cleanName = guestNameArg.trim();
+    if (!cleanName || cleanName.length < 2) {
+      throw new Error('Please enter a valid name for the guest (at least 2 characters)');
+    }
+
+    // Look up if a saved guest already exists with this name (case-insensitive)
+    const existingGuest = db.prepare('SELECT * FROM saved_guests WHERE LOWER(name) = LOWER(?)').get(cleanName) as any;
+    if (existingGuest) {
+      guestUserId = existingGuest.id;
+      cleanName = existingGuest.name;
+    } else {
+      // Create persistent guest
+      guestUserId = 'guest_' + uuidv4();
+      db.prepare(`
+        INSERT INTO saved_guests (id, name, created_by, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(guestUserId, cleanName, hostUserId, now, now);
+    }
+  } else {
+    throw new Error('Guest name or guest ID is required');
   }
 
-  const guestUserId = 'guest_' + uuidv4();
-  const playerId = uuidv4();
-  const now = new Date().toISOString();
+  // Ensure guest exists in users table so foreign keys and joins succeed
   const dummyEmail = `${guestUserId}@chipmate.guest`;
-  const dummyFriendCode = `GUEST_${uuidv4().substring(0, 8).toUpperCase()}`;
+  const dummyFriendCode = `GUEST_${cleanName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8)}`;
+  db.prepare(`
+    INSERT INTO users (id, phone_number, email, display_name, friend_code, created_at, updated_at)
+    VALUES (?, NULL, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET display_name = excluded.display_name
+  `).run(guestUserId, dummyEmail, cleanName, dummyFriendCode, now, now);
 
-  db.transaction(() => {
-    // 1. Insert synthetic guest in users table so foreign keys and joins are 100% compliant
-    db.prepare(`
-      INSERT INTO users (id, phone_number, email, display_name, friend_code, created_at, updated_at)
-      VALUES (?, NULL, ?, ?, ?, ?, ?)
-    `).run(guestUserId, dummyEmail, cleanName, dummyFriendCode, now, now);
+  // Check if guest is already seated at this table
+  const alreadySeated = db.prepare('SELECT id FROM game_players WHERE game_id = ? AND user_id = ?').get(tableId, guestUserId) as any;
+  if (alreadySeated) {
+    throw new Error(`"${cleanName}" is already seated at this table`);
+  }
 
-    // 2. Insert into game_players
-    db.prepare(`
-      INSERT INTO game_players (id, game_id, user_id, role, current_chips, total_buyin_amount, total_buyin_chips, is_guest, guest_name, joined_at)
-      VALUES (?, ?, ?, 'PLAYER', 0, 0, 0, 1, ?, ?)
-    `).run(playerId, tableId, guestUserId, cleanName, now);
-  })();
+  const playerId = uuidv4();
+  db.prepare(`
+    INSERT INTO game_players (id, game_id, user_id, role, current_chips, total_buyin_amount, total_buyin_chips, is_guest, guest_name, joined_at)
+    VALUES (?, ?, ?, 'PLAYER', 0, 0, 0, 1, ?, ?)
+  `).run(playerId, tableId, guestUserId, cleanName, now);
 
-  return { success: true, playerId, displayName: cleanName };
+  return { success: true, playerId, displayName: cleanName, guestId: guestUserId };
 }
 
 export function getTableTransactions(tableId: string) {

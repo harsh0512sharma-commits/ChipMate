@@ -21,9 +21,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.23',
-      buildTime: 1789351000000,
-      releaseNotes: 'Fix custom denomination table black screen crash and enable direct final chip value input in end-game settlement.'
+      version: '1.0.24',
+      buildTime: 1789360000000,
+      releaseNotes: 'Persistent saved guests with 1-click seating, dedicated guest leaderboard rankings, master admin guest deletion, and player lifetime winnings repair.'
     });
   };
   app.get('/version', versionHandler);

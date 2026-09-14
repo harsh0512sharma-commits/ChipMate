@@ -372,10 +372,20 @@ export function initSchema(db: Database.Database) {
   try { db.exec("ALTER TABLE game_players ADD COLUMN is_guest INTEGER DEFAULT 0"); } catch (_) {}
   try { db.exec("ALTER TABLE game_players ADD COLUMN guest_name TEXT"); } catch (_) {}
   try { db.exec("ALTER TABLE games ADD COLUMN chip_mode TEXT DEFAULT 'EQUAL'"); } catch (_) {}
-  try { db.exec("ALTER TABLE games ADD COLUMN denominations TEXT"); } catch (_) {}
   try { db.exec("ALTER TABLE game_players ADD COLUMN final_chips_value REAL"); } catch (_) {}
   try { db.exec("ALTER TABLE game_players ADD COLUMN final_denominations TEXT"); } catch (_) {}
   try { db.exec("ALTER TABLE loans ADD COLUMN metadata TEXT"); } catch (_) {}
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS saved_guests (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        created_by TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `);
+  } catch (_) {}
 }
 
 const SYNC_TABLES = [
@@ -390,7 +400,8 @@ const SYNC_TABLES = [
   'settlements',
   'settlement_items',
   'player_game_results',
-  'player_lifetime_stats'
+  'player_lifetime_stats',
+  'saved_guests'
 ];
 
 export async function syncFromTursoCloud(db: Database.Database): Promise<void> {
