@@ -23,7 +23,7 @@ export function getDefaultApiBase(): string {
   }
 
   // 3. Fallback for deployed cloud apps (Render backend default)
-  return 'https://chipmate.onrender.com/api';
+  return 'https://chipmate-h96z.onrender.com/api';
 }
 
 export async function loadSavedApiBase(): Promise<string> {

@@ -1,7 +1,7 @@
 /**
  * ChipMate Render Keep-Alive Daemon
  * 
- * Pings https://chipmate.onrender.com/health every 10 minutes
+ * Pings https://chipmate-h96z.onrender.com/health every 10 minutes
  * between 4:00 PM IST (16:00) and 6:00 AM IST (06:00) to keep the Render
  * free-tier container active during card playing hours.
  * 
@@ -11,7 +11,7 @@
  *   npm run keepalive -- --force   (pings immediately even outside active window)
  */
 
-const TARGET_URL = process.env.RENDER_HEALTH_URL || 'https://chipmate.onrender.com/health';
+const TARGET_URL = process.env.RENDER_HEALTH_URL || 'https://chipmate-h96z.onrender.com/health';
 const INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
 const args = process.argv.slice(2);
