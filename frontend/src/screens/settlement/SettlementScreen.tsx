@@ -78,6 +78,10 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
       const initialDirect: Record<string, string> = {};
       (data?.players || []).forEach((p: any) => {
         initialDenoms[p.playerId] = {};
+        if (p.isCashedOut) {
+          initialDirect[p.playerId] = String(p.cashedOutMoney ?? 0);
+          return;
+        }
         if (Array.isArray(p.finalDenominations)) {
           p.finalDenominations.forEach((item: any) => {
             if (item && item.denom !== undefined && item.count !== undefined) {
@@ -97,7 +101,11 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
     } else {
       const initial: Record<string, string> = {};
       (data?.players || []).forEach((p: any) => {
-        initial[p.playerId] = String(p.finalChips ?? 0);
+        if (p.isCashedOut) {
+          initial[p.playerId] = String(p.cashedOutChips ?? 0);
+        } else {
+          initial[p.playerId] = String(p.finalChips ?? 0);
+        }
       });
       setEditChipInputs(initial);
     }
@@ -147,6 +155,10 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
   };
 
   const getEditPlayerFinalValue = (playerId: string) => {
+    const p = (data?.players || []).find((pl: any) => pl.playerId === playerId);
+    if (p && p.isCashedOut) {
+      return Number(p.cashedOutMoney) || 0;
+    }
     if (editPlayerDirectValues[playerId] !== undefined) {
       return parseFloat(editPlayerDirectValues[playerId]) || 0;
     }
@@ -161,6 +173,14 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
       let res;
       if (data?.chipMode === 'DENOMINATION' || data?.chipMode === 'VALUE') {
         const finalPlayerCounts = (data?.players || []).map((p: any) => {
+          if (p.isCashedOut) {
+            return {
+              playerId: p.playerId,
+              finalChips: data?.chipMode === 'VALUE' ? Number(p.cashedOutMoney) : Number(p.cashedOutChips),
+              finalChipsMoney: Number(p.cashedOutMoney),
+              denominations: []
+            };
+          }
           const denoms = editPlayerDenoms[p.playerId] || {};
           const breakdown = Object.entries(denoms)
             .map(([d, cnt]) => ({ denom: parseFloat(d), count: cnt }))
@@ -182,8 +202,13 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
         });
       } else {
         const countsPayload: Record<string, number> = {};
-        for (const [playerId, countStr] of Object.entries(editChipInputs)) {
-          countsPayload[playerId] = parseInt(countStr || '0', 10) || 0;
+        for (const p of (data?.players || [])) {
+          if (p.isCashedOut) {
+            countsPayload[p.playerId] = Number(p.cashedOutChips) || 0;
+          } else {
+            const countStr = editChipInputs[p.playerId];
+            countsPayload[p.playerId] = parseInt(countStr || '0', 10) || 0;
+          }
         }
 
         res = await apiRequest(`/tables/${tableId}/settle/chips`, {
@@ -433,7 +458,14 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
             return (
               <View key={p.playerId} style={styles.playerResultRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.pResultName}>{p.displayName}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <Text style={styles.pResultName}>{p.displayName}</Text>
+                    {p.isCashedOut && (
+                      <View style={styles.cashedOutPill}>
+                        <Text style={styles.cashedOutPillText}>Cashed Out Early</Text>
+                      </View>
+                    )}
+                  </View>
                   <View style={styles.accountingBreakdown}>
                     <Text style={styles.breakdownItem}>
                       Buy-ins: <Text style={styles.negVal}>-₹{p.totalBuyinMoney}</Text>
@@ -445,9 +477,9 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                       Lent: <Text style={p.loanCreditOwed > 0 ? styles.loanCreditVal : styles.zeroVal}>₹{p.loanCreditOwed || 0}</Text>
                     </Text>
                     <Text style={styles.breakdownItem}>
-                      {isValueMode ? 'Final in-hand: ' : `Final chips: ${p.finalChips} chips (`}
+                      {p.isCashedOut ? 'Cashed out: ' : isValueMode ? 'Final in-hand: ' : `Final chips: ${p.finalChips} chips (`}
                       <Text style={styles.posVal}>+₹{p.finalChipsMoney}</Text>
-                      {isValueMode ? '' : ')'}
+                      {!p.isCashedOut && !isValueMode ? ')' : ''}
                     </Text>
                   </View>
                 </View>
@@ -627,6 +659,29 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
             <ScrollView style={{ maxHeight: 320, marginVertical: 10 }} showsVerticalScrollIndicator={false}>
               {players.map((p: any) => {
                 if (isCustomOrValue) {
+                  if (p.isCashedOut) {
+                    return (
+                      <View key={p.playerId} style={[styles.denomPlayerCard, { borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: '#0c1626' }]}>
+                        <View style={styles.denomPlayerHeader}>
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Text style={styles.chipInputName}>{p.displayName}</Text>
+                              <View style={styles.cashedOutPill}>
+                                <Text style={styles.cashedOutPillText}>✓ CASHED OUT</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.chipInputSub}>Buy-in: ₹{p.totalBuyinMoney?.toLocaleString('en-IN')}</Text>
+                          </View>
+                          <View style={[styles.denomPlayerTotalPill, { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: 'rgba(56, 189, 248, 0.4)' }]}>
+                            <Text style={[styles.denomPlayerTotalText, { color: '#38bdf8' }]}>
+                              ₹{Number(p.cashedOutMoney || 0).toLocaleString('en-IN')} (Locked)
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  }
+
                   const pDenoms = editPlayerDenoms[p.playerId] || {};
                   const pChips = Object.values(pDenoms).reduce((acc, c) => acc + (c || 0), 0);
                   const pMoney = getEditPlayerFinalValue(p.playerId);
@@ -705,6 +760,30 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                           })}
                         </View>
                       )}
+                    </View>
+                  );
+                }
+
+                if (p.isCashedOut) {
+                  return (
+                    <View key={p.playerId} style={[styles.chipInputRow, { borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: '#0c1626' }]}>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={styles.chipInputName}>{p.displayName}</Text>
+                          <View style={styles.cashedOutPill}>
+                            <Text style={styles.cashedOutPillText}>✓ CASHED OUT</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.chipInputSub}>Buy-in: ₹{p.totalBuyinMoney}</Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: '#38bdf8' }}>
+                          {p.cashedOutChips} chips
+                        </Text>
+                        <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                          = ₹{Number(p.cashedOutMoney || 0).toLocaleString('en-IN')} (Locked)
+                        </Text>
+                      </View>
                     </View>
                   );
                 }
@@ -1531,5 +1610,19 @@ const styles = StyleSheet.create({
     color: colors.text,
     padding: 0,
     textAlign: 'right'
+  },
+  cashedOutPill: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1
+  },
+  cashedOutPillText: {
+    color: '#38bdf8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5
   }
 });

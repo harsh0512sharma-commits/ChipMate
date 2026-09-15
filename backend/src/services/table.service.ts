@@ -410,17 +410,19 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
   const players = db.prepare(`
     SELECT gp.id, gp.user_id, gp.role, gp.current_chips, gp.total_buyin_amount, gp.total_buyin_chips, gp.final_chips_value, gp.final_denominations, gp.joined_at, gp.left_at,
       gp.is_guest, gp.guest_name,
+      gp.is_cashed_out, gp.cashed_out_at, gp.cashed_out_chips, gp.cashed_out_money, gp.cashed_out_net, gp.cashed_out_denominations,
       COALESCE(gp.guest_name, u.display_name) as display_name,
       u.friend_code, u.phone_number, u.avatar_url
     FROM game_players gp
     JOIN users u ON gp.user_id = u.id
-    WHERE gp.game_id = ? ${isSettlingOrFinal ? '' : 'AND gp.left_at IS NULL'}
+    WHERE gp.game_id = ? ${isSettlingOrFinal ? '' : 'AND (gp.left_at IS NULL OR gp.is_cashed_out = 1)'}
     ORDER BY CASE WHEN gp.role = 'HOST' THEN 0 ELSE 1 END, gp.joined_at ASC
   `).all(tableId) as any[];
 
   // Augment each player with friendship status relative to requestingUserId
   const playersWithFriendship = players.map(p => {
     const isGuest = Boolean(p.is_guest || (p.user_id && p.user_id.startsWith('guest_')));
+    const isCashedOut = Boolean(p.is_cashed_out);
     let friendshipStatus: 'SELF' | 'FRIENDS' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'NONE' = 'NONE';
     if (p.user_id === requestingUserId) {
       friendshipStatus = 'SELF';
@@ -429,16 +431,25 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
       friendshipStatus = status as any;
     }
 
-    let moneyEquivalent = p.current_chips * table.chip_value;
-    if (table.chip_mode === 'VALUE') {
-      moneyEquivalent = p.current_chips;
-    } else if (table.chip_mode === 'DENOMINATION') {
-      moneyEquivalent = p.total_buyin_amount;
+    let moneyEquivalent = isCashedOut
+      ? Number(p.cashed_out_money || 0)
+      : (p.current_chips * table.chip_value);
+    if (!isCashedOut) {
+      if (table.chip_mode === 'VALUE') {
+        moneyEquivalent = p.current_chips;
+      } else if (table.chip_mode === 'DENOMINATION') {
+        moneyEquivalent = p.total_buyin_amount;
+      }
     }
 
     return {
       ...p,
       is_guest: isGuest,
+      is_cashed_out: isCashedOut,
+      cashed_out_at: p.cashed_out_at,
+      cashed_out_chips: Number(p.cashed_out_chips || 0),
+      cashed_out_money: Number(p.cashed_out_money || 0),
+      cashed_out_net: Number(p.cashed_out_net || 0),
       friend_code: isGuest ? 'GUEST' : (p.phone_number || p.friend_code),
       friendshipStatus,
       moneyEquivalent
@@ -714,6 +725,7 @@ export function getPublicLedger(tableId: string) {
   // Fetch players
   const players = db.prepare(`
     SELECT gp.id, gp.user_id, gp.role, gp.current_chips, gp.total_buyin_amount, gp.total_buyin_chips, gp.final_chips_value, gp.is_guest, gp.guest_name,
+      gp.is_cashed_out, gp.cashed_out_at, gp.cashed_out_chips, gp.cashed_out_money, gp.cashed_out_net,
       COALESCE(gp.guest_name, u.display_name) as display_name,
       u.avatar_url
     FROM game_players gp
@@ -736,9 +748,14 @@ export function getPublicLedger(tableId: string) {
 
   const playersSummary = players.map(p => {
     const fin = resultMap.get(p.user_id);
+    const isCashedOut = Boolean(p.is_cashed_out);
     let buyInMoney = Number(p.total_buyin_amount) || 0;
-    let inHandMoney = isValueMode ? Number(p.current_chips) : Number(p.current_chips) * Number(table.chip_value);
-    let netWinnings = inHandMoney - buyInMoney;
+    let inHandMoney = isCashedOut
+      ? (Number(p.cashed_out_money) || 0)
+      : (isValueMode ? Number(p.current_chips) : Number(p.current_chips) * Number(table.chip_value));
+    let netWinnings = isCashedOut
+      ? (p.cashed_out_net !== null && p.cashed_out_net !== undefined ? Number(p.cashed_out_net) : (inHandMoney - buyInMoney))
+      : (inHandMoney - buyInMoney);
 
     if (fin) {
       buyInMoney = Number(fin.buyin_money);
@@ -751,6 +768,9 @@ export function getPublicLedger(tableId: string) {
       displayName: p.display_name,
       role: p.role,
       isGuest: Boolean(p.is_guest || (p.user_id && p.user_id.startsWith('guest_'))),
+      isCashedOut,
+      cashedOutMoney: Number(p.cashed_out_money || 0),
+      cashedOutNet: Number(p.cashed_out_net || 0),
       avatarUrl: p.avatar_url,
       buyInMoney,
       inHandMoney,

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.28",
-  "buildTime": 1789381000000,
-  "releaseNotes": "Fixed By Value table creation, direct rupee buy-ins/loans, and public spectator ledger sharing."
+  "version": "1.0.29",
+  "buildTime": 1789390000000,
+  "releaseNotes": "Added Mid-Game Player Cash-Out with live zero-sum ledger settlement across all game types and valuation modes."
 }

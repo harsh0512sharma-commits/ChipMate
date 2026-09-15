@@ -5,7 +5,7 @@ import { GameTableRecord } from './table.service';
 export interface TransactionRecord {
   id: string;
   game_id: string;
-  type: 'BUY_IN' | 'RE_BUY' | 'LEND' | 'RETURN' | 'TRANSFER' | 'CORRECTION' | 'REVERSAL';
+  type: 'BUY_IN' | 'RE_BUY' | 'LEND' | 'RETURN' | 'TRANSFER' | 'CORRECTION' | 'REVERSAL' | 'CASH_OUT';
   actor_user_id: string;
   from_player_id: string | null;
   to_player_id: string | null;
@@ -726,6 +726,276 @@ export function recordCorrection(params: {
 
     const tx = db.prepare('SELECT * FROM transactions WHERE id = ?').get(txId) as TransactionRecord;
     return { transaction: tx, discrepancyAdjustment: diff };
+  });
+
+  return run();
+}
+
+export interface CashOutParams {
+  gameId: string;
+  actorUserId: string;
+  playerId: string;
+  chipAmount?: number;
+  moneyValue?: number;
+  denominationsBreakdown?: Array<{ denom: number; count: number }>;
+}
+
+export function recordCashOut(params: CashOutParams): {
+  transaction: TransactionRecord;
+  cashedOutChips: number;
+  cashedOutMoney: number;
+  cashedOutNet: number;
+  newBankChips: number;
+} {
+  const db = getDb();
+
+  const run = db.transaction(() => {
+    const table = db.prepare('SELECT * FROM games WHERE id = ?').get(params.gameId) as GameTableRecord | undefined;
+    if (!table) throw new Error('Game table not found');
+    if (table.status === 'FINALIZED' || table.status === 'ARCHIVED') {
+      throw new Error('Cannot cash out from a finalized game');
+    }
+
+    const player = db.prepare('SELECT * FROM game_players WHERE id = ? AND game_id = ?').get(params.playerId, params.gameId) as any;
+    if (!player) throw new Error('Player not found in this game');
+
+    if (player.is_cashed_out === 1) {
+      throw new Error('Player has already cashed out of this game');
+    }
+
+    // Authorization: Actor must be the player themselves or the table host
+    const isHost = table.host_user_id === params.actorUserId;
+    const isSelf = player.user_id === params.actorUserId;
+    if (!isHost && !isSelf) {
+      throw new Error('Only the player or the table host can record a cash-out');
+    }
+
+    let cashChips = 0;
+    let actualMoneyValue = 0;
+    let updatedBank = table.bank_chips;
+
+    if (table.chip_mode === 'VALUE') {
+      // In VALUE mode, chips = rupees
+      const money = (params.moneyValue !== undefined && params.moneyValue !== null)
+        ? Number(params.moneyValue)
+        : (params.chipAmount !== undefined && params.chipAmount !== null ? Number(params.chipAmount) : Number(player.current_chips));
+
+      if (isNaN(money) || money < 0) {
+        throw new Error('Cash-out amount cannot be negative');
+      }
+
+      cashChips = money;
+      actualMoneyValue = money;
+      updatedBank = table.bank_chips + money;
+
+      db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(updatedBank, table.id);
+    } else if (params.denominationsBreakdown && params.denominationsBreakdown.length > 0) {
+      const breakdownChips = params.denominationsBreakdown.reduce((sum, d) => sum + (Number(d.count) || 0), 0);
+      const breakdownMoney = params.denominationsBreakdown.reduce((sum, d) => sum + ((Number(d.count) || 0) * (Number(d.denom) || 0)), 0);
+
+      cashChips = breakdownChips;
+      actualMoneyValue = (params.moneyValue !== undefined && params.moneyValue !== null) ? Number(params.moneyValue) : breakdownMoney;
+
+      if (table.denominations) {
+        let denoms: any[] = [];
+        try { denoms = JSON.parse(table.denominations); } catch (_) {}
+        if (Array.isArray(denoms) && denoms.length > 0 && typeof denoms[0] === 'object') {
+          for (const item of params.denominationsBreakdown) {
+            const count = Number(item.count) || 0;
+            if (count <= 0) continue;
+            const bankItem = denoms.find(d => Number(d.value) === Number(item.denom));
+            if (bankItem) {
+              bankItem.count = (Number(bankItem.count) || 0) + count;
+            } else {
+              denoms.push({ value: Number(item.denom), count });
+            }
+          }
+          updatedBank = denoms.reduce((sum, d) => sum + (Number(d.count) || 0), 0);
+          db.prepare('UPDATE games SET bank_chips = ?, denominations = ? WHERE id = ?').run(updatedBank, JSON.stringify(denoms), table.id);
+        } else {
+          updatedBank = table.bank_chips + cashChips;
+          db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(updatedBank, table.id);
+        }
+      } else {
+        updatedBank = table.bank_chips + cashChips;
+        db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(updatedBank, table.id);
+      }
+    } else {
+      // EQUAL mode or direct chip count
+      const chips = (params.chipAmount !== undefined && params.chipAmount !== null)
+        ? Number(params.chipAmount)
+        : Number(player.current_chips);
+
+      if (isNaN(chips) || chips < 0) {
+        throw new Error('Cash-out chips cannot be negative');
+      }
+
+      cashChips = chips;
+      actualMoneyValue = (params.moneyValue !== undefined && params.moneyValue !== null)
+        ? Number(params.moneyValue)
+        : (chips * table.chip_value);
+
+      updatedBank = table.bank_chips + cashChips;
+      db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(updatedBank, table.id);
+    }
+
+    const buyInMoney = Number(player.total_buyin_amount) || 0;
+    const cashedOutNet = Math.round((actualMoneyValue - buyInMoney) * 100) / 100;
+    const now = new Date().toISOString();
+
+    db.prepare(`
+      UPDATE game_players SET
+        is_cashed_out = 1,
+        cashed_out_at = ?,
+        cashed_out_chips = ?,
+        cashed_out_money = ?,
+        cashed_out_net = ?,
+        cashed_out_denominations = ?,
+        current_chips = 0,
+        final_chips_value = ?,
+        left_at = ?
+      WHERE id = ?
+    `).run(
+      now,
+      cashChips,
+      actualMoneyValue,
+      cashedOutNet,
+      params.denominationsBreakdown ? JSON.stringify(params.denominationsBreakdown) : null,
+      actualMoneyValue,
+      now,
+      player.id
+    );
+
+    const txId = uuidv4();
+    const metadata = JSON.stringify({
+      cashedOutChips: cashChips,
+      cashedOutMoney: actualMoneyValue,
+      buyInMoney,
+      cashedOutNet,
+      denominations: params.denominationsBreakdown || null
+    });
+
+    db.prepare(`
+      INSERT INTO transactions (id, game_id, type, actor_user_id, from_player_id, to_player_id, chip_amount, chip_value, money_value, metadata, created_at)
+      VALUES (?, ?, 'CASH_OUT', ?, ?, 'BANK', ?, ?, ?, ?, ?)
+    `).run(
+      txId,
+      table.id,
+      params.actorUserId,
+      player.id,
+      cashChips,
+      table.chip_value,
+      actualMoneyValue,
+      metadata,
+      now
+    );
+
+    const tx = db.prepare('SELECT * FROM transactions WHERE id = ?').get(txId) as TransactionRecord;
+
+    return {
+      transaction: tx,
+      cashedOutChips: cashChips,
+      cashedOutMoney: actualMoneyValue,
+      cashedOutNet,
+      newBankChips: updatedBank
+    };
+  });
+
+  return run();
+}
+
+export function undoCashOut(params: {
+  gameId: string;
+  actorUserId: string;
+  playerId: string;
+}): { success: boolean; restoredChips: number; newBankChips: number } {
+  const db = getDb();
+
+  const run = db.transaction(() => {
+    const table = db.prepare('SELECT * FROM games WHERE id = ?').get(params.gameId) as GameTableRecord | undefined;
+    if (!table) throw new Error('Game table not found');
+    if (table.status === 'FINALIZED' || table.status === 'ARCHIVED') {
+      throw new Error('Cannot undo cash out for a finalized game');
+    }
+
+    const isHost = table.host_user_id === params.actorUserId;
+    if (!isHost) {
+      throw new Error('Only the table host can undo a cash-out');
+    }
+
+    const player = db.prepare('SELECT * FROM game_players WHERE id = ? AND game_id = ?').get(params.playerId, params.gameId) as any;
+    if (!player) throw new Error('Player not found in this game');
+
+    if (!player.is_cashed_out) {
+      throw new Error('Player is not cashed out');
+    }
+
+    const chipsToRestore = player.cashed_out_chips || 0;
+    const isValueMode = table.chip_mode === 'VALUE';
+
+    // Verify bank has enough chips/money to return to player
+    const requiredInBank = isValueMode ? (player.cashed_out_money || chipsToRestore) : chipsToRestore;
+    if (table.bank_chips < requiredInBank) {
+      throw new Error(`Bank vault only has ${table.bank_chips}, cannot restore ${requiredInBank} to player.`);
+    }
+
+    const newBank = table.bank_chips - requiredInBank;
+    db.prepare('UPDATE games SET bank_chips = ? WHERE id = ?').run(newBank, table.id);
+
+    // If denominations, revert counts from bank
+    if (table.denominations && player.cashed_out_denominations) {
+      try {
+        const bankDenoms = JSON.parse(table.denominations);
+        const playerDenoms = JSON.parse(player.cashed_out_denominations);
+        if (Array.isArray(bankDenoms) && Array.isArray(playerDenoms)) {
+          for (const item of playerDenoms) {
+            const count = Number(item.count) || 0;
+            const bItem = bankDenoms.find(d => Number(d.value) === Number(item.denom));
+            if (bItem) {
+              bItem.count = Math.max(0, (Number(bItem.count) || 0) - count);
+            }
+          }
+          db.prepare('UPDATE games SET denominations = ? WHERE id = ?').run(JSON.stringify(bankDenoms), table.id);
+        }
+      } catch (_) {}
+    }
+
+    db.prepare(`
+      UPDATE game_players SET
+        is_cashed_out = 0,
+        cashed_out_at = NULL,
+        cashed_out_chips = 0,
+        cashed_out_money = 0,
+        cashed_out_net = 0,
+        cashed_out_denominations = NULL,
+        current_chips = ?,
+        final_chips_value = NULL,
+        left_at = NULL
+      WHERE id = ?
+    `).run(chipsToRestore, player.id);
+
+    const txId = uuidv4();
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO transactions (id, game_id, type, actor_user_id, from_player_id, to_player_id, chip_amount, chip_value, money_value, metadata, created_at)
+      VALUES (?, ?, 'REVERSAL', ?, 'BANK', ?, ?, ?, ?, ?, ?)
+    `).run(
+      txId,
+      table.id,
+      params.actorUserId,
+      player.id,
+      chipsToRestore,
+      table.chip_value,
+      player.cashed_out_money || chipsToRestore * table.chip_value,
+      JSON.stringify({ reason: 'Undo cash out' }),
+      now
+    );
+
+    return {
+      success: true,
+      restoredChips: chipsToRestore,
+      newBankChips: newBank
+    };
   });
 
   return run();

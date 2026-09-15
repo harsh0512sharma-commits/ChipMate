@@ -16,6 +16,11 @@ export interface PlayerCardData {
   moneyEquivalent: number;
   is_guest?: boolean;
   avatar_url?: string | null;
+  is_cashed_out?: boolean;
+  cashed_out_at?: string | null;
+  cashed_out_chips?: number;
+  cashed_out_money?: number;
+  cashed_out_net?: number;
 }
 
 interface PlayerCardProps {
@@ -41,14 +46,19 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
   const isGuest = Boolean(player.is_guest || player.friend_code === 'GUEST' || (player.user_id && player.user_id.startsWith('guest_')));
   const isValueMode = chipMode === 'VALUE';
   const isDenomMode = chipMode === 'DENOMINATION';
+  const isCashedOut = Boolean(player.is_cashed_out);
 
-  const currentMoney = isValueMode
-    ? (player.moneyEquivalent ?? player.current_chips)
-    : isDenomMode
-      ? (player.moneyEquivalent ?? player.total_buyin_amount)
-      : (player.current_chips * chipValue);
+  const currentMoney = isCashedOut
+    ? (player.cashed_out_money ?? 0)
+    : (isValueMode
+      ? (player.moneyEquivalent ?? player.current_chips)
+      : isDenomMode
+        ? (player.moneyEquivalent ?? player.total_buyin_amount)
+        : (player.current_chips * chipValue));
 
-  const netPnL = currentMoney - player.total_buyin_amount;
+  const netPnL = isCashedOut
+    ? (player.cashed_out_net ?? (currentMoney - player.total_buyin_amount))
+    : (currentMoney - player.total_buyin_amount);
   const isProfit = netPnL > 0;
   const isLoss = netPnL < 0;
 
@@ -57,9 +67,9 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
       activeOpacity={onSelectPlayer ? 0.75 : 1}
       onPress={onSelectPlayer}
       disabled={!onSelectPlayer}
-      style={styles.card}
+      style={[styles.card, isCashedOut && styles.cashedOutCard]}
     >
-      {/* Top Header: Avatar, Name, Host Tag, Social Button */}
+      {/* Top Header: Avatar, Name, Host Tag, Cashout Tag, Social Button */}
       <View style={styles.topRow}>
         <View style={styles.nameSection}>
           {player.avatar_url ? (
@@ -80,6 +90,11 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
                 <View style={styles.hostBadge}>
                   <Crown size={10} color={colors.primary} />
                   <Text style={styles.hostBadgeText}>HOST</Text>
+                </View>
+              )}
+              {isCashedOut && (
+                <View style={styles.cashedOutBadge}>
+                  <Text style={styles.cashedOutBadgeText}>✓ CASHED OUT</Text>
                 </View>
               )}
             </View>
@@ -118,7 +133,43 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
       </View>
 
       {/* Main Stats: Chips & Financial P&L */}
-      {isValueMode ? (
+      {isCashedOut ? (
+        <View style={styles.statsContainer}>
+          <View style={styles.chipSection}>
+            <Text style={[styles.bigChipNumber, { color: '#38bdf8' }]}>
+              {isValueMode ? `₹${(player.cashed_out_money ?? 0).toLocaleString('en-IN')}` : (player.cashed_out_chips ?? 0)}
+            </Text>
+            <Text style={[styles.chipLabel, { color: '#38bdf8' }]}>
+              {isValueMode ? 'CASHED OUT' : 'CHIPS CASHED OUT'}
+            </Text>
+          </View>
+
+          <View style={[styles.moneySection, isValueMode && { alignItems: 'flex-end' }]}>
+            {!isValueMode && (
+              <Text style={[styles.moneyAmount, { color: '#38bdf8' }]}>
+                ₹{(player.cashed_out_money ?? 0).toLocaleString('en-IN')}
+              </Text>
+            )}
+
+            <View style={[styles.pnlRow, isValueMode && { marginTop: 0, justifyContent: 'flex-end' }]}>
+              {isProfit ? (
+                <View style={styles.pnlPillGreen}>
+                  <Text style={styles.pnlTextGreen}>+₹{netPnL.toLocaleString('en-IN')}</Text>
+                </View>
+              ) : isLoss ? (
+                <View style={styles.pnlPillRed}>
+                  <Text style={styles.pnlTextRed}>-₹{Math.abs(netPnL).toLocaleString('en-IN')}</Text>
+                </View>
+              ) : (
+                <Text style={styles.pnlNeutral}>Even (₹0)</Text>
+              )}
+              <Text style={[styles.buyinSubText, isValueMode && { textAlign: 'right', marginTop: 4 }]}>
+                Buy-in: ₹{player.total_buyin_amount.toLocaleString('en-IN')}
+              </Text>
+            </View>
+          </View>
+        </View>
+      ) : isValueMode ? (
         <View style={styles.statsContainer}>
           <View style={styles.chipSection}>
             <Text style={[styles.bigChipNumber, { color: colors.primary }]}>
@@ -278,6 +329,27 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.primary,
     marginLeft: 3,
+    letterSpacing: 0.5
+  },
+  cashedOutCard: {
+    borderColor: 'rgba(56, 189, 248, 0.45)',
+    backgroundColor: '#0c1626'
+  },
+  cashedOutBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.4)'
+  },
+  cashedOutBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#38bdf8',
     letterSpacing: 0.5
   },
   friendPill: {

@@ -841,6 +841,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     letterSpacing: 0.5
   },
+  sectionSublabel: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+    marginBottom: 8
+  },
   chipsSelectorRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',

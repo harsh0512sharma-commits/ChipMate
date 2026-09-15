@@ -238,6 +238,12 @@ export function initSchema(db: Database.Database) {
       final_denominations TEXT,
       is_guest INTEGER NOT NULL DEFAULT 0,
       guest_name TEXT,
+      is_cashed_out INTEGER NOT NULL DEFAULT 0,
+      cashed_out_at TEXT,
+      cashed_out_chips INTEGER DEFAULT 0,
+      cashed_out_money REAL DEFAULT 0,
+      cashed_out_net REAL DEFAULT 0,
+      cashed_out_denominations TEXT,
       joined_at TEXT NOT NULL,
       left_at TEXT,
       FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
@@ -374,6 +380,12 @@ export function initSchema(db: Database.Database) {
   try { db.exec("ALTER TABLE games ADD COLUMN chip_mode TEXT DEFAULT 'EQUAL'"); } catch (_) {}
   try { db.exec("ALTER TABLE game_players ADD COLUMN final_chips_value REAL"); } catch (_) {}
   try { db.exec("ALTER TABLE game_players ADD COLUMN final_denominations TEXT"); } catch (_) {}
+  try { db.exec("ALTER TABLE game_players ADD COLUMN is_cashed_out INTEGER NOT NULL DEFAULT 0"); } catch (_) {}
+  try { db.exec("ALTER TABLE game_players ADD COLUMN cashed_out_at TEXT"); } catch (_) {}
+  try { db.exec("ALTER TABLE game_players ADD COLUMN cashed_out_chips INTEGER DEFAULT 0"); } catch (_) {}
+  try { db.exec("ALTER TABLE game_players ADD COLUMN cashed_out_money REAL DEFAULT 0"); } catch (_) {}
+  try { db.exec("ALTER TABLE game_players ADD COLUMN cashed_out_net REAL DEFAULT 0"); } catch (_) {}
+  try { db.exec("ALTER TABLE game_players ADD COLUMN cashed_out_denominations TEXT"); } catch (_) {}
   try { db.exec("ALTER TABLE loans ADD COLUMN metadata TEXT"); } catch (_) {}
   try {
     db.exec(`

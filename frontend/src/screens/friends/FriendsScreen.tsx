@@ -204,7 +204,7 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead, 
             <View style={styles.emptyCard}>
               <Users size={36} color={colors.textMuted} />
               <Text style={styles.emptyTitle}>No friends added yet</Text>
-              <Text style={styles.emptySub}>
+              <Text style={styles.emptySubtitle}>
                 Add your poker and teen patti friends using their 10-digit mobile number!
               </Text>
               <TouchableOpacity

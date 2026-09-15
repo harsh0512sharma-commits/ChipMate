@@ -160,7 +160,7 @@ export const PublicLedgerScreen: React.FC<PublicLedgerScreenProps> = ({
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={styles.navTitle} numberOfLines={1}>{ledger.name}</Text>
               <View style={[styles.statusTag, isFinalized ? styles.statusFinalized : styles.statusLive]}>
-                <Text style={[styles.statusText, isFinalized ? styles.statusFinalizedText : styles.statusLiveText]}>
+                <Text style={isFinalized ? styles.statusFinalizedText : styles.statusLiveText}>
                   {isFinalized ? 'COMPLETED' : 'LIVE'}
                 </Text>
               </View>

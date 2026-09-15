@@ -18,7 +18,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.0.28',
+      version: '1.0.29',
       timestamp: new Date().toISOString()
     });
   });
@@ -26,9 +26,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.28',
-      buildTime: 1789381000000,
-      releaseNotes: 'Fixed By Value table creation, direct rupee buy-ins/loans, and public spectator ledger sharing.'
+      version: '1.0.29',
+      buildTime: Date.now(),
+      releaseNotes: 'Added Mid-Game Player Cash-Out with live zero-sum ledger settlement across all game types and valuation modes.'
     });
   };
   app.get('/version', versionHandler);

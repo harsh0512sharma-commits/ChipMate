@@ -19,6 +19,10 @@ export interface SettlementPlayerBalance {
   netLoanImpact: number; // loanCreditOwed - loanDebtOwed
   netPosition: number; // gameGrossPnl + netLoanImpact
   finalDenominations?: any[] | null;
+  isCashedOut?: boolean;
+  cashedOutAt?: string | null;
+  cashedOutMoney?: number;
+  cashedOutChips?: number;
 }
 
 export interface OptimizedPayment {
@@ -108,11 +112,14 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
   const expectedTotalValue = Math.round(expectedTotalChips * table.chip_value * 100) / 100;
 
   const playerBalances: SettlementPlayerBalance[] = players.map(p => {
-    const finalChips = p.current_chips;
+    const isCashedOut = Boolean(p.is_cashed_out);
+    const finalChips = isCashedOut ? (Number(p.cashed_out_chips) || 0) : p.current_chips;
     sumPlayerChips += finalChips;
-    const finalChipsMoney = (p.final_chips_value !== null && p.final_chips_value !== undefined)
-      ? Math.round(p.final_chips_value * 100) / 100
-      : Math.round(finalChips * table.chip_value * 100) / 100;
+    const finalChipsMoney = isCashedOut
+      ? Math.round((Number(p.cashed_out_money) || 0) * 100) / 100
+      : ((p.final_chips_value !== null && p.final_chips_value !== undefined)
+        ? Math.round(p.final_chips_value * 100) / 100
+        : Math.round(finalChips * table.chip_value * 100) / 100);
     sumFinalChipsMoney += finalChipsMoney;
     const totalBuyinMoney = Math.round(p.total_buyin_amount * 100) / 100;
     totalPotMoney += totalBuyinMoney;
@@ -126,7 +133,9 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
     const netPosition = Math.round((finalChipsMoney - totalBuyinMoney - loanDebtOwed + loanCreditOwed) * 100) / 100;
 
     let finalDenominations = null;
-    if (p.final_denominations) {
+    if (isCashedOut && p.cashed_out_denominations) {
+      try { finalDenominations = JSON.parse(p.cashed_out_denominations); } catch (_) {}
+    } else if (p.final_denominations) {
       try { finalDenominations = JSON.parse(p.final_denominations); } catch (_) {}
     }
 
@@ -145,7 +154,11 @@ export function calculateSettlementPreview(gameId: string): SettlementReview {
       loanCreditOwed,
       netLoanImpact,
       netPosition,
-      finalDenominations
+      finalDenominations,
+      isCashedOut,
+      cashedOutAt: p.cashed_out_at,
+      cashedOutMoney: p.cashed_out_money,
+      cashedOutChips: p.cashed_out_chips
     };
   });
 
@@ -308,6 +321,17 @@ export function submitFinalChipCounts(
     throw new Error('No players found in this game');
   }
 
+  // Pre-populate locked values for cashed-out players
+  for (const p of players) {
+    if (p.is_cashed_out) {
+      countsMap[p.id] = Number(p.cashed_out_chips) || 0;
+      moneyMap[p.id] = Number(p.cashed_out_money) || 0;
+      if (p.cashed_out_denominations && !denomMap[p.id]) {
+        denomMap[p.id] = p.cashed_out_denominations;
+      }
+    }
+  }
+
   const isDenomMode = table.chip_mode === 'DENOMINATION' || table.chip_mode === 'VALUE';
   const totalBuyinChips = players.reduce((sum, p) => sum + (p.total_buyin_chips || 0), 0);
   const expectedTotalChips = totalBuyinChips > 0 ? totalBuyinChips : table.total_chips;
@@ -333,24 +357,29 @@ export function submitFinalChipCounts(
     }
 
     // If chip counts weren't directly matching physical inventory (e.g. host only entered total values),
-    // normalize countsMap so totalAccounted equals expectedTotalChips while preserving final_chips_value
-    if (totalEnteredChips !== expectedTotalChips) {
-      if (totalEnteredMoney > 0) {
+    // normalize countsMap across active players so totalAccounted equals expectedTotalChips while preserving final_chips_value
+    const activePlayers = players.filter(p => !p.is_cashed_out);
+    const cashedOutChipsSum = players.filter(p => p.is_cashed_out).reduce((sum, p) => sum + (Number(p.cashed_out_chips) || 0), 0);
+    const activeExpectedChips = Math.max(0, expectedTotalChips - cashedOutChipsSum);
+
+    if (totalEnteredChips !== expectedTotalChips && activePlayers.length > 0) {
+      const activeEnteredMoney = activePlayers.reduce((sum, p) => sum + (moneyMap[p.id] !== undefined ? moneyMap[p.id] : ((countsMap[p.id] || 0) * table.chip_value)), 0);
+      if (activeEnteredMoney > 0) {
         let distributed = 0;
-        players.forEach((p, idx) => {
-          if (idx === players.length - 1) {
-            countsMap[p.id] = Math.max(0, expectedTotalChips - distributed);
+        activePlayers.forEach((p, idx) => {
+          if (idx === activePlayers.length - 1) {
+            countsMap[p.id] = Math.max(0, activeExpectedChips - distributed);
           } else {
             const m = moneyMap[p.id] !== undefined ? moneyMap[p.id] : ((countsMap[p.id] || 0) * table.chip_value);
-            const share = Math.round((m / totalEnteredMoney) * expectedTotalChips);
+            const share = Math.round((m / activeEnteredMoney) * activeExpectedChips);
             countsMap[p.id] = share;
             distributed += share;
           }
         });
       } else {
-        const perPlayer = Math.floor(expectedTotalChips / players.length);
-        let rem = expectedTotalChips % players.length;
-        players.forEach(p => {
+        const perPlayer = Math.floor(activeExpectedChips / activePlayers.length);
+        let rem = activeExpectedChips % activePlayers.length;
+        activePlayers.forEach(p => {
           countsMap[p.id] = perPlayer + (rem > 0 ? 1 : 0);
           if (rem > 0) rem--;
         });
@@ -377,14 +406,22 @@ export function submitFinalChipCounts(
   const submitTx = db.transaction(() => {
     const now = new Date().toISOString();
     for (const p of players) {
-      const count = countsMap[p.id];
-      const moneyVal = moneyMap[p.id] !== undefined ? moneyMap[p.id] : (count * table.chip_value);
-      const denomsJson = denomMap[p.id] || null;
-      db.prepare(`
-        UPDATE game_players 
-        SET current_chips = ?, final_chips_value = ?, final_denominations = ? 
-        WHERE id = ?
-      `).run(count, moneyVal, denomsJson, p.id);
+      if (p.is_cashed_out) {
+        db.prepare(`
+          UPDATE game_players 
+          SET final_chips_value = ?, final_denominations = ? 
+          WHERE id = ?
+        `).run(p.cashed_out_money, p.cashed_out_denominations || null, p.id);
+      } else {
+        const count = countsMap[p.id];
+        const moneyVal = moneyMap[p.id] !== undefined ? moneyMap[p.id] : (count * table.chip_value);
+        const denomsJson = denomMap[p.id] || null;
+        db.prepare(`
+          UPDATE game_players 
+          SET current_chips = ?, final_chips_value = ?, final_denominations = ? 
+          WHERE id = ?
+        `).run(count, moneyVal, denomsJson, p.id);
+      }
     }
     db.prepare(`UPDATE games SET status = 'SETTLING', ended_at = ? WHERE id = ?`).run(now, gameId);
   });

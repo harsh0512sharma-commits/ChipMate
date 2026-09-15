@@ -45,6 +45,7 @@ import { PlayerCard } from '../../components/PlayerCard';
 import { ActionSheet } from '../../components/ActionSheet';
 import { QRCodeModal } from '../../components/QRCodeModal';
 import { BatchBuyInModal } from '../../components/BatchBuyInModal';
+import { CashOutModal } from '../../components/CashOutModal';
 
 export function formatTxSummary(tx: any, isValueMode?: boolean): { title: string; subtitle: string; icon: string } {
   const fromName = tx.from_player_name || 'Bank';
@@ -95,6 +96,12 @@ export function formatTxSummary(tx: any, isValueMode?: boolean): { title: string
         title: `Reversal of transaction`,
         subtitle: isPureMoney ? `₹${money} reversed` : `${amount} chips (₹${money}) reversed`,
         icon: '⏪'
+      };
+    case 'CASH_OUT':
+      return {
+        title: isPureMoney ? `${fromName} cashed out ₹${money}` : `${fromName} cashed out ${amount} chips (₹${money})`,
+        subtitle: `Mid-game cash-out • Chips returned to bank vault`,
+        icon: '🚪'
       };
     default:
       return {
@@ -149,6 +156,8 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const [submittingFinalChips, setSubmittingFinalChips] = useState(false);
   const [finalChipError, setFinalChipError] = useState<string | null>(null);
   const [showBatchBuyInModal, setShowBatchBuyInModal] = useState(false);
+  const [showCashOutModal, setShowCashOutModal] = useState(false);
+  const [cashOutTargetPlayer, setCashOutTargetPlayer] = useState<any | null>(null);
 
   const fetchTableData = useCallback(async () => {
     try {
@@ -613,6 +622,10 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   };
 
   const getPlayerFinalValue = (playerId: string) => {
+    const p = (players || []).find((pl: any) => pl.id === playerId);
+    if (p && p.is_cashed_out) {
+      return Number(p.cashed_out_money) || 0;
+    }
     if (finalPlayerDirectValues[playerId] !== undefined) {
       return parseFloat(finalPlayerDirectValues[playerId]) || 0;
     }
@@ -632,9 +645,13 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   if (isCustomOrValue) {
     for (const p of (players || [])) {
       totalFinalDenomMoney += getPlayerFinalValue(p.id);
-      const pDenoms = finalPlayerDenoms[p.id] || {};
-      for (const count of Object.values(pDenoms)) {
-        totalFinalDenomChips += (count || 0);
+      if (p.is_cashed_out) {
+        totalFinalDenomChips += (Number(p.cashed_out_chips) || 0);
+      } else {
+        const pDenoms = finalPlayerDenoms[p.id] || {};
+        for (const count of Object.values(pDenoms)) {
+          totalFinalDenomChips += (count || 0);
+        }
       }
     }
   }
@@ -642,6 +659,9 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const totalEnteredChips = isCustomOrValue
     ? (isValueMode ? totalFinalDenomMoney : totalFinalDenomChips)
     : (players || []).reduce((sum: number, p: any) => {
+        if (p.is_cashed_out) {
+          return sum + (Number(p.cashed_out_chips) || 0);
+        }
         const raw = finalChipInputs[p.id];
         const val = raw !== undefined ? parseInt(raw, 10) : p.current_chips;
         return sum + (isNaN(val) || val < 0 ? 0 : val);
@@ -662,6 +682,10 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
       const initialDirect: Record<string, string> = {};
       for (const p of (players || [])) {
         initialDenoms[p.id] = {};
+        if (p.is_cashed_out) {
+          initialDirect[p.id] = String(p.cashed_out_money || 0);
+          continue;
+        }
         if (p.final_denominations) {
           try {
             const parsed = typeof p.final_denominations === 'string' ? JSON.parse(p.final_denominations) : p.final_denominations;
@@ -686,7 +710,11 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
     } else {
       const initialCounts: Record<string, string> = {};
       for (const p of (players || [])) {
-        initialCounts[p.id] = String(p.current_chips ?? 0);
+        if (p.is_cashed_out) {
+          initialCounts[p.id] = String(p.cashed_out_chips || 0);
+        } else {
+          initialCounts[p.id] = String(p.current_chips ?? 0);
+        }
       }
       setFinalChipInputs(initialCounts);
     }
@@ -709,6 +737,14 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
       let res;
       if (isCustomOrValue) {
         const finalPlayerCounts = (players || []).map((p: any) => {
+          if (p.is_cashed_out) {
+            return {
+              playerId: p.id,
+              finalChips: isValueMode ? Number(p.cashed_out_money) : Number(p.cashed_out_chips),
+              finalChipsMoney: Number(p.cashed_out_money),
+              denominations: []
+            };
+          }
           const denoms = finalPlayerDenoms[p.id] || {};
           const breakdown = Object.entries(denoms)
             .map(([d, cnt]) => ({ denom: parseFloat(d), count: cnt }))
@@ -731,9 +767,13 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
       } else {
         const countsPayload: Record<string, number> = {};
         for (const p of (players || [])) {
-          const raw = finalChipInputs[p.id];
-          const val = raw !== undefined ? parseInt(raw, 10) : p.current_chips;
-          countsPayload[p.id] = isNaN(val) || val < 0 ? 0 : val;
+          if (p.is_cashed_out) {
+            countsPayload[p.id] = Number(p.cashed_out_chips) || 0;
+          } else {
+            const raw = finalChipInputs[p.id];
+            const val = raw !== undefined ? parseInt(raw, 10) : p.current_chips;
+            countsPayload[p.id] = isNaN(val) || val < 0 ? 0 : val;
+          }
         }
         res = await apiRequest(`/tables/${table.id}/settle/chips`, {
           method: 'POST',
@@ -751,6 +791,41 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
       setFinalChipError(err.message || 'Failed to submit final chip counts');
     } finally {
       setSubmittingFinalChips(false);
+    }
+  };
+
+  const handleCashOutSubmit = async (cashOutData: {
+    playerId: string;
+    chipAmount?: number;
+    moneyValue?: number;
+    denominationsBreakdown?: Array<{ denom: number; count: number }>;
+  }) => {
+    try {
+      const res = await apiRequest(`/tables/${table.id}/cash-out`, {
+        method: 'POST',
+        body: cashOutData
+      });
+      if (res.success) {
+        setShowCashOutModal(false);
+        setCashOutTargetPlayer(null);
+        await fetchTableData();
+      }
+    } catch (err: any) {
+      throw err;
+    }
+  };
+
+  const handleUndoCashOut = async (playerId: string) => {
+    try {
+      const res = await apiRequest(`/tables/${table.id}/undo-cash-out`, {
+        method: 'POST',
+        body: { playerId }
+      });
+      if (res.success) {
+        await fetchTableData();
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to undo cash-out');
     }
   };
 
@@ -802,35 +877,77 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
         )}
 
 
-        {/* Viewer Mode Banner for Non-Hosts */}
-        {!isHost && (
-          <View style={[styles.viewerBanner, isFinalized && { borderColor: colors.primaryBorder, backgroundColor: colors.cardInset }]}>
-            <ShieldAlert size={15} color={isFinalized ? colors.successText : colors.primary} style={{ marginRight: 8 }} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.viewerBannerText}>
-                {isFinalized
-                  ? 'Game Completed • Results & Lifetime Statistics have been finalized.'
-                  : 'Spectator / Player Mode • The host records all table transactions.'}
-              </Text>
+        {/* Viewer / Player Mode Banner for Non-Hosts */}
+        {!isHost && (() => {
+          const myPlayer = (players || []).find((p: any) => p.friendshipStatus === 'SELF' || p.user_id === user?.id);
+          if (myPlayer?.is_cashed_out) {
+            return (
+              <View style={[styles.viewerBanner, { borderColor: 'rgba(56, 189, 248, 0.45)', backgroundColor: 'rgba(12, 22, 38, 0.85)' }]}>
+                <CheckCircle2 size={16} color="#38bdf8" style={{ marginRight: 8 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.viewerBannerText, { color: '#f8fafc', fontWeight: '600' }]}>
+                    You cashed out ₹{(myPlayer.cashed_out_money || 0).toLocaleString('en-IN')} (Net: {myPlayer.cashed_out_net >= 0 ? '+' : ''}₹{(myPlayer.cashed_out_net || 0).toLocaleString('en-IN')})
+                  </Text>
+                  <Text style={{ fontSize: 10, color: '#94a3b8', marginTop: 1 }}>
+                    Physical chips returned to bank • Final settlements calculated at game end
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => onBack()}
+                  style={[styles.leaveBannerBtn, { borderColor: 'rgba(56, 189, 248, 0.4)' }]}
+                  activeOpacity={0.7}
+                >
+                  <LogOut size={12} color="#38bdf8" style={{ marginRight: 4 }} />
+                  <Text style={[styles.leaveBannerBtnText, { color: '#38bdf8' }]}>Exit</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          }
+
+          return (
+            <View style={[styles.viewerBanner, isFinalized && { borderColor: colors.primaryBorder, backgroundColor: colors.cardInset }]}>
+              <ShieldAlert size={15} color={isFinalized ? colors.successText : colors.primary} style={{ marginRight: 8 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.viewerBannerText}>
+                  {isFinalized
+                    ? 'Game Completed • Results & Lifetime Statistics have been finalized.'
+                    : 'Spectator / Player Mode • The host records all table transactions.'}
+                </Text>
+              </View>
+
+              {!isFinalized && myPlayer && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setCashOutTargetPlayer(myPlayer);
+                    setShowCashOutModal(true);
+                  }}
+                  style={[styles.leaveBannerBtn, { borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', marginRight: 6 }]}
+                  activeOpacity={0.7}
+                >
+                  <LogOut size={12} color="#38bdf8" style={{ marginRight: 4 }} />
+                  <Text style={[styles.leaveBannerBtnText, { color: '#38bdf8', fontWeight: '700' }]}>Cash Out</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                onPress={() => {
+                  if (isFinalized) {
+                    onBack();
+                  } else {
+                    setShowLeaveModal(true);
+                  }
+                }}
+                style={[styles.leaveBannerBtn, isFinalized && { borderColor: colors.primaryBorder }]}
+                activeOpacity={0.7}
+              >
+                <LogOut size={12} color={isFinalized ? colors.primary : colors.dangerText} style={{ marginRight: 4 }} />
+                <Text style={[styles.leaveBannerBtnText, isFinalized && { color: colors.primary }]}>
+                  {isFinalized ? 'Exit Table' : 'Leave'}
+                </Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              onPress={() => {
-                if (isFinalized) {
-                  onBack();
-                } else {
-                  setShowLeaveModal(true);
-                }
-              }}
-              style={[styles.leaveBannerBtn, isFinalized && { borderColor: colors.primaryBorder }]}
-              activeOpacity={0.7}
-            >
-              <LogOut size={12} color={isFinalized ? colors.primary : colors.dangerText} style={{ marginRight: 4 }} />
-              <Text style={[styles.leaveBannerBtnText, isFinalized && { color: colors.primary }]}>
-                {isFinalized ? 'Exit Table' : 'Leave'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          );
+        })()}
 
         {/* 100/100 PHYSICAL CHIP RECONCILIATION CARD */}
         <ChipCard
@@ -1147,43 +1264,80 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
             </View>
 
             <View style={{ gap: 8, marginTop: 10 }}>
-              <TouchableOpacity
-                style={styles.quickActionOption}
-                onPress={() => {
-                  setInitialActionPlayerId(selectedPlayerForMenu?.id);
-                  setActiveSheet('BUY');
-                  setSelectedPlayerForMenu(null);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.quickActionOptionTitle}>
-                  {isValueMode ? '💰 Buy-In from Bank (₹)' : '💰 Buy Chips from Bank'}
-                </Text>
-                <Text style={styles.quickActionOptionDesc}>
-                  {isValueMode
-                    ? `Issue ₹ buy-in from bank vault to ${selectedPlayerForMenu?.display_name}`
-                    : `Issue chips from bank vault to ${selectedPlayerForMenu?.display_name}`}
-                </Text>
-              </TouchableOpacity>
+              {!selectedPlayerForMenu?.is_cashed_out ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.quickActionOption}
+                    onPress={() => {
+                      setInitialActionPlayerId(selectedPlayerForMenu?.id);
+                      setActiveSheet('BUY');
+                      setSelectedPlayerForMenu(null);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.quickActionOptionTitle}>
+                      {isValueMode ? '💰 Buy-In from Bank (₹)' : '💰 Buy Chips from Bank'}
+                    </Text>
+                    <Text style={styles.quickActionOptionDesc}>
+                      {isValueMode
+                        ? `Issue ₹ buy-in from bank vault to ${selectedPlayerForMenu?.display_name}`
+                        : `Issue chips from bank vault to ${selectedPlayerForMenu?.display_name}`}
+                    </Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.quickActionOption}
-                onPress={() => {
-                  setInitialActionPlayerId(selectedPlayerForMenu?.id);
-                  setActiveSheet('LEND');
-                  setSelectedPlayerForMenu(null);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.quickActionOptionTitle}>
-                  {isValueMode ? '🤝 Lend Money (Loan)' : '🤝 Lend Chips (Loan)'}
-                </Text>
-                <Text style={styles.quickActionOptionDesc}>
-                  {isValueMode
-                    ? `Record a cash loan with ${selectedPlayerForMenu?.display_name} as the lender`
-                    : `Record a loan with ${selectedPlayerForMenu?.display_name} as the lender`}
-                </Text>
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.quickActionOption}
+                    onPress={() => {
+                      setInitialActionPlayerId(selectedPlayerForMenu?.id);
+                      setActiveSheet('LEND');
+                      setSelectedPlayerForMenu(null);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.quickActionOptionTitle}>
+                      {isValueMode ? '🤝 Lend Money (Loan)' : '🤝 Lend Chips (Loan)'}
+                    </Text>
+                    <Text style={styles.quickActionOptionDesc}>
+                      {isValueMode
+                        ? `Record a cash loan with ${selectedPlayerForMenu?.display_name} as the lender`
+                        : `Record a loan with ${selectedPlayerForMenu?.display_name} as the lender`}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.quickActionOption, { borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: 'rgba(56, 189, 248, 0.08)' }]}
+                    onPress={() => {
+                      setCashOutTargetPlayer(selectedPlayerForMenu);
+                      setSelectedPlayerForMenu(null);
+                      setShowCashOutModal(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.quickActionOptionTitle, { color: '#38bdf8' }]}>
+                      🚪 Cash Out Player Mid-Game
+                    </Text>
+                    <Text style={styles.quickActionOptionDesc}>
+                      Cash out {selectedPlayerForMenu?.display_name}'s chips and surrender them to bank vault
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.quickActionOption, { borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: 'rgba(56, 189, 248, 0.08)' }]}
+                  onPress={() => {
+                    handleUndoCashOut(selectedPlayerForMenu?.id);
+                    setSelectedPlayerForMenu(null);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.quickActionOptionTitle, { color: '#38bdf8' }]}>
+                    ↩️ Undo Cash Out / Resume Player
+                  </Text>
+                  <Text style={styles.quickActionOptionDesc}>
+                    Re-issue chips back to {selectedPlayerForMenu?.display_name} and resume active table play
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -1487,6 +1641,31 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                 const isGuestPlayer = Boolean(p.is_guest || p.friend_code === 'GUEST' || (p.user_id && p.user_id.startsWith('guest_')));
 
                 if (isCustomOrValue) {
+                  if (p.is_cashed_out) {
+                    return (
+                      <View key={p.id} style={[styles.denomPlayerCard, { borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: '#0c1626' }]}>
+                        <View style={styles.denomPlayerHeader}>
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Text style={styles.finalChipPlayerName} numberOfLines={1}>{p.display_name}</Text>
+                              <View style={[styles.hostBadge, { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: 'rgba(56, 189, 248, 0.4)' }]}>
+                                <Text style={[styles.hostBadgeText, { color: '#38bdf8' }]}>✓ CASHED OUT</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.finalChipPlayerMeta}>
+                              Buy-in: ₹{p.total_buyin_amount} • Cashed Out: ₹{p.cashed_out_money} ({p.cashed_out_net >= 0 ? '+' : ''}₹{p.cashed_out_net})
+                            </Text>
+                          </View>
+                          <View style={[styles.denomPlayerTotalPill, { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: 'rgba(56, 189, 248, 0.4)' }]}>
+                            <Text style={[styles.denomPlayerTotalText, { color: '#38bdf8' }]}>
+                              ₹{(p.cashed_out_money || 0).toLocaleString('en-IN')} (Locked)
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  }
+
                   const pDenoms = finalPlayerDenoms[p.id] || {};
                   const pChips = Object.values(pDenoms).reduce((acc, c) => acc + (c || 0), 0);
                   const pMoney = getPlayerFinalValue(p.id);
@@ -1585,6 +1764,31 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                   );
                 }
 
+                if (p.is_cashed_out) {
+                  return (
+                    <View key={p.id} style={[styles.finalChipPlayerRow, { borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: '#0c1626' }]}>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={styles.finalChipPlayerName} numberOfLines={1}>{p.display_name}</Text>
+                          <View style={[styles.hostBadge, { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: 'rgba(56, 189, 248, 0.4)' }]}>
+                            <Text style={[styles.hostBadgeText, { color: '#38bdf8' }]}>✓ CASHED OUT</Text>
+                          </View>
+                        </View>
+                        <Text style={styles.finalChipPlayerMeta}>
+                          Buy-in: ₹{p.total_buyin_amount} ({p.total_buyin_chips} chips) • Cashed Out: {p.cashed_out_chips} chips
+                        </Text>
+                      </View>
+
+                      <View style={[styles.finalChipInputWrapper, { alignItems: 'flex-end', justifyContent: 'center' }]}>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: '#38bdf8' }}>
+                          {p.cashed_out_chips} chips
+                        </Text>
+                        <Text style={styles.finalChipMoneySub}>= ₹{(p.cashed_out_money || 0).toLocaleString('en-IN')} (Locked)</Text>
+                      </View>
+                    </View>
+                  );
+                }
+
                 const rawVal = finalChipInputs[p.id];
                 const enteredChips = rawVal !== undefined ? (parseInt(rawVal, 10) || 0) : (p.current_chips ?? 0);
                 const enteredMoney = enteredChips * chipValue;
@@ -1661,6 +1865,21 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
           </View>
         </View>
       </Modal>
+
+      {/* Mid-Game Cash Out Modal */}
+      <CashOutModal
+        visible={showCashOutModal}
+        player={cashOutTargetPlayer}
+        chipValue={table.chip_value || 10}
+        chipMode={table.chip_mode || 'EQUAL'}
+        tableDenominations={tableDenomList}
+        isHostView={isHost}
+        onClose={() => {
+          setShowCashOutModal(false);
+          setCashOutTargetPlayer(null);
+        }}
+        onSubmitCashOut={handleCashOutSubmit}
+      />
     </View>
   );
 };

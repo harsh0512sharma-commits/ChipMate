@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import * as tableService from '../services/table.service';
+import * as ledgerService from '../services/ledger.service';
 import { broadcastTableUpdate } from '../socket';
 
 export function createTable(req: AuthenticatedRequest, res: Response): void {
@@ -267,6 +268,69 @@ export function getPublicLedger(req: Request, res: Response): void {
     res.json({ success: true, ledger });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message || 'Failed to fetch public ledger' });
+  }
+}
+
+export function cashOutPlayer(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const actorUserId = req.user!.userId;
+    const tableId = req.params.tableId as string;
+    const { playerId, chipAmount, moneyValue, denominationsBreakdown } = req.body;
+
+    if (!playerId) {
+      res.status(400).json({ success: false, error: 'playerId is required' });
+      return;
+    }
+
+    const result = ledgerService.recordCashOut({
+      gameId: tableId,
+      actorUserId,
+      playerId,
+      chipAmount: chipAmount !== undefined ? Number(chipAmount) : undefined,
+      moneyValue: moneyValue !== undefined ? Number(moneyValue) : undefined,
+      denominationsBreakdown
+    });
+
+    broadcastTableUpdate(tableId, 'PLAYER_CASHED_OUT', {
+      tableId,
+      playerId,
+      cashedOutChips: result.cashedOutChips,
+      cashedOutMoney: result.cashedOutMoney,
+      cashedOutNet: result.cashedOutNet
+    });
+
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to cash out player' });
+  }
+}
+
+export function undoCashOutPlayer(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const actorUserId = req.user!.userId;
+    const tableId = req.params.tableId as string;
+    const { playerId } = req.body;
+
+    if (!playerId) {
+      res.status(400).json({ success: false, error: 'playerId is required' });
+      return;
+    }
+
+    const result = ledgerService.undoCashOut({
+      gameId: tableId,
+      actorUserId,
+      playerId
+    });
+
+    broadcastTableUpdate(tableId, 'PLAYER_CASH_OUT_UNDONE', {
+      tableId,
+      playerId,
+      restoredChips: result.restoredChips
+    });
+
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to undo cash out' });
   }
 }
 
