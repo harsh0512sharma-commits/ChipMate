@@ -12,6 +12,9 @@ import { ArrowLeft, Sparkles, Check, Users, UserCheck, UserPlus, Coins, Layers, 
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
 import { Header } from '../../components/Header';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const SAVED_CUSTOM_DENOMS_KEY = '@chipmate_user_custom_denominations';
 
 interface CreateTableScreenProps {
   onBack: () => void;
@@ -86,6 +89,33 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
 
   // Custom Denominations with Physical Chip Counts (Unified for both Teen Patti & Poker)
   const [denomRows, setDenomRows] = useState<PokerDenomRow[]>(DEFAULT_POKER_DENOMS);
+  const [hasLoadedSavedDenoms, setHasLoadedSavedDenoms] = useState(false);
+
+  // Load custom denominations preference from storage
+  useEffect(() => {
+    AsyncStorage.getItem(SAVED_CUSTOM_DENOMS_KEY)
+      .then(saved => {
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setDenomRows(parsed);
+            }
+          } catch (_) {}
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        setHasLoadedSavedDenoms(true);
+      });
+  }, []);
+
+  // Persist custom denominations whenever modified
+  useEffect(() => {
+    if (hasLoadedSavedDenoms && denomRows && denomRows.length > 0) {
+      AsyncStorage.setItem(SAVED_CUSTOM_DENOMS_KEY, JSON.stringify(denomRows)).catch(() => {});
+    }
+  }, [denomRows, hasLoadedSavedDenoms]);
 
   const updateDenomRow = (id: string, field: 'value' | 'count', val: string) => {
     setDenomRows(prev => prev.map(row => row.id === id ? { ...row, [field]: val } : row));
@@ -309,53 +339,55 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
         <View style={styles.formGroup}>
           <Text style={styles.label}>Chip Valuation Mode</Text>
           <Text style={styles.hint}>
-            Choose whether all chips share one equal value, or play by physical custom denominations (₹10, ₹20, ₹50, ₹100...).
+            Choose whether all chips share one equal value, or play with direct rupee accounting.
           </Text>
 
-          <View style={styles.modeToggleRow}>
+          <View style={styles.modeToggleRowSideBySide}>
             <TouchableOpacity
-              style={[styles.modeToggleBtn, chipMode === 'EQUAL' && styles.modeToggleBtnActive]}
+              style={[styles.modeToggleSideBtn, chipMode === 'EQUAL' && styles.modeToggleSideBtnActive]}
               onPress={() => setChipMode('EQUAL')}
               activeOpacity={0.8}
             >
-              <Coins size={18} color={chipMode === 'EQUAL' ? '#FFF' : colors.textMuted} style={{ marginRight: 10 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.modeToggleText, chipMode === 'EQUAL' && styles.modeToggleTextActive]}>
-                  Equal Chip Value
-                </Text>
-                <Text style={styles.modeToggleSub}>All chips share 1 face value (e.g. 100 chips at ₹10)</Text>
+              <View style={styles.modeToggleSideTop}>
+                <Coins size={20} color={chipMode === 'EQUAL' ? colors.primary : colors.textMuted} />
+                {chipMode === 'EQUAL' && (
+                  <View style={styles.activeCheckCircle}>
+                    <Check size={12} color="#FFF" />
+                  </View>
+                )}
               </View>
-              {chipMode === 'EQUAL' && <Check size={16} color="#FFF" />}
+              <Text style={[styles.modeToggleSideTitle, chipMode === 'EQUAL' && styles.modeToggleSideTitleActive]}>
+                Equal Chip Value
+              </Text>
+              <Text style={styles.modeToggleSideSub}>
+                All chips share 1 value (e.g. 100 chips @ ₹10)
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.modeToggleBtn, chipMode === 'DENOMINATION' && styles.modeToggleBtnActive]}
-              onPress={() => setChipMode('DENOMINATION')}
-              activeOpacity={0.8}
-            >
-              <Layers size={18} color={chipMode === 'DENOMINATION' ? '#FFF' : colors.textMuted} style={{ marginRight: 10 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.modeToggleText, chipMode === 'DENOMINATION' && styles.modeToggleTextActive]}>
-                  By Denomination
-                </Text>
-                <Text style={styles.modeToggleSub}>Custom chips (₹5, ₹10, ₹25, ₹100) with physical chip counting</Text>
-              </View>
-              {chipMode === 'DENOMINATION' && <Check size={16} color="#FFF" />}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.modeToggleBtn, chipMode === 'VALUE' && styles.modeToggleBtnActive]}
+              style={[styles.modeToggleSideBtn, chipMode === 'VALUE' && styles.modeToggleSideBtnActive]}
               onPress={() => setChipMode('VALUE')}
               activeOpacity={0.8}
             >
-              <Banknote size={18} color={chipMode === 'VALUE' ? '#FFF' : colors.textMuted} style={{ marginRight: 10 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.modeToggleText, chipMode === 'VALUE' && styles.modeToggleTextActive]}>
-                  By Value (Recommended)
-                </Text>
-                <Text style={styles.modeToggleSub}>Pure ₹ buy-ins, loans & settlement. Chip set sets the total bank vault money.</Text>
+              <View style={styles.modeToggleSideTop}>
+                <Banknote size={20} color={chipMode === 'VALUE' ? colors.primary : colors.textMuted} />
+                {chipMode === 'VALUE' && (
+                  <View style={styles.activeCheckCircle}>
+                    <Check size={12} color="#FFF" />
+                  </View>
+                )}
               </View>
-              {chipMode === 'VALUE' && <Check size={16} color="#FFF" />}
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={[styles.modeToggleSideTitle, chipMode === 'VALUE' && styles.modeToggleSideTitleActive]}>
+                  By Value
+                </Text>
+                <View style={styles.recBadgeMini}>
+                  <Text style={styles.recBadgeMiniText}>REC</Text>
+                </View>
+              </View>
+              <Text style={styles.modeToggleSideSub}>
+                Pure ₹ buy-ins, loans & cash-out
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -553,27 +585,6 @@ export const CreateTableScreen: React.FC<CreateTableScreenProps> = ({
                 <Plus size={15} color={colors.primary} style={{ marginRight: 6 }} />
                 <Text style={styles.addDenomBtnText}>+ Add Custom Denomination</Text>
               </TouchableOpacity>
-            </View>
-
-            {/* Inventory Distribution Summary */}
-            <View style={styles.breakdownBox}>
-              <Text style={styles.breakdownTitle}>
-                PHYSICAL CHIP INVENTORY ({denomTotalChips} TOTAL CHIPS • ₹{denomTotalPot.toLocaleString('en-IN')} VAULT):
-              </Text>
-              <View style={styles.breakdownRow}>
-                {denomRows.map(d => {
-                  const val = parseFloat(d.value) || 0;
-                  const cnt = parseInt(d.count, 10) || 0;
-                  return (
-                    <View key={d.id} style={[styles.breakdownPill, { borderColor: d.color }]}>
-                      <View style={[styles.miniDot, { backgroundColor: d.color }]} />
-                      <Text style={styles.breakdownPillText}>
-                        {cnt} × ₹{val} = ₹{(cnt * val).toLocaleString('en-IN')}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
             </View>
           </View>
         )}
@@ -993,6 +1004,66 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 8,
     marginTop: 6
+  },
+  modeToggleRowSideBySide: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 6
+  },
+  modeToggleSideBtn: {
+    flex: 1,
+    backgroundColor: colors.cardInset,
+    borderWidth: 1.5,
+    borderColor: colors.borderSubtle,
+    borderRadius: 14,
+    padding: 12,
+    justifyContent: 'space-between'
+  },
+  modeToggleSideBtnActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(235, 94, 40, 0.08)'
+  },
+  modeToggleSideTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  activeCheckCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  modeToggleSideTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary
+  },
+  modeToggleSideTitleActive: {
+    color: colors.text,
+    fontWeight: '800'
+  },
+  modeToggleSideSub: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 3,
+    lineHeight: 14
+  },
+  recBadgeMini: {
+    backgroundColor: 'rgba(235, 94, 40, 0.2)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginLeft: 6
+  },
+  recBadgeMiniText: {
+    color: colors.primary,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.5
   },
   modeToggleBtn: {
     flex: 1,

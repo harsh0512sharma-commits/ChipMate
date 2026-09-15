@@ -18,6 +18,7 @@ import {
   ExternalLink,
   ShieldCheck,
   Check,
+  CheckCircle2,
   Clock,
   Users,
   Banknote,
@@ -145,6 +146,7 @@ export const PublicLedgerScreen: React.FC<PublicLedgerScreenProps> = ({
   const totalPot = Number(ledger.totalPotMoney) || 0;
   const players = ledger.players || [];
   const transactions = ledger.transactions || [];
+  const settlementPayments: any[] = ledger.settlementPayments || [];
 
   return (
     <View style={styles.container}>
@@ -236,14 +238,6 @@ export const PublicLedgerScreen: React.FC<PublicLedgerScreenProps> = ({
             </View>
             <Text style={styles.statValue}>{players.length}</Text>
           </View>
-
-          <View style={styles.statCard}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-              <Coins size={14} color={colors.successText} style={{ marginRight: 5 }} />
-              <Text style={styles.statLabel}>ACTIONS</Text>
-            </View>
-            <Text style={styles.statValue}>{transactions.length}</Text>
-          </View>
         </View>
 
         {/* Player Standings Section */}
@@ -321,6 +315,34 @@ export const PublicLedgerScreen: React.FC<PublicLedgerScreenProps> = ({
           })}
         </View>
 
+        {/* Final Settlements (Who Pays Whom) */}
+        {settlementPayments.length > 0 && (
+          <View style={{ marginTop: 24 }}>
+            <View style={styles.sectionHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <CheckCircle2 size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                <Text style={styles.sectionTitle}>Final Settlements (Who Pays Whom)</Text>
+              </View>
+              <Text style={styles.sectionSub}>Direct peer payments to balance accounts</Text>
+            </View>
+
+            <View style={styles.settleListCard}>
+              {settlementPayments.map((item: any, idx: number) => (
+                <View key={idx} style={[styles.settleRow, idx === settlementPayments.length - 1 && { borderBottomWidth: 0 }]}>
+                  <View style={styles.settleFlowBox}>
+                    <Text style={styles.settleFlowText}>
+                      <Text style={styles.settlePayer}>{item.fromDisplayName}</Text>
+                      {'  pays  '}
+                      <Text style={styles.settlePayee}>{item.toDisplayName}</Text>
+                    </Text>
+                  </View>
+                  <Text style={styles.settleAmount}>₹{Math.round(item.amount).toLocaleString('en-IN')}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Transaction History Section */}
         <View style={[styles.sectionHeader, { marginTop: 24 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -342,18 +364,20 @@ export const PublicLedgerScreen: React.FC<PublicLedgerScreenProps> = ({
                 <View key={tx.id || idx} style={[styles.txRow, idx === transactions.length - 1 && { borderBottomWidth: 0 }]}>
                   <View style={styles.txIconBox}>
                     <Text style={styles.txIconEmoji}>
-                      {tx.type === 'BUY_IN' ? '💰' : tx.type === 'LEND' ? '🤝' : tx.type === 'RETURN' ? '↩️' : tx.type === 'TRANSFER' ? '🔁' : '📝'}
+                      {tx.type === 'BUY_IN' ? '💰' : tx.type === 'LEND' ? '🤝' : tx.type === 'RETURN' ? '↩️' : tx.type === 'TRANSFER' ? '🔁' : tx.type === 'CASH_OUT' ? '💵' : '📝'}
                     </Text>
                   </View>
 
                   <View style={{ flex: 1, paddingHorizontal: 10 }}>
-                    <Text style={styles.txDescText}>{tx.description}</Text>
+                    <Text style={styles.txDescText}>
+                      {tx.description || (tx.fromDisplayName && tx.toDisplayName ? `${tx.fromDisplayName} → ${tx.toDisplayName}` : `${tx.actorName || 'Player'} transaction`)}
+                    </Text>
                     <Text style={styles.txTimeText}>{dateStr} • {tx.type}</Text>
                   </View>
 
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={styles.txMoneyText}>
-                      {tx.moneyValue > 0 ? `₹${tx.moneyValue.toLocaleString('en-IN')}` : `${tx.chipAmount} chips`}
+                      {Number(tx.moneyValue) > 0 ? `₹${Number(tx.moneyValue).toLocaleString('en-IN')}` : `${tx.chipAmount || 0} chips`}
                     </Text>
                   </View>
                 </View>
@@ -748,5 +772,42 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontWeight: '800'
+  },
+  settleListCard: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    overflow: 'hidden'
+  },
+  settleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)'
+  },
+  settleFlowBox: {
+    flex: 1,
+    marginRight: 12
+  },
+  settleFlowText: {
+    fontSize: 13,
+    color: colors.textSecondary
+  },
+  settlePayer: {
+    fontWeight: '700',
+    color: colors.text
+  },
+  settlePayee: {
+    fontWeight: '700',
+    color: colors.primary
+  },
+  settleAmount: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.chipGoldText
   }
 });

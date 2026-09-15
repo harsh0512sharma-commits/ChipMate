@@ -10,7 +10,7 @@ import {
   Platform,
   Alert
 } from 'react-native';
-import { Trophy, TrendingDown, HandCoins, ArrowRight, Home, History, Users, Share2, Check } from 'lucide-react-native';
+import { Trophy, TrendingDown, HandCoins, ArrowRight, Home, History, Users, Share2, Check, CheckCircle2 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
 import { formatTxSummary } from '../table/LiveTableScreen';
@@ -368,6 +368,48 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
                 })}
               </View>
             )}
+          </View>
+        )}
+
+        {/* Final Settlements Section (Who Pays Whom) */}
+        {insights?.settlementPayments && insights.settlementPayments.length > 0 && (
+          <View style={styles.settlementsCard}>
+            <View style={styles.settlementsHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <CheckCircle2 size={16} color={colors.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.settlementsTitle}>FINAL SETTLEMENTS</Text>
+              </View>
+              <View style={styles.settlementsCountBadge}>
+                <Text style={styles.settlementsCountText}>{insights.settlementPayments.length} transfers</Text>
+              </View>
+            </View>
+
+            <Text style={styles.settlementsSubtitle}>
+              Who pays whom to settle all balances
+            </Text>
+
+            <View style={styles.settlementsList}>
+              {insights.settlementPayments.map((item: any, idx: number) => (
+                <View
+                  key={idx}
+                  style={[
+                    styles.settlementItemRow,
+                    idx === insights.settlementPayments.length - 1 && { borderBottomWidth: 0 }
+                  ]}
+                >
+                  <View style={styles.settleFlowBox}>
+                    <Text style={styles.settleFlowText}>
+                      <Text style={styles.settlePayer}>{item.fromDisplayName}</Text>
+                      {'  pays  '}
+                      <Text style={styles.settlePayee}>{item.toDisplayName}</Text>
+                    </Text>
+                  </View>
+                  <Text style={styles.settleAmount}>
+                    ₹{Math.round(item.amount).toLocaleString('en-IN')}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
@@ -907,5 +949,80 @@ const styles = StyleSheet.create({
   },
   netBadgeTextLost: {
     color: colors.dangerText
+  },
+  settlementsCard: {
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  settlementsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  settlementsTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: 0.5
+  },
+  settlementsCountBadge: {
+    backgroundColor: colors.cardInset,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.borderDark
+  },
+  settlementsCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted
+  },
+  settlementsSubtitle: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 4,
+    marginBottom: 14
+  },
+  settlementsList: {
+    backgroundColor: colors.cardInset,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    overflow: 'hidden'
+  },
+  settlementItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderDark
+  },
+  settleFlowBox: {
+    flex: 1,
+    marginRight: 10
+  },
+  settleFlowText: {
+    fontSize: 13,
+    color: colors.textSecondary
+  },
+  settlePayer: {
+    fontWeight: '700',
+    color: colors.text
+  },
+  settlePayee: {
+    fontWeight: '700',
+    color: colors.primary
+  },
+  settleAmount: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.chipGoldText
   }
 });

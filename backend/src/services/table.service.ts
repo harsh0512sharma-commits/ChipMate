@@ -3,6 +3,7 @@ import { getDb, flushReplicationQueue } from '../db';
 import { getFriendshipStatusBetween } from './friend.service';
 import { getUserByFriendCode } from './auth.service';
 import { recalculateUserLifetimeStats } from './stats.service';
+import { calculateSettlementPreview } from './settlement.service';
 
 export interface GameTableRecord {
   id: string;
@@ -675,7 +676,7 @@ export function seatGuestPlayer(
 
 export function getTableTransactions(tableId: string) {
   const db = getDb();
-  const transactions = db.prepare(`
+  const rawTransactions = db.prepare(`
     SELECT t.id, t.type, t.chip_amount, t.chip_value, t.money_value, t.reversal_of, t.metadata, t.created_at,
       u_actor.display_name as actor_name,
       t.from_player_id,
@@ -712,7 +713,63 @@ export function getTableTransactions(tableId: string) {
     ORDER BY t.created_at ASC
   `).all(tableId) as any[];
 
-  return transactions;
+  return rawTransactions.map(t => {
+    const moneyVal = Number(t.money_value) || 0;
+    const chipAmt = Number(t.chip_amount) || 0;
+    let desc = '';
+    switch (t.type) {
+      case 'BUY_IN':
+        desc = `${t.to_player_name} bought in for ₹${moneyVal.toLocaleString('en-IN')}`;
+        break;
+      case 'RE_BUY':
+        desc = `${t.to_player_name} re-bought for ₹${moneyVal.toLocaleString('en-IN')}`;
+        break;
+      case 'LEND':
+        desc = `${t.from_player_name} lent to ${t.to_player_name}`;
+        break;
+      case 'RETURN':
+        desc = `${t.from_player_name} returned loan to ${t.to_player_name}`;
+        break;
+      case 'CASH_OUT':
+        desc = `${t.from_player_name} cashed out ₹${moneyVal.toLocaleString('en-IN')}`;
+        break;
+      case 'TRANSFER':
+        desc = `${t.from_player_name} sent chips to ${t.to_player_name}`;
+        break;
+      case 'CORRECTION':
+        desc = `Audit correction for ${t.to_player_name}`;
+        break;
+      default:
+        desc = `${t.from_player_name} → ${t.to_player_name}`;
+    }
+
+    return {
+      id: t.id,
+      type: t.type,
+      description: desc,
+      chipAmount: chipAmt,
+      chip_amount: chipAmt,
+      chipValue: Number(t.chip_value) || 1,
+      chip_value: Number(t.chip_value) || 1,
+      moneyValue: moneyVal,
+      money_value: moneyVal,
+      reversalOf: t.reversal_of,
+      reversal_of: t.reversal_of,
+      metadata: t.metadata,
+      createdAt: t.created_at,
+      created_at: t.created_at,
+      actorName: t.actor_name,
+      actor_name: t.actor_name,
+      fromPlayerId: t.from_player_id,
+      from_player_id: t.from_player_id,
+      toPlayerId: t.to_player_id,
+      to_player_id: t.to_player_id,
+      fromDisplayName: t.from_player_name,
+      from_player_name: t.from_player_name,
+      toDisplayName: t.to_player_name,
+      to_player_name: t.to_player_name
+    };
+  });
 }
 
 export function getPublicLedger(tableId: string) {
@@ -801,6 +858,25 @@ export function getPublicLedger(tableId: string) {
     WHERE si.game_id = ?
   `).all(tableId) as any[];
 
+  // Optimized Settlement Payments (Who pays whom)
+  let settlementPayments: any[] = [];
+  try {
+    if (settlementItems && settlementItems.length > 0) {
+      settlementPayments = settlementItems.map(si => ({
+        fromDisplayName: si.from_player_name,
+        toDisplayName: si.to_player_name,
+        amount: Number(si.amount) || 0
+      }));
+    } else if (table.status === 'FINALIZED' || table.status === 'SETTLING') {
+      const prev = calculateSettlementPreview(tableId);
+      settlementPayments = (prev.optimizedSettlements || []).map((s: any) => ({
+        fromDisplayName: s.fromDisplayName,
+        toDisplayName: s.toDisplayName,
+        amount: Number(s.amount) || 0
+      }));
+    }
+  } catch (_) {}
+
   // Total Pot Money
   const totalPotMoney = players.reduce((sum, p) => sum + (Number(p.total_buyin_amount) || 0), 0);
 
@@ -817,7 +893,8 @@ export function getPublicLedger(tableId: string) {
     finalizedAt: table.finalized_at,
     players: playersSummary,
     transactions,
-    settlementItems
+    settlementItems,
+    settlementPayments
   };
 }
 

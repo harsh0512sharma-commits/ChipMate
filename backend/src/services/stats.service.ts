@@ -1,5 +1,5 @@
 import { getDb } from '../db';
-import { SettlementPlayerBalance } from './settlement.service';
+import { SettlementPlayerBalance, calculateSettlementPreview } from './settlement.service';
 
 export interface PlayerLifetimeStatsRecord {
   user_id: string;
@@ -457,6 +457,16 @@ export function getGameInsights(gameId: string) {
   const borrowerIsGuest = maxBorrower ? Boolean(maxBorrower.is_guest || (maxBorrower.user_id && maxBorrower.user_id.startsWith('guest_'))) : false;
   const borrowerName = maxBorrower ? ((borrowerIsGuest && maxBorrower.guest_name) ? maxBorrower.guest_name : maxBorrower.display_name) : null;
 
+  let settlementPayments: any[] = [];
+  try {
+    const preview = calculateSettlementPreview(gameId);
+    settlementPayments = (preview.optimizedSettlements || []).map((s: any) => ({
+      fromDisplayName: s.fromDisplayName,
+      toDisplayName: s.toDisplayName,
+      amount: Number(s.amount) || 0
+    }));
+  } catch (_) {}
+
   return {
     gameId,
     gameName: game?.name || 'Game Table',
@@ -477,6 +487,7 @@ export function getGameInsights(gameId: string) {
       displayName: borrowerName,
       chipsBorrowed: maxBorrower.total_borrowed
     } : null,
-    players
+    players,
+    settlementPayments
   };
 }

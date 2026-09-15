@@ -132,103 +132,36 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
         ) : null}
       </View>
 
-      {/* Main Stats: Chips & Financial P&L */}
-      {isCashedOut ? (
-        <View style={styles.statsContainer}>
-          <View style={styles.chipSection}>
-            <Text style={[styles.bigChipNumber, { color: '#38bdf8' }]}>
-              {isValueMode ? `₹${(player.cashed_out_money ?? 0).toLocaleString('en-IN')}` : (player.cashed_out_chips ?? 0)}
-            </Text>
-            <Text style={[styles.chipLabel, { color: '#38bdf8' }]}>
-              {isValueMode ? 'CASHED OUT' : 'CHIPS CASHED OUT'}
-            </Text>
-          </View>
-
-          <View style={[styles.moneySection, isValueMode && { alignItems: 'flex-end' }]}>
-            {!isValueMode && (
-              <Text style={[styles.moneyAmount, { color: '#38bdf8' }]}>
-                ₹{(player.cashed_out_money ?? 0).toLocaleString('en-IN')}
-              </Text>
-            )}
-
-            <View style={[styles.pnlRow, isValueMode && { marginTop: 0, justifyContent: 'flex-end' }]}>
-              {isProfit ? (
-                <View style={styles.pnlPillGreen}>
-                  <Text style={styles.pnlTextGreen}>+₹{netPnL.toLocaleString('en-IN')}</Text>
-                </View>
-              ) : isLoss ? (
-                <View style={styles.pnlPillRed}>
-                  <Text style={styles.pnlTextRed}>-₹{Math.abs(netPnL).toLocaleString('en-IN')}</Text>
-                </View>
-              ) : (
-                <Text style={styles.pnlNeutral}>Even (₹0)</Text>
-              )}
-              <Text style={[styles.buyinSubText, isValueMode && { textAlign: 'right', marginTop: 4 }]}>
-                Buy-in: ₹{player.total_buyin_amount.toLocaleString('en-IN')}
-              </Text>
-            </View>
-          </View>
+      {/* Main Stats: Chips / In-Hand Balance */}
+      <View style={styles.statsContainer}>
+        <View style={styles.chipSection}>
+          <Text
+            style={[
+              styles.bigChipNumber,
+              isCashedOut && { color: '#38bdf8' },
+              isValueMode && !isCashedOut && { color: colors.primary }
+            ]}
+          >
+            {isCashedOut
+              ? (isValueMode ? `₹${(player.cashed_out_money ?? 0).toLocaleString('en-IN')}` : (player.cashed_out_chips ?? 0))
+              : isValueMode
+                ? `₹${player.current_chips.toLocaleString('en-IN')}`
+                : player.current_chips}
+          </Text>
+          <Text
+            style={[
+              styles.chipLabel,
+              isCashedOut && { color: '#38bdf8' }
+            ]}
+          >
+            {isCashedOut
+              ? (isValueMode ? 'CASHED OUT' : 'CHIPS CASHED OUT')
+              : isValueMode
+                ? 'IN-HAND BALANCE'
+                : 'CHIPS HELD'}
+          </Text>
         </View>
-      ) : isValueMode ? (
-        <View style={styles.statsContainer}>
-          <View style={styles.chipSection}>
-            <Text style={[styles.bigChipNumber, { color: colors.primary }]}>
-              ₹{player.current_chips.toLocaleString('en-IN')}
-            </Text>
-            <Text style={styles.chipLabel}>IN-HAND BALANCE</Text>
-          </View>
-
-          <View style={[styles.moneySection, { alignItems: 'flex-end' }]}>
-            <View style={[styles.pnlRow, { marginTop: 0, justifyContent: 'flex-end' }]}>
-              {isProfit ? (
-                <View style={styles.pnlPillGreen}>
-                  <Text style={styles.pnlTextGreen}>+₹{netPnL.toLocaleString('en-IN')}</Text>
-                </View>
-              ) : isLoss ? (
-                <View style={styles.pnlPillRed}>
-                  <Text style={styles.pnlTextRed}>-₹{Math.abs(netPnL).toLocaleString('en-IN')}</Text>
-                </View>
-              ) : (
-                <Text style={styles.pnlNeutral}>Even (₹0)</Text>
-              )}
-            </View>
-            <Text style={[styles.buyinSubText, { textAlign: 'right', marginTop: 4 }]}>
-              Buy-in: ₹{player.total_buyin_amount.toLocaleString('en-IN')}
-            </Text>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.statsContainer}>
-          <View style={styles.chipSection}>
-            <Text style={styles.bigChipNumber}>
-              {player.current_chips}
-            </Text>
-            <Text style={styles.chipLabel}>CHIPS HELD</Text>
-          </View>
-
-          <View style={styles.moneySection}>
-            <Text style={styles.moneyAmount}>
-              ₹{currentMoney.toLocaleString('en-IN')}
-            </Text>
-
-            {/* Live P&L indicator badge */}
-            <View style={styles.pnlRow}>
-              {isProfit ? (
-                <View style={styles.pnlPillGreen}>
-                  <Text style={styles.pnlTextGreen}>+₹{netPnL.toLocaleString('en-IN')}</Text>
-                </View>
-              ) : isLoss ? (
-                <View style={styles.pnlPillRed}>
-                  <Text style={styles.pnlTextRed}>-₹{Math.abs(netPnL).toLocaleString('en-IN')}</Text>
-                </View>
-              ) : (
-                <Text style={styles.pnlNeutral}>Even (₹0)</Text>
-              )}
-              <Text style={styles.buyinSubText}>Buy-in: ₹{player.total_buyin_amount.toLocaleString('en-IN')}</Text>
-            </View>
-          </View>
-        </View>
-      )}
+      </View>
     </TouchableOpacity>
   );
 };
@@ -238,11 +171,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 14,
     paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginHorizontal: 12,
+    paddingHorizontal: 10,
+    marginHorizontal: 0,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: colors.borderSubtle
+    borderColor: colors.borderSubtle,
+    minHeight: 105,
+    justifyContent: 'space-between'
   },
   topRow: {
     flexDirection: 'row',

@@ -18,7 +18,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.0.29',
+      version: '1.0.30',
       timestamp: new Date().toISOString()
     });
   });
@@ -26,9 +26,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.29',
+      version: '1.0.30',
       buildTime: Date.now(),
-      releaseNotes: 'Added Mid-Game Player Cash-Out with live zero-sum ledger settlement across all game types and valuation modes.'
+      releaseNotes: 'Custom denomination persistence, 2-column player cards, clean settlement UI, centered cash-out modal, and peer settlement transfers in Public Ledger & Game Summary.'
     });
   };
   app.get('/version', versionHandler);

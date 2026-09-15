@@ -373,14 +373,9 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
           </View>
 
           {isValueMode ? (
-            <>
-              <Text style={styles.reconcileCount}>
-                ₹{Number(data.summary?.totalBuyinPotMoney ?? expectedTotalMoney).toLocaleString('en-IN')} Pot
-              </Text>
-              <Text style={styles.reconcileSub}>
-                Zero-Sum Financial Accounting • 1:1 Rupee Reconciliation
-              </Text>
-            </>
+            <Text style={styles.reconcileCount}>
+              ₹{Number(data.summary?.totalBuyinPotMoney ?? expectedTotalMoney).toLocaleString('en-IN')} Pot
+            </Text>
           ) : (
             <>
               <Text style={styles.reconcileCount}>
@@ -413,37 +408,10 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
           )}
         </View>
 
-        {/* OUTSTANDING LOANS REVIEW */}
-        {loans.length > 0 && (
-          <View style={styles.card}>
-            <View style={styles.sectionHeaderRow}>
-              <HandCoins size={16} color={colors.warningText} />
-              <Text style={styles.cardTitle}>Outstanding Loans Handled in Net</Text>
-            </View>
-            <Text style={styles.loanExplain}>
-              These loans were automatically factored into each player's net position.
-            </Text>
-
-            {loans.map((l: any) => (
-              <View key={l.id} style={styles.loanItem}>
-                <Text style={styles.loanPlayerText}>
-                  {l.borrower_name} owes {l.lender_name}
-                </Text>
-                <Text style={styles.loanAmountText}>
-                  {isValueMode ? `₹${l.moneyEquivalent}` : `${l.remaining_chip_amount} chips (₹${l.moneyEquivalent})`}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-
         {/* FINAL PLAYER NET POSITIONS */}
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
-            <View>
-              <Text style={styles.cardTitle}>Player Final Positions</Text>
-              <Text style={styles.cardSubtitle}>Unified zero-sum net formula: In-Hand Value − Buy-ins − Borrowed + Lent</Text>
-            </View>
+            <Text style={styles.cardTitle}>Player Final Positions</Text>
             {isHost && !isFinalized && (
               <TouchableOpacity style={styles.smallEditBtn} onPress={handleOpenEditChips}>
                 <Edit3 size={13} color={colors.primary} style={{ marginRight: 4 }} />

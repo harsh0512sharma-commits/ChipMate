@@ -1,5 +1,5 @@
 {
-  "version": "1.0.29",
-  "buildTime": 1789390000000,
-  "releaseNotes": "Added Mid-Game Player Cash-Out with live zero-sum ledger settlement across all game types and valuation modes."
+  "version": "1.0.30",
+  "buildTime": 1789395000000,
+  "releaseNotes": "Custom denomination persistence, 2-column player cards, clean settlement UI, centered cash-out modal, and peer settlement transfers in Public Ledger & Game Summary."
 }

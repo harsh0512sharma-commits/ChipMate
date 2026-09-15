@@ -145,7 +145,7 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
         style={styles.overlay}
       >
         <View style={styles.container}>
@@ -335,17 +335,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16
+    padding: 16,
+    width: '100%'
   },
   container: {
     width: '100%',
-    maxWidth: 480,
+    maxWidth: 460,
     backgroundColor: colors.card,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.borderSubtle,
     maxHeight: '90%',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    alignSelf: 'center'
   },
   header: {
     flexDirection: 'row',
@@ -447,6 +449,7 @@ const styles = StyleSheet.create({
   },
   presetsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginBottom: 16
   },

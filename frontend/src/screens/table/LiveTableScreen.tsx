@@ -996,14 +996,6 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
               )}
 
               <TouchableOpacity
-                style={styles.menuItem}
-                onPress={handleShareLedger}
-              >
-                <Share2 size={13} color={colors.textSecondary} />
-                <Text style={[styles.menuItemText, { marginLeft: 4 }]}>Share Ledger</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
                 style={[styles.menuItem, styles.endGameMenuItem]}
                 onPress={handleOpenFinalChipsModal}
               >
@@ -1129,18 +1121,21 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
           </Text>
         )}
 
-        {players.map((p: any) => (
-          <PlayerCard
-            key={p.id}
-            player={p}
-            chipValue={table.chip_value}
-            chipMode={table.chip_mode}
-            loansDescription={loansMap[p.id]}
-            isHostView={isHost}
-            onAddFriend={handleAddFriend}
-            onSelectPlayer={isHost && !isFinalized ? () => handlePlayerCardTap(p) : undefined}
-          />
-        ))}
+        <View style={styles.playerCardsGrid}>
+          {players.map((p: any) => (
+            <View key={p.id} style={styles.playerCardGridItem}>
+              <PlayerCard
+                player={p}
+                chipValue={table.chip_value}
+                chipMode={table.chip_mode}
+                loansDescription={loansMap[p.id]}
+                isHostView={isHost}
+                onAddFriend={handleAddFriend}
+                onSelectPlayer={isHost && !isFinalized ? () => handlePlayerCardTap(p) : undefined}
+              />
+            </View>
+          ))}
+        </View>
       </ScrollView>
 
       {/* Quick Action Sheet Modal */}
@@ -2450,6 +2445,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#F59E0B'
+  },
+  playerCardsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    rowGap: 8
+  },
+  playerCardGridItem: {
+    width: '48.5%'
   },
   confirmModalWarningText: {
     fontSize: 13,
