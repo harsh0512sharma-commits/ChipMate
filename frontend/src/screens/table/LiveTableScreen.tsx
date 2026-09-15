@@ -484,8 +484,9 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const handleShareLedger = async () => {
     const origin = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : 'https://chipmate-h96z.onrender.com';
     const ledgerUrl = `${origin}/?ledger=${tableId}`;
-    const shareTitle = `${data?.table?.name || 'Game'} — Public Ledger`;
-    const shareMessage = `View the live public game ledger for "${data?.table?.name || 'Poker'}" on ChipMate (anyone can view, no login required):\n${ledgerUrl}`;
+    const shareTitle = data?.table?.name ? `${data.table.name} — ChipMate Public Ledger` : 'ChipMate Public Ledger';
+    const shareIntro = `View the live public game ledger for "${data?.table?.name || 'Poker'}" on ChipMate (no login required):`;
+    const shareMessage = `${shareIntro}\n${ledgerUrl}`;
 
     try {
       if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
@@ -493,7 +494,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
           try {
             await navigator.share({
               title: shareTitle,
-              text: shareMessage,
+              text: shareIntro,
               url: ledgerUrl
             });
             return;
@@ -507,9 +508,8 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
         }
       }
       await Share.share({
-        message: shareMessage,
-        url: ledgerUrl,
-        title: shareTitle
+        title: shareTitle,
+        message: shareMessage
       });
     } catch (err: any) {
       Alert.alert('Share Public Ledger', ledgerUrl);

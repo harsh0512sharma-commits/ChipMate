@@ -52,8 +52,9 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
   const handleShareSummary = async () => {
     const origin = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : 'https://chipmate-h96z.onrender.com';
     const ledgerUrl = `${origin}/?ledger=${gameId}`;
-    const shareTitle = `${insights?.gameName || 'Game'} — Final Results & Ledger`;
-    const shareMessage = `Check out the final results & full ledger for "${insights?.gameName || 'Poker'}" on ChipMate:\n${ledgerUrl}`;
+    const shareTitle = insights?.gameName ? `${insights.gameName} — ChipMate Summary` : 'ChipMate Game Summary';
+    const shareIntro = `Check out the final results & full ledger for "${insights?.gameName || 'Poker'}" on ChipMate:`;
+    const shareMessage = `${shareIntro}\n${ledgerUrl}`;
 
     try {
       if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
@@ -61,7 +62,7 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
           try {
             await navigator.share({
               title: shareTitle,
-              text: shareMessage,
+              text: shareIntro,
               url: ledgerUrl
             });
             return;
@@ -75,9 +76,8 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
         }
       }
       await Share.share({
-        message: shareMessage,
-        url: ledgerUrl,
-        title: shareTitle
+        title: shareTitle,
+        message: shareMessage
       });
     } catch (err) {
       Alert.alert('Ledger Link', ledgerUrl);

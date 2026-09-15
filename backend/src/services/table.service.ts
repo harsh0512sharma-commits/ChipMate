@@ -420,6 +420,35 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
     ORDER BY CASE WHEN gp.role = 'HOST' THEN 0 ELSE 1 END, gp.joined_at ASC
   `).all(tableId) as any[];
 
+  // Fetch active loans
+  const loans = db.prepare(`
+    SELECT l.id, l.original_chip_amount, l.remaining_chip_amount, l.chip_value, l.status, l.created_at,
+      lender.id as lender_player_id, COALESCE(lender.guest_name, u_lender.display_name) as lender_name,
+      borrower.id as borrower_player_id, COALESCE(borrower.guest_name, u_borrower.display_name) as borrower_name
+    FROM loans l
+    JOIN game_players lender ON l.lender_id = lender.id
+    JOIN users u_lender ON lender.user_id = u_lender.id
+    JOIN game_players borrower ON l.borrower_id = borrower.id
+    JOIN users u_borrower ON borrower.user_id = u_borrower.id
+    WHERE l.game_id = ? AND l.status != 'SETTLED'
+    ORDER BY l.created_at DESC
+  `).all(tableId) as any[];
+
+  const loanDebtMap = new Map<string, number>();
+  const loanCreditMap = new Map<string, number>();
+  const loanDebtChipsMap = new Map<string, number>();
+  const loanCreditChipsMap = new Map<string, number>();
+
+  for (const l of loans) {
+    const lVal = (l.chip_value && l.chip_value > 0) ? l.chip_value : table.chip_value;
+    const lChips = Number(l.remaining_chip_amount) || 0;
+    const lMoney = lChips * lVal;
+    loanDebtMap.set(l.borrower_player_id, (loanDebtMap.get(l.borrower_player_id) || 0) + lMoney);
+    loanCreditMap.set(l.lender_player_id, (loanCreditMap.get(l.lender_player_id) || 0) + lMoney);
+    loanDebtChipsMap.set(l.borrower_player_id, (loanDebtChipsMap.get(l.borrower_player_id) || 0) + lChips);
+    loanCreditChipsMap.set(l.lender_player_id, (loanCreditChipsMap.get(l.lender_player_id) || 0) + lChips);
+  }
+
   // Augment each player with friendship status relative to requestingUserId
   const playersWithFriendship = players.map(p => {
     const isGuest = Boolean(p.is_guest || (p.user_id && p.user_id.startsWith('guest_')));
@@ -443,6 +472,11 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
       }
     }
 
+    const loanDebtOwed = Math.round((loanDebtMap.get(p.id) || 0) * 100) / 100;
+    const loanCreditOwed = Math.round((loanCreditMap.get(p.id) || 0) * 100) / 100;
+    const loanDebtChips = loanDebtChipsMap.get(p.id) || 0;
+    const loanCreditChips = loanCreditChipsMap.get(p.id) || 0;
+
     return {
       ...p,
       is_guest: isGuest,
@@ -451,6 +485,10 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
       cashed_out_chips: Number(p.cashed_out_chips || 0),
       cashed_out_money: Number(p.cashed_out_money || 0),
       cashed_out_net: Number(p.cashed_out_net || 0),
+      loanDebtOwed,
+      loanCreditOwed,
+      loanDebtChips,
+      loanCreditChips,
       friend_code: isGuest ? 'GUEST' : (p.phone_number || p.friend_code),
       friendshipStatus,
       moneyEquivalent
@@ -462,20 +500,6 @@ export function getTableDetails(tableId: string, requestingUserId: string) {
   const totalAccountedChips = sumPlayerChips + table.bank_chips;
   const isReconciled = totalAccountedChips === table.total_chips;
   const discrepancy = table.total_chips - totalAccountedChips;
-
-  // Fetch active loans
-  const loans = db.prepare(`
-    SELECT l.id, l.original_chip_amount, l.remaining_chip_amount, l.chip_value, l.status, l.created_at,
-      lender.id as lender_player_id, COALESCE(lender.guest_name, u_lender.display_name) as lender_name,
-      borrower.id as borrower_player_id, COALESCE(borrower.guest_name, u_borrower.display_name) as borrower_name
-    FROM loans l
-    JOIN game_players lender ON l.lender_id = lender.id
-    JOIN users u_lender ON lender.user_id = u_lender.id
-    JOIN game_players borrower ON l.borrower_id = borrower.id
-    JOIN users u_borrower ON borrower.user_id = u_borrower.id
-    WHERE l.game_id = ? AND l.status != 'SETTLED'
-    ORDER BY l.created_at DESC
-  `).all(tableId) as any[];
 
   // Fetch recent transactions (last 50) with From -> To human player names
   const transactions = db.prepare(`
@@ -803,16 +827,29 @@ export function getPublicLedger(tableId: string) {
 
   const isValueMode = table.chip_mode === 'VALUE';
 
+  // Active loans for debt & credit tracking
+  const activeLoans = db.prepare("SELECT * FROM loans WHERE game_id = ? AND status != 'SETTLED'").all(tableId) as any[];
+  const loanDebtMap = new Map<string, number>();
+  const loanCreditMap = new Map<string, number>();
+  for (const l of activeLoans) {
+    const lVal = (l.chip_value && l.chip_value > 0) ? l.chip_value : table.chip_value;
+    const lMoney = (Number(l.remaining_chip_amount) || 0) * lVal;
+    loanDebtMap.set(l.borrower_id, (loanDebtMap.get(l.borrower_id) || 0) + lMoney);
+    loanCreditMap.set(l.lender_id, (loanCreditMap.get(l.lender_id) || 0) + lMoney);
+  }
+
   const playersSummary = players.map(p => {
     const fin = resultMap.get(p.user_id);
     const isCashedOut = Boolean(p.is_cashed_out);
+    const loanDebtOwed = Math.round((loanDebtMap.get(p.id) || 0) * 100) / 100;
+    const loanCreditOwed = Math.round((loanCreditMap.get(p.id) || 0) * 100) / 100;
     let buyInMoney = Number(p.total_buyin_amount) || 0;
     let inHandMoney = isCashedOut
       ? (Number(p.cashed_out_money) || 0)
       : (isValueMode ? Number(p.current_chips) : Number(p.current_chips) * Number(table.chip_value));
     let netWinnings = isCashedOut
-      ? (p.cashed_out_net !== null && p.cashed_out_net !== undefined ? Number(p.cashed_out_net) : (inHandMoney - buyInMoney))
-      : (inHandMoney - buyInMoney);
+      ? (p.cashed_out_net !== null && p.cashed_out_net !== undefined ? Number(p.cashed_out_net) : (inHandMoney - buyInMoney - loanDebtOwed + loanCreditOwed))
+      : (inHandMoney - buyInMoney - loanDebtOwed + loanCreditOwed);
 
     if (fin) {
       buyInMoney = Number(fin.buyin_money);
@@ -828,6 +865,8 @@ export function getPublicLedger(tableId: string) {
       isCashedOut,
       cashedOutMoney: Number(p.cashed_out_money || 0),
       cashedOutNet: Number(p.cashed_out_net || 0),
+      loanDebtOwed,
+      loanCreditOwed,
       avatarUrl: p.avatar_url,
       buyInMoney,
       inHandMoney,

@@ -1,6 +1,6 @@
 {
   "name": "chipmate-project",
-  "version": "1.0.30",
+  "version": "1.0.31",
   "description": "ChipMate - Real-Time Home Game Chip Ledger, Settlement & Player Statistics Application",
   "scripts": {
     "dev:backend": "cd backend && npm run dev",

@@ -72,6 +72,8 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
   if (!player) return null;
 
   const buyInAmount = Number(player.total_buyin_amount) || 0;
+  const lentMoney = Number(player.loanCreditOwed) || 0;
+  const borrowedMoney = Number(player.loanDebtOwed) || 0;
 
   // Calculate live values
   let cashOutMoney = 0;
@@ -88,7 +90,8 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
     cashOutMoney = cashOutChips * chipValue;
   }
 
-  const netWinnings = Math.round((cashOutMoney - buyInAmount) * 100) / 100;
+  // Authoritative Zero-Sum Formula: Cashout - BuyIn + Lent - Borrowed
+  const netWinnings = Math.round((cashOutMoney - buyInAmount + lentMoney - borrowedMoney) * 100) / 100;
   const isProfit = netWinnings > 0;
   const isLoss = netWinnings < 0;
 
@@ -179,8 +182,15 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
                 <Text style={styles.standingLabel}>
                   {isValueMode ? 'CURRENT IN-HAND' : 'CURRENT CHIPS'}
                 </Text>
-                <Text style={[styles.standingValue, { color: colors.primary }]}>
-                  {isValueMode ? `₹${player.current_chips.toLocaleString('en-IN')}` : player.current_chips}
+                <Text
+                  style={[
+                    styles.standingValue,
+                    { color: player.current_chips < 0 ? colors.successText : colors.primary }
+                  ]}
+                >
+                  {player.current_chips < 0
+                    ? (isValueMode ? `₹${Math.abs(player.current_chips).toLocaleString('en-IN')}` : `${Math.abs(player.current_chips)}`)
+                    : (isValueMode ? `₹${player.current_chips.toLocaleString('en-IN')}` : player.current_chips)}
                 </Text>
               </View>
             </View>
@@ -220,25 +230,25 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
             <View style={styles.presetsRow}>
               <TouchableOpacity
                 style={styles.presetChip}
-                onPress={() => handleQuickPreset(player.current_chips)}
+                onPress={() => handleQuickPreset(Math.max(0, player.current_chips))}
               >
                 <Text style={styles.presetChipText}>
-                  Current ({isValueMode ? `₹${player.current_chips}` : `${player.current_chips} chips`})
+                  Current ({isValueMode ? `₹${Math.max(0, player.current_chips)}` : `${Math.max(0, player.current_chips)} chips`})
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.presetChip}
-                onPress={() => handleQuickPreset(isValueMode ? buyInAmount : Math.round(buyInAmount / chipValue))}
+                onPress={() => handleQuickPreset(Math.max(0, isValueMode ? (buyInAmount - lentMoney + borrowedMoney) : Math.round((buyInAmount - lentMoney + borrowedMoney) / chipValue)))}
               >
                 <Text style={styles.presetChipText}>
-                  Break-Even (₹{buyInAmount})
+                  Break-Even
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.presetChip}
                 onPress={() => handleQuickPreset(0)}
               >
-                <Text style={styles.presetChipText}>0 (All Lost)</Text>
+                <Text style={styles.presetChipText}>0 (Busted)</Text>
               </TouchableOpacity>
             </View>
 
@@ -247,12 +257,24 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
               <Text style={styles.previewCardTitle}>Settlement Projection</Text>
               <View style={styles.previewRow}>
                 <Text style={styles.previewLabel}>Cashing Out For:</Text>
-                <Text style={styles.previewValueBold}>₹{cashOutMoney.toLocaleString('en-IN')}</Text>
+                <Text style={styles.previewValueBold}>+₹{cashOutMoney.toLocaleString('en-IN')}</Text>
               </View>
               <View style={styles.previewRow}>
                 <Text style={styles.previewLabel}>Total Buy-In Paid:</Text>
-                <Text style={styles.previewValueMuted}>₹{buyInAmount.toLocaleString('en-IN')}</Text>
+                <Text style={[styles.previewValueBold, { color: colors.dangerText }]}>-₹{buyInAmount.toLocaleString('en-IN')}</Text>
               </View>
+              {lentMoney > 0 && (
+                <View style={styles.previewRow}>
+                  <Text style={styles.previewLabel}>Lent to Others (repayment):</Text>
+                  <Text style={[styles.previewValueBold, { color: colors.successText }]}>+₹{lentMoney.toLocaleString('en-IN')}</Text>
+                </View>
+              )}
+              {borrowedMoney > 0 && (
+                <View style={styles.previewRow}>
+                  <Text style={styles.previewLabel}>Borrowed from Others (debt):</Text>
+                  <Text style={[styles.previewValueBold, { color: colors.dangerText }]}>-₹{borrowedMoney.toLocaleString('en-IN')}</Text>
+                </View>
+              )}
 
               <View style={styles.previewDivider} />
 
@@ -336,18 +358,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
-    width: '100%'
+    width: '100%',
+    height: '100%'
   },
   container: {
     width: '100%',
-    maxWidth: 460,
+    maxWidth: 420,
     backgroundColor: colors.card,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.borderSubtle,
     maxHeight: '90%',
     overflow: 'hidden',
-    alignSelf: 'center'
+    alignSelf: 'center',
+    marginHorizontal: 'auto'
   },
   header: {
     flexDirection: 'row',
@@ -450,16 +474,19 @@ const styles = StyleSheet.create({
   presetsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 8,
     marginBottom: 16
   },
   presetChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     backgroundColor: colors.cardRaised,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.borderSubtle
+    borderColor: colors.borderSubtle,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   presetChipText: {
     fontSize: 11,

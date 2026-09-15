@@ -315,4 +315,69 @@ describe('Mid-Game Player Cash-Out Feature Tests', () => {
     expect(pB.is_cashed_out).toBe(false);
     expect(pB.current_chips).toBe(30);
   });
+
+  test('Test Case 5 — VALUE mode lender cashes out mid-game with active credit (buyin ₹500, lent ₹700, cashes out ₹300 -> net +₹500 profit)', () => {
+    const [hostA, playerB, playerC] = setupPlayers(3);
+
+    const { table } = tableService.createTable({
+      hostUserId: hostA.id,
+      name: 'Lender Cashout Test',
+      gameType: 'POKER',
+      totalChips: 5000,
+      chipValue: 1,
+      chipMode: 'VALUE'
+    });
+
+    const aId = db.prepare('SELECT id FROM game_players WHERE game_id = ? AND user_id = ?').get(table.id, hostA.id).id;
+    const { playerId: bId } = tableService.joinTableByCode(playerB.id, table.join_code);
+    const { playerId: cId } = tableService.joinTableByCode(playerC.id, table.join_code);
+
+    // Host A buys in for ₹500, B buys in for ₹500, C buys in for ₹500
+    ledgerService.recordBuyIn({ gameId: table.id, hostUserId: hostA.id, playerId: aId, chipAmount: 500 });
+    ledgerService.recordBuyIn({ gameId: table.id, hostUserId: hostA.id, playerId: bId, chipAmount: 500 });
+    ledgerService.recordBuyIn({ gameId: table.id, hostUserId: hostA.id, playerId: cId, chipAmount: 500 });
+
+    // Host A lends ₹700 to Player B (uncapped shot lending)
+    ledgerService.recordLend({
+      gameId: table.id,
+      hostUserId: hostA.id,
+      lenderPlayerId: aId,
+      borrowerPlayerId: bId,
+      chipAmount: 700,
+      moneyValue: 700
+    });
+
+    // Check table details: Host A has lentMoney = 700, B has borrowedMoney = 700
+    let currentTable = tableService.getTableDetails(table.id, hostA.id)!;
+    const pA = currentTable.players.find(p => p.id === aId)!;
+    expect(pA.loanCreditOwed).toBe(700);
+    expect(pA.loanDebtOwed).toBe(0);
+
+    // Host A rebought or won chips and now holds ₹300, and cashes out ₹300 mid-game
+    const cashOutResult = ledgerService.recordCashOut({
+      gameId: table.id,
+      actorUserId: hostA.id,
+      playerId: aId,
+      moneyValue: 300
+    });
+
+    // Formula: Cashout (300) - BuyIn (500) - Debt (0) + Credit (700) = +500 Profit!
+    expect(cashOutResult.cashedOutMoney).toBe(300);
+    expect(cashOutResult.cashedOutNet).toBe(500);
+
+    // Final settlement reconciliation
+    // Player B finishes with 800, C finishes with 400.
+    // Total: 300 (A cashed out) + 800 (B) + 400 (C) = 1500 (equal to 1500 total pot)
+    const preview = settlementService.submitFinalChipCounts(hostA.id, table.id, [
+      { playerId: bId, finalChips: 800, finalChipsMoney: 800 },
+      { playerId: cId, finalChips: 400, finalChipsMoney: 400 }
+    ]);
+
+    const previewA = preview.players.find(p => p.playerId === aId)!;
+    expect(previewA.isCashedOut).toBe(true);
+    expect(previewA.netPosition).toBe(500);
+
+    const sumNets = preview.players.reduce((sum, p) => sum + p.netPosition, 0);
+    expect(Math.round(sumNets)).toBe(0); // Zero-Sum invariant holds strictly!
+  });
 });

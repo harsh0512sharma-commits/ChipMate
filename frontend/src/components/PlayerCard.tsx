@@ -21,6 +21,10 @@ export interface PlayerCardData {
   cashed_out_chips?: number;
   cashed_out_money?: number;
   cashed_out_net?: number;
+  loanDebtOwed?: number;
+  loanCreditOwed?: number;
+  loanDebtChips?: number;
+  loanCreditChips?: number;
 }
 
 interface PlayerCardProps {
@@ -59,8 +63,47 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
   const netPnL = isCashedOut
     ? (player.cashed_out_net ?? (currentMoney - player.total_buyin_amount))
     : (currentMoney - player.total_buyin_amount);
-  const isProfit = netPnL > 0;
-  const isLoss = netPnL < 0;
+  const isLenderNegative = player.current_chips < 0;
+  const lentCredit = isValueMode
+    ? (player.loanCreditOwed || 0)
+    : (player.loanCreditChips || Math.round((player.loanCreditOwed || 0) / chipValue));
+  const loanDebt = isValueMode
+    ? (player.loanDebtOwed || 0)
+    : (player.loanDebtChips || Math.round((player.loanDebtOwed || 0) / chipValue));
+
+  // Determine displayed number, color, and label:
+  let displayNumber = '';
+  let displayColor = colors.text;
+  let displayLabel = isValueMode ? 'IN-HAND BALANCE' : 'CHIPS HELD';
+
+  if (isCashedOut) {
+    displayNumber = isValueMode
+      ? `₹${(player.cashed_out_money ?? 0).toLocaleString('en-IN')}`
+      : String(player.cashed_out_chips ?? 0);
+    displayColor = '#38bdf8';
+    displayLabel = 'CASHED OUT';
+  } else if (isLenderNegative) {
+    // Player lent more than buyin (uncapped shot lending) -> running in profit/credit!
+    // Display positive amount in GREEN without any minus sign!
+    displayNumber = isValueMode
+      ? `₹${Math.abs(player.current_chips).toLocaleString('en-IN')}`
+      : String(Math.abs(player.current_chips));
+    displayColor = colors.successText;
+    displayLabel = isValueMode ? 'IN PROFIT (LENT)' : 'CHIPS IN PROFIT';
+  } else if (player.current_chips === 0 && lentCredit > 0) {
+    // Player has 0 chips in hand but lent chips/money to others
+    displayNumber = isValueMode
+      ? `₹${lentCredit.toLocaleString('en-IN')}`
+      : String(lentCredit);
+    displayColor = colors.successText;
+    displayLabel = 'LENT (PROFIT)';
+  } else {
+    displayNumber = isValueMode
+      ? `₹${player.current_chips.toLocaleString('en-IN')}`
+      : String(player.current_chips);
+    displayColor = isValueMode ? colors.primary : colors.text;
+    displayLabel = isValueMode ? 'IN-HAND BALANCE' : 'CHIPS HELD';
+  }
 
   return (
     <TouchableOpacity
@@ -69,7 +112,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
       disabled={!onSelectPlayer}
       style={[styles.card, isCashedOut && styles.cashedOutCard]}
     >
-      {/* Top Header: Avatar, Name, Host Tag, Cashout Tag, Social Button */}
+      {/* Top Header: Avatar, Name, Host Tag, Top-Right Social Icon */}
       <View style={styles.topRow}>
         <View style={styles.nameSection}>
           {player.avatar_url ? (
@@ -87,20 +130,14 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
                 {player.display_name}
               </Text>
               {isHost && (
-                <View style={styles.hostBadge}>
+                <View style={styles.hostBadgeMini}>
                   <Crown size={10} color={colors.primary} />
-                  <Text style={styles.hostBadgeText}>HOST</Text>
-                </View>
-              )}
-              {isCashedOut && (
-                <View style={styles.cashedOutBadge}>
-                  <Text style={styles.cashedOutBadgeText}>✓ CASHED OUT</Text>
                 </View>
               )}
             </View>
             {isGuest ? (
               <View style={styles.guestBadge}>
-                <Text style={styles.guestBadgeText}>GUEST PLAYER</Text>
+                <Text style={styles.guestBadgeText}>GUEST</Text>
               </View>
             ) : (
               <Text style={styles.friendCodeText}>📱 {player.friend_code}</Text>
@@ -108,26 +145,23 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
           </View>
         </View>
 
-        {/* Social / Friendship Action */}
+        {/* Top-Right Social / Friendship Action (Icon only, no wide text) */}
         {!isGuest && player.friendshipStatus === 'FRIENDS' ? (
-          <View style={styles.friendPill}>
-            <UserCheck size={11} color={colors.successText} />
-            <Text style={styles.friendPillText}>Friends</Text>
+          <View style={styles.topRightFriendBadge}>
+            <UserCheck size={12} color={colors.successText} />
           </View>
         ) : !isGuest && (player.friendshipStatus === 'PENDING_SENT' || player.friendshipStatus === 'PENDING_RECEIVED') ? (
-          <View style={styles.pendingPill}>
+          <View style={styles.topRightPendingBadge}>
             <Clock size={11} color={colors.warningText} />
-            <Text style={styles.pendingPillText}>Pending</Text>
           </View>
         ) : !isGuest && player.friendshipStatus === 'NONE' && onAddFriend ? (
           <TouchableOpacity
             onPress={() => onAddFriend(player.friend_code)}
-            style={styles.addFriendButton}
+            style={styles.topRightAddFriendBtn}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <UserPlus size={12} color={colors.primary} />
-            <Text style={styles.addFriendButtonText}>Add Friend</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -135,31 +169,25 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
       {/* Main Stats: Chips / In-Hand Balance */}
       <View style={styles.statsContainer}>
         <View style={styles.chipSection}>
-          <Text
-            style={[
-              styles.bigChipNumber,
-              isCashedOut && { color: '#38bdf8' },
-              isValueMode && !isCashedOut && { color: colors.primary }
-            ]}
-          >
-            {isCashedOut
-              ? (isValueMode ? `₹${(player.cashed_out_money ?? 0).toLocaleString('en-IN')}` : (player.cashed_out_chips ?? 0))
-              : isValueMode
-                ? `₹${player.current_chips.toLocaleString('en-IN')}`
-                : player.current_chips}
+          <Text style={[styles.bigChipNumber, { color: displayColor }]}>
+            {displayNumber}
           </Text>
-          <Text
-            style={[
-              styles.chipLabel,
-              isCashedOut && { color: '#38bdf8' }
-            ]}
-          >
-            {isCashedOut
-              ? (isValueMode ? 'CASHED OUT' : 'CHIPS CASHED OUT')
-              : isValueMode
-                ? 'IN-HAND BALANCE'
-                : 'CHIPS HELD'}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text
+              style={[
+                styles.chipLabel,
+                isCashedOut && { color: '#38bdf8' },
+                isLenderNegative && { color: colors.successText }
+              ]}
+            >
+              {displayLabel}
+            </Text>
+            {loanDebt > 0 && !isCashedOut && (
+              <Text style={styles.loanDebtTag}>
+                {isValueMode ? ` • owes ₹${player.loanDebtOwed}` : ` • owes ${loanDebt}c`}
+              </Text>
+            )}
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -248,92 +276,56 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     letterSpacing: 0.5
   },
-  hostBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  hostBadgeMini: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: colors.primaryLight,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginLeft: 6,
     borderWidth: 1,
-    borderColor: colors.primaryBorder
-  },
-  hostBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: colors.primary,
-    marginLeft: 3,
-    letterSpacing: 0.5
+    borderColor: colors.primaryBorder,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 5
   },
   cashedOutCard: {
     borderColor: 'rgba(56, 189, 248, 0.45)',
     backgroundColor: '#0c1626'
   },
-  cashedOutBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginLeft: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.4)'
-  },
-  cashedOutBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#38bdf8',
-    letterSpacing: 0.5
-  },
-  friendPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  topRightFriendBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: colors.successLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.successBorder
+    borderColor: colors.successBorder,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
-  friendPillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.successText,
-    marginLeft: 4
-  },
-  pendingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  topRightPendingBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: colors.warningLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.warningBorder
+    borderColor: colors.warningBorder,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
-  pendingPillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.warningText,
-    marginLeft: 4
-  },
-  addFriendButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  topRightAddFriendBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: colors.primaryLight,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.primaryBorder
+    borderColor: colors.primaryBorder,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
-  addFriendButtonText: {
-    fontSize: 11,
+  loanDebtTag: {
+    fontSize: 9,
     fontWeight: '700',
-    color: colors.primary,
-    marginLeft: 4
+    color: colors.dangerText,
+    marginLeft: 2
   },
   statsContainer: {
     flexDirection: 'row',

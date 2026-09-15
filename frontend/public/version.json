@@ -1,5 +1,5 @@
 {
-  "version": "1.0.30",
-  "buildTime": 1789395000000,
-  "releaseNotes": "Custom denomination persistence, 2-column player cards, clean settlement UI, centered cash-out modal, and peer settlement transfers in Public Ledger & Game Summary."
+  "version": "1.0.31",
+  "buildTime": 1789410000000,
+  "releaseNotes": "Compact top-right friends badge, non-clipped host crown, mid-game cashout modal accounting with loans, positive green lender balance, enhanced Public Ledger with accounting breakdown and clean share links."
 }

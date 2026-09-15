@@ -840,7 +840,20 @@ export function recordCashOut(params: CashOutParams): {
     }
 
     const buyInMoney = Number(player.total_buyin_amount) || 0;
-    const cashedOutNet = Math.round((actualMoneyValue - buyInMoney) * 100) / 100;
+
+    // Authoritative Zero-Sum Unified Formula for Cashed Out Player:
+    // Net = Cashed Out Money - Buy-in Money - Borrowed Loans + Lent Loans
+    const activeLoans = db.prepare("SELECT * FROM loans WHERE game_id = ? AND status != 'SETTLED'").all(table.id) as any[];
+    let loanDebt = 0;
+    let loanCredit = 0;
+    for (const l of activeLoans) {
+      const lVal = (l.chip_value && l.chip_value > 0) ? l.chip_value : table.chip_value;
+      const lMoney = (Number(l.remaining_chip_amount) || 0) * lVal;
+      if (l.borrower_id === player.id) loanDebt += lMoney;
+      if (l.lender_id === player.id) loanCredit += lMoney;
+    }
+
+    const cashedOutNet = Math.round((actualMoneyValue - buyInMoney - loanDebt + loanCredit) * 100) / 100;
     const now = new Date().toISOString();
 
     db.prepare(`

@@ -78,7 +78,8 @@ export const PublicLedgerScreen: React.FC<PublicLedgerScreenProps> = ({
       : `https://chipmate-h96z.onrender.com/?ledger=${tableId}`;
 
     const shareTitle = ledger?.name ? `${ledger.name} — ChipMate Ledger` : 'ChipMate Game Ledger';
-    const shareMessage = `Check out the live game ledger for "${ledger?.name || 'Poker'}" on ChipMate:\n${shareUrl}`;
+    const shareIntro = `Check out the live game ledger for "${ledger?.name || 'Poker'}" on ChipMate:`;
+    const shareMessage = `${shareIntro}\n${shareUrl}`;
 
     try {
       if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
@@ -86,7 +87,7 @@ export const PublicLedgerScreen: React.FC<PublicLedgerScreenProps> = ({
           try {
             await navigator.share({
               title: shareTitle,
-              text: shareMessage,
+              text: shareIntro,
               url: shareUrl
             });
             return;
@@ -100,9 +101,8 @@ export const PublicLedgerScreen: React.FC<PublicLedgerScreenProps> = ({
         }
       }
       await Share.share({
-        message: shareMessage,
-        url: shareUrl,
-        title: shareTitle
+        title: shareTitle,
+        message: shareMessage
       });
     } catch (err) {
       // Fallback alert
@@ -252,16 +252,6 @@ export const PublicLedgerScreen: React.FC<PublicLedgerScreenProps> = ({
         </View>
 
         <View style={styles.tableCard}>
-          <View style={styles.tableHeaderRow}>
-            <Text style={[styles.colHeader, { width: 36 }]}>#</Text>
-            <Text style={[styles.colHeader, { flex: 1.6 }]}>PLAYER</Text>
-            <Text style={[styles.colHeader, { flex: 1, textAlign: 'right' }]}>BUY-IN</Text>
-            <Text style={[styles.colHeader, { flex: 1, textAlign: 'right' }]}>
-              {isFinalized ? 'CASHOUT' : 'IN-HAND'}
-            </Text>
-            <Text style={[styles.colHeader, { flex: 1.1, textAlign: 'right' }]}>NET P&L</Text>
-          </View>
-
           {players.map((p: any, idx: number) => {
             const net = p.netWinnings ?? 0;
             const isWin = net > 0;
@@ -269,46 +259,65 @@ export const PublicLedgerScreen: React.FC<PublicLedgerScreenProps> = ({
             const isHost = p.role === 'HOST';
 
             return (
-              <View key={p.playerId || idx} style={[styles.tableRow, idx === players.length - 1 && { borderBottomWidth: 0 }]}>
+              <View key={p.playerId || idx} style={[styles.playerResultRow, idx === players.length - 1 && { borderBottomWidth: 0 }]}>
                 {/* Rank Badge */}
-                <View style={{ width: 36, justifyContent: 'center' }}>
+                <View style={{ width: 32, justifyContent: 'flex-start', paddingTop: 2 }}>
                   <Text style={[styles.rankText, idx === 0 && styles.rankFirst]}>
                     {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}`}
                   </Text>
                 </View>
 
-                {/* Player Name & Role */}
-                <View style={{ flex: 1.6, justifyContent: 'center' }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {/* Player Name, Cashed Out Tag, and Accounting Breakdown */}
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <Text style={styles.playerNameText} numberOfLines={1}>{p.displayName}</Text>
                     {isHost && (
                       <View style={styles.hostBadge}>
-                        <Crown size={8} color={colors.primary} />
+                        <Crown size={9} color={colors.primary} />
                       </View>
                     )}
+                    {p.isCashedOut && (
+                      <View style={styles.cashedOutPill}>
+                        <Text style={styles.cashedOutPillText}>Cashed Out</Text>
+                      </View>
+                    )}
+                    {p.isGuest && (
+                      <Text style={styles.playerMetaText}>(Guest)</Text>
+                    )}
                   </View>
-                  {p.isGuest ? (
-                    <Text style={styles.playerMetaText}>Guest Player</Text>
-                  ) : null}
+
+                  {/* Accounting Breakdown matching SettlementScreen */}
+                  <View style={styles.accountingBreakdown}>
+                    <Text style={styles.breakdownItem}>
+                      Buy-ins: <Text style={styles.negVal}>-₹{(p.buyInMoney || 0).toLocaleString('en-IN')}</Text>
+                    </Text>
+                    {Number(p.loanDebtOwed) > 0 && (
+                      <Text style={styles.breakdownItem}>
+                        Borrowed: <Text style={styles.loanDebtVal}>-₹{Number(p.loanDebtOwed).toLocaleString('en-IN')}</Text>
+                      </Text>
+                    )}
+                    {Number(p.loanCreditOwed) > 0 && (
+                      <Text style={styles.breakdownItem}>
+                        Lent: <Text style={styles.loanCreditVal}>+₹{Number(p.loanCreditOwed).toLocaleString('en-IN')}</Text>
+                      </Text>
+                    )}
+                    <Text style={styles.breakdownItem}>
+                      {p.isCashedOut ? 'Cashed out: ' : isFinalized ? 'Final in-hand: ' : 'Current in-hand: '}
+                      <Text style={styles.posVal}>+₹{(p.inHandMoney || 0).toLocaleString('en-IN')}</Text>
+                    </Text>
+                  </View>
                 </View>
 
-                {/* Buy-in */}
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-end' }}>
-                  <Text style={styles.numText}>₹{(p.buyInMoney || 0).toLocaleString('en-IN')}</Text>
-                </View>
-
-                {/* In Hand / Cashout */}
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'flex-end' }}>
-                  <Text style={styles.numText}>₹{(p.inHandMoney || 0).toLocaleString('en-IN')}</Text>
-                </View>
-
-                {/* Net P&L */}
-                <View style={{ flex: 1.1, justifyContent: 'center', alignItems: 'flex-end' }}>
+                {/* Net P&L Column */}
+                <View style={{ alignItems: 'flex-end', justifyContent: 'center', minWidth: 84 }}>
                   <View style={[styles.pnlPill, isWin ? styles.pnlWin : isLoss ? styles.pnlLoss : styles.pnlEven]}>
                     <Text style={[styles.pnlText, isWin ? styles.pnlWinText : isLoss ? styles.pnlLossText : styles.pnlEvenText]}>
                       {isWin ? `+₹${net.toLocaleString('en-IN')}` : isLoss ? `-₹${Math.abs(net).toLocaleString('en-IN')}` : '₹0'}
                     </Text>
                   </View>
+                  <Text style={styles.netLabelText}>
+                    {isWin ? 'Profit' : isLoss ? 'Loss' : 'Even'}
+                  </Text>
                 </View>
               </View>
             );
@@ -323,7 +332,6 @@ export const PublicLedgerScreen: React.FC<PublicLedgerScreenProps> = ({
                 <CheckCircle2 size={16} color={colors.primary} style={{ marginRight: 6 }} />
                 <Text style={styles.sectionTitle}>Final Settlements (Who Pays Whom)</Text>
               </View>
-              <Text style={styles.sectionSub}>Direct peer payments to balance accounts</Text>
             </View>
 
             <View style={styles.settleListCard}>
@@ -644,6 +652,14 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255, 255, 255, 0.04)',
     alignItems: 'center'
   },
+  playerResultRow: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+    alignItems: 'flex-start'
+  },
   rankText: {
     fontSize: 13,
     fontWeight: '700',
@@ -653,7 +669,7 @@ const styles = StyleSheet.create({
     fontSize: 15
   },
   playerNameText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.text
   },
@@ -668,15 +684,59 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: colors.primaryLight
   },
+  cashedOutPill: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1
+  },
+  cashedOutPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.successText
+  },
+  accountingBreakdown: {
+    marginTop: 4,
+    gap: 2
+  },
+  breakdownItem: {
+    fontSize: 11,
+    color: colors.textSecondary
+  },
+  negVal: {
+    color: colors.dangerText,
+    fontWeight: '600'
+  },
+  posVal: {
+    color: colors.successText,
+    fontWeight: '600'
+  },
+  loanDebtVal: {
+    color: colors.dangerText,
+    fontWeight: '600'
+  },
+  loanCreditVal: {
+    color: colors.successText,
+    fontWeight: '600'
+  },
+  netLabelText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted,
+    marginTop: 3,
+    textTransform: 'uppercase'
+  },
   numText: {
     fontSize: 12,
     fontWeight: '600',
     color: colors.text
   },
   pnlPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8
   },
   pnlWin: {
     backgroundColor: colors.successLight
@@ -688,7 +748,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardRaised
   },
   pnlText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800'
   },
   pnlWinText: {
