@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import * as tableService from '../services/table.service';
 import { broadcastTableUpdate } from '../socket';
@@ -23,7 +23,7 @@ export function createTable(req: AuthenticatedRequest, res: Response): void {
       gameType,
       totalChips: totalChips ? parseInt(totalChips, 10) : 100,
       chipValue: chipValue ? parseFloat(chipValue) : 10,
-      chipMode: chipMode === 'DENOMINATION' ? 'DENOMINATION' : 'EQUAL',
+      chipMode: (chipMode === 'DENOMINATION' || chipMode === 'VALUE') ? chipMode : 'EQUAL',
       denominations: denominations || undefined,
       initialFriendUserIds: Array.isArray(initialFriendUserIds) ? initialFriendUserIds : undefined,
       initialGuestIds: Array.isArray(req.body.initialGuestIds) ? req.body.initialGuestIds : undefined
@@ -255,4 +255,19 @@ export function leaveTable(req: AuthenticatedRequest, res: Response): void {
     res.status(400).json({ success: false, error: err.message || 'Failed to leave table' });
   }
 }
+
+export function getPublicLedger(req: Request, res: Response): void {
+  try {
+    const tableId = req.params.tableId as string;
+    const ledger = tableService.getPublicLedger(tableId);
+    if (!ledger) {
+      res.status(404).json({ success: false, error: 'Table or ledger not found' });
+      return;
+    }
+    res.json({ success: true, ledger });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to fetch public ledger' });
+  }
+}
+
 

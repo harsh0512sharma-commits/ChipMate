@@ -92,8 +92,8 @@ export const UpdateProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     // 2. Check backend API version
     try {
-      const apiBase = getDefaultApiBase();
-      const res = await fetch(`${apiBase}/api/version?_t=${Date.now()}`, {
+      const cleanBase = getDefaultApiBase().replace(/\/+api\/?$/, '');
+      const res = await fetch(`${cleanBase}/api/version?_t=${Date.now()}`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -112,11 +112,11 @@ export const UpdateProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     } catch (_) {}
 
-    // 3. Fallback /version
+    // 3. Fallback direct /version
     if (candidateVersion === APP_BUILD_VERSION) {
       try {
-        const apiBase = getDefaultApiBase();
-        const res = await fetch(`${apiBase}/version?_t=${Date.now()}`, {
+        const cleanBase = getDefaultApiBase().replace(/\/+api\/?$/, '');
+        const res = await fetch(`${cleanBase}/version?_t=${Date.now()}`, {
           cache: 'no-store'
         });
         if (res.ok) {

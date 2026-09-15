@@ -5,9 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator
+  ActivityIndicator,
+  Share,
+  Platform,
+  Alert
 } from 'react-native';
-import { Trophy, TrendingDown, HandCoins, ArrowRight, Home, History, Users } from 'lucide-react-native';
+import { Trophy, TrendingDown, HandCoins, ArrowRight, Home, History, Users, Share2, Check } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
 import { formatTxSummary } from '../table/LiveTableScreen';
@@ -44,6 +47,42 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [showAllTx, setShowAllTx] = useState(false);
   const [standingFilter, setStandingFilter] = useState<'ALL' | 'WON' | 'LOST'>('ALL');
+  const [copied, setCopied] = useState(false);
+
+  const handleShareSummary = async () => {
+    const origin = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : 'https://chipmate-h96z.onrender.com';
+    const ledgerUrl = `${origin}/?ledger=${gameId}`;
+    const shareTitle = `${insights?.gameName || 'Game'} — Final Results & Ledger`;
+    const shareMessage = `Check out the final results & full ledger for "${insights?.gameName || 'Poker'}" on ChipMate:\n${ledgerUrl}`;
+
+    try {
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: shareTitle,
+              text: shareMessage,
+              url: ledgerUrl
+            });
+            return;
+          } catch (_) {}
+        }
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(ledgerUrl);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 3000);
+          return;
+        }
+      }
+      await Share.share({
+        message: shareMessage,
+        url: ledgerUrl,
+        title: shareTitle
+      });
+    } catch (err) {
+      Alert.alert('Ledger Link', ledgerUrl);
+    }
+  };
 
   useEffect(() => {
     async function load() {
@@ -387,6 +426,24 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
         </View>
 
         {/* Buttons */}
+        <TouchableOpacity
+          style={[styles.shareLedgerBtn, copied && styles.shareLedgerBtnCopied]}
+          onPress={handleShareSummary}
+          activeOpacity={0.85}
+        >
+          {copied ? (
+            <>
+              <Check size={18} color="#FFF" style={{ marginRight: 8 }} />
+              <Text style={styles.shareLedgerBtnText}>Public Ledger Link Copied!</Text>
+            </>
+          ) : (
+            <>
+              <Share2 size={18} color="#FFF" style={{ marginRight: 8 }} />
+              <Text style={styles.shareLedgerBtnText}>Share Public Game Ledger</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.leaderboardBtn} onPress={onGoLeaderboard}>
           <Text style={styles.leaderboardBtnText}>View Friend Leaderboard</Text>
           <ArrowRight size={18} color="#FFF" style={{ marginLeft: 8 }} />
@@ -504,6 +561,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
     marginTop: 1
+  },
+  shareLedgerBtn: {
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1,
+    borderColor: 'rgba(234, 88, 12, 0.4)',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginBottom: 12
+  },
+  shareLedgerBtnCopied: {
+    borderColor: colors.successBorder,
+    backgroundColor: colors.successLight
+  },
+  shareLedgerBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFF'
   },
   leaderboardBtn: {
     backgroundColor: colors.primary,

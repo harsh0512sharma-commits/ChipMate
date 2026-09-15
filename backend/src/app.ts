@@ -18,7 +18,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.0.27',
+      version: '1.0.28',
       timestamp: new Date().toISOString()
     });
   });
@@ -26,13 +26,14 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.27',
-      buildTime: 1789379000000,
-      releaseNotes: 'Pure financial valuation mode, bank vault money enforcement, and foolproof auto-update system.'
+      version: '1.0.28',
+      buildTime: 1789381000000,
+      releaseNotes: 'Fixed By Value table creation, direct rupee buy-ins/loans, and public spectator ledger sharing.'
     });
   };
   app.get('/version', versionHandler);
   app.get('/api/version', versionHandler);
+  app.get('/api/api/version', versionHandler);
 
   // API router
   app.use('/api', routes);

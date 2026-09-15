@@ -1141,6 +1141,79 @@ describe('ChipMate Authoritative Zero-Sum Accounting Engine & Invariants', () =>
     const finalizeRes = settlementService.finalizeGame(hostA.id, table.id);
     expect(finalizeRes.success).toBe(true);
   });
+
+  // TEST CASE 15: Public Ledger & VALUE mode table persistence
+  test('Test Case 15 — By Value mode creates table with chip_mode=VALUE and getPublicLedger returns full public ledger', () => {
+    const [hostUser, guest1] = setupPlayers(2);
+
+    // 1. Create table with chipMode: 'VALUE'
+    const { table } = tableService.createTable({
+      hostUserId: hostUser.id,
+      name: 'Friday Value Poker',
+      gameType: 'POKER',
+      chipMode: 'VALUE',
+      denominations: [
+        { value: 50, count: 20 },  // ₹1,000
+        { value: 100, count: 40 } // ₹4,000 -> Total ₹5,000 bank vault
+      ]
+    });
+
+    expect(table.chip_mode).toBe('VALUE');
+    expect(table.chip_value).toBe(1.0);
+    expect(table.total_chips).toBe(5000);
+    expect(table.bank_chips).toBe(5000);
+
+    const { playerId: p1Id } = tableService.joinTableByCode(guest1.id, table.join_code);
+    const details = tableService.getTableDetails(table.id, hostUser.id);
+    const hostP = details!.players.find(p => p.role === 'HOST')!;
+    const p1 = details!.players.find(p => p.id === p1Id)!;
+
+    // 2. Buy-in in ₹
+    ledgerService.recordBuyIn({
+      gameId: table.id,
+      hostUserId: hostUser.id,
+      playerId: hostP.id,
+      chipAmount: 500,
+      moneyValue: 500
+    });
+
+    ledgerService.recordBuyIn({
+      gameId: table.id,
+      hostUserId: hostUser.id,
+      playerId: p1.id,
+      chipAmount: 500,
+      moneyValue: 500
+    });
+
+    // 3. Lend ₹100 from hostP to p1
+    ledgerService.recordLend({
+      gameId: table.id,
+      hostUserId: hostUser.id,
+      lenderPlayerId: hostP.id,
+      borrowerPlayerId: p1.id,
+      chipAmount: 100,
+      moneyValue: 100
+    });
+
+    // 4. Test public ledger endpoint function
+    const publicLedger = tableService.getPublicLedger(table.id);
+    expect(publicLedger).not.toBeNull();
+    expect(publicLedger!.id).toBe(table.id);
+    expect(publicLedger!.name).toBe('Friday Value Poker');
+    expect(publicLedger!.chipMode).toBe('VALUE');
+    expect(publicLedger!.totalPotMoney).toBe(1000); // 500 + 500
+    expect(publicLedger!.players).toHaveLength(2);
+
+    // Verify transactions exist in public ledger
+    expect(publicLedger!.transactions.length).toBeGreaterThanOrEqual(3);
+    const buyInTxs = publicLedger!.transactions.filter(t => t.type === 'BUY_IN');
+    expect(buyInTxs).toHaveLength(2);
+    const lendTx = publicLedger!.transactions.find(t => t.type === 'LEND');
+    expect(lendTx).toBeDefined();
+    expect(lendTx!.money_value).toBe(100);
+  });
 });
+
+
 
 

@@ -32,6 +32,7 @@ import { HeadToHeadScreen } from './src/screens/friends/HeadToHeadScreen';
 import { LeaderboardScreen } from './src/screens/leaderboard/LeaderboardScreen';
 import { ProfileScreen } from './src/screens/profile/ProfileScreen';
 import { MasterAdminScreen } from './src/screens/admin/MasterAdminScreen';
+import { PublicLedgerScreen } from './src/screens/table/PublicLedgerScreen';
 
 type ScreenType =
   | 'TAB_HOME'
@@ -63,6 +64,22 @@ function MainNavigator() {
   const [isSplashDone, setIsSplashDone] = useState(false);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
+  // Check for public ledger link in URL (?ledger=<id> or ?public_ledger=<id>)
+  const [publicLedgerTableId, setPublicLedgerTableId] = useState<string | null>(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const ledgerId = searchParams.get('ledger') || searchParams.get('public_ledger') || searchParams.get('game_ledger');
+        if (ledgerId) return ledgerId;
+        if (window.location.hash) {
+          const match = window.location.hash.match(/ledger[=/]([a-zA-Z0-9_-]+)/);
+          if (match) return match[1];
+        }
+      } catch (_) {}
+    }
+    return null;
+  });
+
   // Poll for incoming friend requests
   useEffect(() => {
     if (!token || !user) return;
@@ -78,6 +95,28 @@ function MainNavigator() {
     const interval = setInterval(checkRequests, 12000);
     return () => clearInterval(interval);
   }, [token, user]);
+
+  // If a public ledger link was opened, display read-only public ledger immediately
+  if (publicLedgerTableId) {
+    return (
+      <PublicLedgerScreen
+        tableId={publicLedgerTableId}
+        isLoggedIn={Boolean(token && user)}
+        onBackToApp={() => {
+          setPublicLedgerTableId(null);
+          if (Platform.OS === 'web' && typeof window !== 'undefined' && window.history) {
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('ledger');
+              url.searchParams.delete('public_ledger');
+              url.searchParams.delete('game_ledger');
+              window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : ''));
+            } catch (_) {}
+          }
+        }}
+      />
+    );
+  }
 
   if (!isSplashDone) {
     return (

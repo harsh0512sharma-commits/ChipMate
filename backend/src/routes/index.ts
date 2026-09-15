@@ -43,6 +43,7 @@ router.get('/tables/active', requireAuth, tableCtrl.getActiveTables);
 router.get('/tables/history', requireAuth, tableCtrl.getTableHistory);
 router.get('/tables/:tableId', requireAuth, tableCtrl.getTable);
 router.get('/tables/:tableId/transactions', requireAuth, tableCtrl.getTableTransactions);
+router.get('/tables/:tableId/public-ledger', tableCtrl.getPublicLedger);
 router.delete('/tables/:tableId', requireAuth, tableCtrl.deleteTable);
 router.post('/tables/:tableId/leave', requireAuth, tableCtrl.leaveTable);
 

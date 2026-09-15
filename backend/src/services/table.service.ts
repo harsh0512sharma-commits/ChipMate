@@ -704,6 +704,103 @@ export function getTableTransactions(tableId: string) {
   return transactions;
 }
 
+export function getPublicLedger(tableId: string) {
+  const db = getDb();
+  const table = db.prepare('SELECT * FROM games WHERE id = ?').get(tableId) as GameTableRecord | undefined;
+  if (!table) return null;
+
+  const hostUser = db.prepare('SELECT id, display_name FROM users WHERE id = ?').get(table.host_user_id) as any;
+
+  // Fetch players
+  const players = db.prepare(`
+    SELECT gp.id, gp.user_id, gp.role, gp.current_chips, gp.total_buyin_amount, gp.total_buyin_chips, gp.final_chips_value, gp.is_guest, gp.guest_name,
+      COALESCE(gp.guest_name, u.display_name) as display_name,
+      u.avatar_url
+    FROM game_players gp
+    JOIN users u ON gp.user_id = u.id
+    WHERE gp.game_id = ?
+    ORDER BY CASE WHEN gp.role = 'HOST' THEN 0 ELSE 1 END, gp.joined_at ASC
+  `).all(tableId) as any[];
+
+  // Fetch finalized results if any
+  const results = db.prepare(`
+    SELECT * FROM player_game_results WHERE game_id = ? ORDER BY net_winnings_money DESC
+  `).all(tableId) as any[];
+
+  const resultMap = new Map<string, any>();
+  for (const r of results) {
+    resultMap.set(r.user_id, r);
+  }
+
+  const isValueMode = table.chip_mode === 'VALUE';
+
+  const playersSummary = players.map(p => {
+    const fin = resultMap.get(p.user_id);
+    let buyInMoney = Number(p.total_buyin_amount) || 0;
+    let inHandMoney = isValueMode ? Number(p.current_chips) : Number(p.current_chips) * Number(table.chip_value);
+    let netWinnings = inHandMoney - buyInMoney;
+
+    if (fin) {
+      buyInMoney = Number(fin.buyin_money);
+      inHandMoney = Number(fin.final_chip_money);
+      netWinnings = Number(fin.net_winnings_money);
+    }
+
+    return {
+      playerId: p.id,
+      displayName: p.display_name,
+      role: p.role,
+      isGuest: Boolean(p.is_guest || (p.user_id && p.user_id.startsWith('guest_'))),
+      avatarUrl: p.avatar_url,
+      buyInMoney,
+      inHandMoney,
+      netWinnings,
+      rank: null as number | null
+    };
+  });
+
+  // Sort players by netWinnings descending (highest winners first)
+  playersSummary.sort((a, b) => (b.netWinnings || 0) - (a.netWinnings || 0));
+  playersSummary.forEach((p, idx) => {
+    p.rank = idx + 1;
+  });
+
+  // Transactions
+  const transactions = getTableTransactions(tableId);
+
+  // Settlement payments if finalized
+  const settlementItems = db.prepare(`
+    SELECT si.*,
+      COALESCE(gp_from.guest_name, u_from.display_name, 'Player') as from_player_name,
+      COALESCE(gp_to.guest_name, u_to.display_name, 'Player') as to_player_name
+    FROM settlement_items si
+    LEFT JOIN game_players gp_from ON si.from_player_id = gp_from.id
+    LEFT JOIN users u_from ON gp_from.user_id = u_from.id
+    LEFT JOIN game_players gp_to ON si.to_player_id = gp_to.id
+    LEFT JOIN users u_to ON gp_to.user_id = u_to.id
+    WHERE si.game_id = ?
+  `).all(tableId) as any[];
+
+  // Total Pot Money
+  const totalPotMoney = players.reduce((sum, p) => sum + (Number(p.total_buyin_amount) || 0), 0);
+
+  return {
+    id: table.id,
+    name: table.name,
+    gameType: table.game_type,
+    status: table.status,
+    chipMode: table.chip_mode,
+    joinCode: table.join_code,
+    hostName: hostUser?.display_name || 'Host',
+    totalPotMoney,
+    createdAt: table.created_at,
+    finalizedAt: table.finalized_at,
+    players: playersSummary,
+    transactions,
+    settlementItems
+  };
+}
+
 export function deleteTable(hostUserId: string, tableId: string, isAdmin: boolean = false): { success: boolean; tableId: string; message: string } {
   const db = getDb();
   const table = db.prepare('SELECT * FROM games WHERE id = ?').get(tableId) as GameTableRecord | undefined;

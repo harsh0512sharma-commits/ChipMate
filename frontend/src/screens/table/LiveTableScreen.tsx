@@ -10,7 +10,8 @@ import {
   Platform,
   ActivityIndicator,
   Modal,
-  TextInput
+  TextInput,
+  Share
 } from 'react-native';
 import {
   QrCode,
@@ -471,6 +472,41 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
     fetchTableData();
   };
 
+  const handleShareLedger = async () => {
+    const origin = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : 'https://chipmate-h96z.onrender.com';
+    const ledgerUrl = `${origin}/?ledger=${tableId}`;
+    const shareTitle = `${data?.table?.name || 'Game'} — Public Ledger`;
+    const shareMessage = `View the live public game ledger for "${data?.table?.name || 'Poker'}" on ChipMate (anyone can view, no login required):\n${ledgerUrl}`;
+
+    try {
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined') {
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: shareTitle,
+              text: shareMessage,
+              url: ledgerUrl
+            });
+            return;
+          } catch (_) {}
+        }
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(ledgerUrl);
+          setAddFriendFeedback('✓ Public ledger link copied! Anyone can view live standings without logging in.');
+          setTimeout(() => setAddFriendFeedback(null), 4500);
+          return;
+        }
+      }
+      await Share.share({
+        message: shareMessage,
+        url: ledgerUrl,
+        title: shareTitle
+      });
+    } catch (err: any) {
+      Alert.alert('Share Public Ledger', ledgerUrl);
+    }
+  };
+
   if (loading || !data) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -728,6 +764,9 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
         isConnected={isConnected}
         rightAction={
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={handleShareLedger} style={styles.headerIconBtn} activeOpacity={0.7} accessibilityLabel="Share Public Ledger">
+              <Share2 size={19} color={colors.text} />
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowQR(true)} style={styles.headerIconBtn}>
               <QrCode size={20} color={colors.text} />
             </TouchableOpacity>
@@ -838,6 +877,14 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                   <Text style={styles.menuItemText}>Undo ({lastTx.type})</Text>
                 </TouchableOpacity>
               )}
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={handleShareLedger}
+              >
+                <Share2 size={13} color={colors.textSecondary} />
+                <Text style={[styles.menuItemText, { marginLeft: 4 }]}>Share Ledger</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.menuItem, styles.endGameMenuItem]}
@@ -1088,7 +1135,11 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
             <View style={styles.modalHeaderRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalTitle}>Actions for {selectedPlayerForMenu?.display_name}</Text>
-                <Text style={styles.modalSubtitle}>Currently holding {selectedPlayerForMenu?.current_chips} chips</Text>
+                <Text style={styles.modalSubtitle}>
+                  {isValueMode
+                    ? `Currently holding ₹${(selectedPlayerForMenu?.current_chips || 0).toLocaleString('en-IN')}`
+                    : `Currently holding ${selectedPlayerForMenu?.current_chips} chips`}
+                </Text>
               </View>
               <TouchableOpacity onPress={() => setSelectedPlayerForMenu(null)} style={styles.modalCloseBtn} activeOpacity={0.7}>
                 <X size={18} color={colors.textSecondary} />
@@ -1105,8 +1156,14 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                 }}
                 activeOpacity={0.8}
               >
-                <Text style={styles.quickActionOptionTitle}>💰 Buy Chips from Bank</Text>
-                <Text style={styles.quickActionOptionDesc}>Issue chips from bank vault to {selectedPlayerForMenu?.display_name}</Text>
+                <Text style={styles.quickActionOptionTitle}>
+                  {isValueMode ? '💰 Buy-In from Bank (₹)' : '💰 Buy Chips from Bank'}
+                </Text>
+                <Text style={styles.quickActionOptionDesc}>
+                  {isValueMode
+                    ? `Issue ₹ buy-in from bank vault to ${selectedPlayerForMenu?.display_name}`
+                    : `Issue chips from bank vault to ${selectedPlayerForMenu?.display_name}`}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1118,8 +1175,14 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                 }}
                 activeOpacity={0.8}
               >
-                <Text style={styles.quickActionOptionTitle}>🤝 Lend Chips (Loan)</Text>
-                <Text style={styles.quickActionOptionDesc}>Record a loan with {selectedPlayerForMenu?.display_name} as the lender</Text>
+                <Text style={styles.quickActionOptionTitle}>
+                  {isValueMode ? '🤝 Lend Money (Loan)' : '🤝 Lend Chips (Loan)'}
+                </Text>
+                <Text style={styles.quickActionOptionDesc}>
+                  {isValueMode
+                    ? `Record a cash loan with ${selectedPlayerForMenu?.display_name} as the lender`
+                    : `Record a loan with ${selectedPlayerForMenu?.display_name} as the lender`}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

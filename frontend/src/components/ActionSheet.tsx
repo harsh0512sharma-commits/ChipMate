@@ -149,15 +149,22 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
     }
   }, [initialPlayerId, visible]);
 
-  // Reset denomination counts when sheet opens
+  // Reset denomination counts and set default amount when sheet opens
   React.useEffect(() => {
-    if (visible && type === 'LEND') {
-      setDenomLendCounts({});
+    if (visible) {
+      if (isValueMode) {
+        setChipAmount(type === 'BUY' ? '500' : type === 'LEND' ? '100' : '100');
+      } else {
+        setChipAmount('10');
+      }
+      if (type === 'LEND') {
+        setDenomLendCounts({});
+      }
+      if (type === 'BUY') {
+        setDenomBuyCounts({});
+      }
     }
-    if (visible && type === 'BUY') {
-      setDenomBuyCounts({});
-    }
-  }, [visible, type]);
+  }, [visible, type, isValueMode]);
 
   if (!visible || !type) return null;
 
