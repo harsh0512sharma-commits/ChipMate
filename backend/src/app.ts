@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.45',
+      version: '1.1.47',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.46',
+      version: '1.1.47',
       buildTime: Date.now(),
-      releaseNotes: 'Production SEO Foundation: dedicated public landing pages, guides, calculator routes, sitemap.xml, 404 handler, JSON-LD schemas, and HRVS attribution.'
+      releaseNotes: 'Fix pre-rendered HTML flash, add missing logo on SEO pages, remove device caption, reduce eyebrow pill highlighting.'
     });
   };
   app.get('/version', versionHandler);

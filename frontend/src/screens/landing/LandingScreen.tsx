@@ -216,7 +216,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
               </Text>
 
               {/* Eyebrow Pill */}
-              <View style={[styles.heroPill, { backgroundColor: colors.primaryLight, borderColor: colors.primaryBorder }]}>
+              <View style={[styles.heroPill, { backgroundColor: isDark ? 'rgba(234, 88, 12, 0.05)' : 'rgba(37, 99, 235, 0.04)', borderColor: isDark ? 'rgba(234, 88, 12, 0.15)' : 'rgba(37, 99, 235, 0.12)' }]}>
                 <Sparkles size={13} color={colors.primary} style={{ marginRight: 6 }} />
                 <Text style={[styles.heroPillText, { color: colors.primary }]}>
                   THE ZERO-SUM CHIP LEDGER &amp; SETTLEMENT ENGINE
@@ -355,10 +355,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                 </View>
               </View>
 
-              {/* Device Caption */}
-              <Text style={[styles.phoneCaptionText, { color: colors.textMuted }]}>
-                ChipMate Mobile Ledger Preview • 9:16 Portrait
-              </Text>
+              {/* Device caption removed per user feedback */}
             </View>
           </View>
         </View>

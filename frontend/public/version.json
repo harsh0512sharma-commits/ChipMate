@@ -1,5 +1,5 @@
 {
-  "version": "1.1.46",
-  "buildTime": 1789600000000,
-  "releaseNotes": "Production SEO Foundation: dedicated public landing pages, guides, calculator routes, sitemap.xml, 404 handler, JSON-LD schemas, and HRVS attribution."
+  "version": "1.1.47",
+  "buildTime": 1789610000000,
+  "releaseNotes": "Fix pre-rendered HTML flash, add missing logo on SEO pages, remove device caption, reduce eyebrow pill highlighting."
 }
