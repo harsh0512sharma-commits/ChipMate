@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.44',
+      version: '1.1.45',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.44',
+      version: '1.1.45',
       buildTime: Date.now(),
-      releaseNotes: 'Landing page smooth section navigation and portrait smartphone mockup frame for zero-crop hero video.'
+      releaseNotes: 'Comprehensive SEO engine, robots.txt, sitemap.xml, sequential landing flow, mobile button clipping fix, Contact Us, Privacy Policy, and HRVA Solutions attribution.'
     });
   };
   app.get('/version', versionHandler);

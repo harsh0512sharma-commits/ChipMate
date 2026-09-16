@@ -6,7 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
-  useWindowDimensions
+  useWindowDimensions,
+  Modal
 } from 'react-native';
 import {
   Sun,
@@ -23,7 +24,9 @@ import {
   CheckCircle2,
   Coins,
   Play,
-  RotateCcw
+  RotateCcw,
+  X,
+  Mail
 } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { colors } from '../../theme/colors';
@@ -47,6 +50,8 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
 
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [isVideoPlaying, setIsVideoPlaying] = useState<boolean>(true);
+  const [isContactModalOpen, setIsContactModalOpen] = useState<boolean>(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState<boolean>(false);
   const videoRef = useRef<any>(null);
 
   const toggleVideoPlayback = () => {
@@ -108,40 +113,44 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Sticky Top Navigation Bar */}
-      <View style={[styles.topBar, { backgroundColor: colors.card, borderBottomColor: colors.borderSubtle }]}>
+      <View style={[styles.topBar, !isDesktop && styles.topBarMobile, { backgroundColor: colors.card, borderBottomColor: colors.borderSubtle }]}>
         <View style={styles.topBarInner}>
           <View style={styles.brandRow}>
-            <ChipMateLogo size={32} borderRadius={8} />
-            <View style={{ marginLeft: 10 }}>
-              <ChipMateWordmark size={17} spacing={2.5} />
+            <ChipMateLogo size={isDesktop ? 32 : 26} borderRadius={isDesktop ? 8 : 6} />
+            <View style={{ marginLeft: isDesktop ? 10 : 7 }}>
+              <ChipMateWordmark size={isDesktop ? 17 : 14} spacing={isDesktop ? 2.5 : 1.5} />
             </View>
           </View>
 
-          {/* Desktop Nav Links */}
+          {/* Desktop Nav Links (Sequential Order matching Page Layout) */}
           {isDesktop && (
             <View style={styles.desktopNavLinks}>
-              <TouchableOpacity onPress={() => scrollToSection('features')} activeOpacity={0.7} style={styles.navLinkItem}>
-                <Text style={[styles.navLinkText, { color: colors.textSecondary }]}>Features</Text>
-              </TouchableOpacity>
               <TouchableOpacity onPress={() => scrollToSection('how-it-works')} activeOpacity={0.7} style={styles.navLinkItem}>
                 <Text style={[styles.navLinkText, { color: colors.textSecondary }]}>How It Works</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => scrollToSection('comparison')} activeOpacity={0.7} style={styles.navLinkItem}>
-                <Text style={[styles.navLinkText, { color: colors.textSecondary }]}>Poker vs Teen Patti</Text>
+              <TouchableOpacity onPress={() => scrollToSection('features')} activeOpacity={0.7} style={styles.navLinkItem}>
+                <Text style={[styles.navLinkText, { color: colors.textSecondary }]}>Features</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => scrollToSection('why-chipmate')} activeOpacity={0.7} style={styles.navLinkItem}>
+                <Text style={[styles.navLinkText, { color: colors.textSecondary }]}>Why ChipMate</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => scrollToSection('faq')} activeOpacity={0.7} style={styles.navLinkItem}>
                 <Text style={[styles.navLinkText, { color: colors.textSecondary }]}>FAQ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setIsContactModalOpen(true)} activeOpacity={0.7} style={styles.navLinkItem}>
+                <Text style={[styles.navLinkText, { color: colors.textSecondary }]}>Contact Us</Text>
               </TouchableOpacity>
             </View>
           )}
 
           {/* Top Bar Right: Theme Toggle Symbol Only + Action Buttons */}
-          <View style={styles.topBarRight}>
+          <View style={[styles.topBarRight, !isDesktop && styles.topBarRightMobile]}>
             {/* Theme Toggle Button (Symbol Only) */}
             <TouchableOpacity
               onPress={toggleTheme}
               style={[
                 styles.themeToggleSymbolBtn,
+                !isDesktop && styles.themeToggleSymbolBtnMobile,
                 {
                   backgroundColor: colors.cardRaised,
                   borderColor: colors.borderDark
@@ -151,27 +160,29 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
               accessibilityLabel={isDark ? 'Switch to Day Mode' : 'Switch to Night Mode'}
             >
               {isDark ? (
-                <Sun size={17} color="#FBBF24" />
+                <Sun size={isDesktop ? 17 : 15} color="#FBBF24" />
               ) : (
-                <Moon size={17} color="#2563EB" />
+                <Moon size={isDesktop ? 17 : 15} color="#2563EB" />
               )}
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={onEnterApp}
-              style={[styles.loginBtn, { borderColor: colors.borderSubtle }]}
+              style={[styles.loginBtn, !isDesktop && styles.loginBtnMobile, { borderColor: colors.borderSubtle }]}
               activeOpacity={0.75}
             >
-              <Text style={[styles.loginBtnText, { color: colors.text }]}>Log In</Text>
+              <Text style={[styles.loginBtnText, !isDesktop && styles.loginBtnTextMobile, { color: colors.text }]}>Log In</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={onEnterApp}
-              style={[styles.launchAppBtn, { backgroundColor: colors.primary }]}
+              style={[styles.launchAppBtn, !isDesktop && styles.launchAppBtnMobile, { backgroundColor: colors.primary }]}
               activeOpacity={0.8}
             >
-              <Sparkles size={14} color="#FFF" style={{ marginRight: 6 }} />
-              <Text style={styles.launchAppBtnText}>Start Playing</Text>
+              <Sparkles size={isDesktop ? 14 : 11} color="#FFF" style={{ marginRight: isDesktop ? 6 : 4 }} />
+              <Text style={[styles.launchAppBtnText, !isDesktop && styles.launchAppBtnTextMobile]}>
+                {isDesktop ? 'Start Playing' : 'Play'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -336,8 +347,124 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           </View>
         </View>
 
-        {/* COMPARISON: CHIPMATE VS OTHERS */}
-        <View nativeID="comparison" {...({ id: 'comparison' } as any)} style={styles.sectionWrap}>
+        {/* 1. HOW IT WORKS (4 STEPS) */}
+        <View nativeID="how-it-works" {...({ id: 'how-it-works' } as any)} style={styles.sectionWrap}>
+          <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>HOW IT WORKS</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Four steps to a stress-free game night</Text>
+
+          <View style={styles.stepsGrid}>
+            <View style={[styles.stepCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+              <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
+                <Text style={[styles.stepNumText, { color: colors.primary }]}>01</Text>
+              </View>
+              <Text style={[styles.stepCardTitle, { color: colors.text }]}>Create Your Table</Text>
+              <Text style={[styles.stepCardDesc, { color: colors.textSecondary }]}>
+                Choose Texas Hold'em or Teen Patti. Pick Equal Value per chip or customize physical White, Red, Blue, and Green chip values.
+              </Text>
+            </View>
+
+            <View style={[styles.stepCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+              <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
+                <Text style={[styles.stepNumText, { color: colors.primary }]}>02</Text>
+              </View>
+              <Text style={[styles.stepCardTitle, { color: colors.text }]}>Seat Players with 1 Tap</Text>
+              <Text style={[styles.stepCardDesc, { color: colors.textSecondary }]}>
+                Seat registered friends by phone or add guests by name. Only the host records; guests don't even need an account.
+              </Text>
+            </View>
+
+            <View style={[styles.stepCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+              <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
+                <Text style={[styles.stepNumText, { color: colors.primary }]}>03</Text>
+              </View>
+              <Text style={[styles.stepCardTitle, { color: colors.text }]}>Track Buy-ins & Credit</Text>
+              <Text style={[styles.stepCardDesc, { color: colors.textSecondary }]}>
+                Record rebuys, shot loans, and early cash-outs. The live bank vault verifies that physical chips match the money pot.
+              </Text>
+            </View>
+
+            <View style={[styles.stepCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+              <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
+                <Text style={[styles.stepNumText, { color: colors.primary }]}>04</Text>
+              </View>
+              <Text style={[styles.stepCardTitle, { color: colors.text }]}>Settle & Share on WhatsApp</Text>
+              <Text style={[styles.stepCardDesc, { color: colors.textSecondary }]}>
+                ChipMate minimizes debt into the fewest possible payments. Copy or share formatted summaries straight to your WhatsApp group.
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 2. CORE FEATURES GRID */}
+        <View nativeID="features" {...({ id: 'features' } as any)} style={styles.sectionWrap}>
+          <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>ENGINEERED FOR SERIOUS CARD PLAYERS</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Everything you need, nothing you don't</Text>
+
+          <View style={styles.featuresGrid}>
+            <View style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(234, 88, 12, 0.12)' }]}>
+                <Coins size={22} color={colors.primary} />
+              </View>
+              <Text style={[styles.featureCardTitle, { color: colors.text }]}>Physical Chip Bank Vault</Text>
+              <Text style={[styles.featureCardDesc, { color: colors.textSecondary }]}>
+                Set exact white, red, blue, green, and black chip counts. The ledger decrements bank vault inventory and prevents buying more chips than physically exist in the box.
+              </Text>
+            </View>
+
+            <View style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]}>
+                <ShieldCheck size={22} color={colors.successText} />
+              </View>
+              <Text style={[styles.featureCardTitle, { color: colors.text }]}>Mathematical Zero-Sum Audit</Text>
+              <Text style={[styles.featureCardDesc, { color: colors.textSecondary }]}>
+                The game cannot be finalized if chips and cash-outs don't add up to zero. Every winner's profit is backed 100% by a loser's loss.
+              </Text>
+            </View>
+
+            <View style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(245, 158, 11, 0.12)' }]}>
+                <MessageSquare size={22} color="#FBBF24" />
+              </View>
+              <Text style={[styles.featureCardTitle, { color: colors.text }]}>1-Tap WhatsApp Settlements</Text>
+              <Text style={[styles.featureCardDesc, { color: colors.textSecondary }]}>
+                Generates clean, beautifully formatted settlement summaries with debtor-to-creditor payment instructions to paste into your game WhatsApp chat.
+              </Text>
+            </View>
+
+            <View style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(59, 130, 246, 0.12)' }]}>
+                <Zap size={22} color="#3B82F6" />
+              </View>
+              <Text style={[styles.featureCardTitle, { color: colors.text }]}>Live Spectator Links</Text>
+              <Text style={[styles.featureCardDesc, { color: colors.textSecondary }]}>
+                Friends can open a live public ledger link on their own smartphones without downloading or logging in, watching pots update via WebSockets.
+              </Text>
+            </View>
+
+            <View style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(168, 85, 247, 0.12)' }]}>
+                <BarChart2 size={22} color="#A855F7" />
+              </View>
+              <Text style={[styles.featureCardTitle, { color: colors.text }]}>Head-to-Head Rivalry Records</Text>
+              <Text style={[styles.featureCardDesc, { color: colors.textSecondary }]}>
+                Track lifetime matchups between you and every friend: total games played together, net profit, win rate, and head-to-head dominance.
+              </Text>
+            </View>
+
+            <View style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(234, 88, 12, 0.12)' }]}>
+                <Users size={22} color={colors.primary} />
+              </View>
+              <Text style={[styles.featureCardTitle, { color: colors.text }]}>Persistent Saved Guests</Text>
+              <Text style={[styles.featureCardDesc, { color: colors.textSecondary }]}>
+                Guests are remembered across games! Their lifetime stats, total buy-ins, and ranking persist on the guest leaderboard for your game group.
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 3. WHY CHIPMATE (COMPARISON: CHIPMATE VS OTHERS) */}
+        <View nativeID="why-chipmate" {...({ id: 'why-chipmate' } as any)} style={styles.sectionWrap}>
           <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>WHY PLAYERS CHOOSE CHIPMATE</Text>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             Built specifically for Indian & International Home Games
@@ -414,123 +541,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           </View>
         </View>
 
-        {/* HOW IT WORKS (4 STEPS) */}
-        <View nativeID="how-it-works" {...({ id: 'how-it-works' } as any)} style={styles.sectionWrap}>
-          <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>HOW IT WORKS</Text>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Four steps to a stress-free game night</Text>
-
-          <View style={styles.stepsGrid}>
-            <View style={[styles.stepCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-              <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
-                <Text style={[styles.stepNumText, { color: colors.primary }]}>01</Text>
-              </View>
-              <Text style={[styles.stepCardTitle, { color: colors.text }]}>Create Your Table</Text>
-              <Text style={[styles.stepCardDesc, { color: colors.textSecondary }]}>
-                Choose Texas Hold'em or Teen Patti. Pick Equal Value per chip or customize physical White, Red, Blue, and Green chip values.
-              </Text>
-            </View>
-
-            <View style={[styles.stepCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-              <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
-                <Text style={[styles.stepNumText, { color: colors.primary }]}>02</Text>
-              </View>
-              <Text style={[styles.stepCardTitle, { color: colors.text }]}>Seat Players with 1 Tap</Text>
-              <Text style={[styles.stepCardDesc, { color: colors.textSecondary }]}>
-                Seat registered friends by phone or add guests by name. Only the host records; guests don't even need an account.
-              </Text>
-            </View>
-
-            <View style={[styles.stepCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-              <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
-                <Text style={[styles.stepNumText, { color: colors.primary }]}>03</Text>
-              </View>
-              <Text style={[styles.stepCardTitle, { color: colors.text }]}>Track Buy-ins & Credit</Text>
-              <Text style={[styles.stepCardDesc, { color: colors.textSecondary }]}>
-                Record rebuys, shot loans, and early cash-outs. The live bank vault verifies that physical chips match the money pot.
-              </Text>
-            </View>
-
-            <View style={[styles.stepCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-              <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
-                <Text style={[styles.stepNumText, { color: colors.primary }]}>04</Text>
-              </View>
-              <Text style={[styles.stepCardTitle, { color: colors.text }]}>Settle & Share on WhatsApp</Text>
-              <Text style={[styles.stepCardDesc, { color: colors.textSecondary }]}>
-                ChipMate minimizes debt into the fewest possible payments. Copy or share formatted summaries straight to your WhatsApp group.
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* CORE FEATURES GRID */}
-        <View nativeID="features" {...({ id: 'features' } as any)} style={styles.sectionWrap}>
-          <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>ENGINEERED FOR SERIOUS CARD PLAYERS</Text>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Everything you need, nothing you don't</Text>
-
-          <View style={styles.featuresGrid}>
-            <View style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(234, 88, 12, 0.12)' }]}>
-                <Coins size={22} color={colors.primary} />
-              </View>
-              <Text style={[styles.featureCardTitle, { color: colors.text }]}>Physical Chip Bank Vault</Text>
-              <Text style={[styles.featureCardDesc, { color: colors.textSecondary }]}>
-                Set exact white, red, blue, green, and black chip counts. The ledger decrements bank vault inventory and prevents buying more chips than physically exist in the box.
-              </Text>
-            </View>
-
-            <View style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]}>
-                <ShieldCheck size={22} color={colors.successText} />
-              </View>
-              <Text style={[styles.featureCardTitle, { color: colors.text }]}>Mathematical Zero-Sum Audit</Text>
-              <Text style={[styles.featureCardDesc, { color: colors.textSecondary }]}>
-                The game cannot be finalized if chips and cash-outs don't add up to zero. Every winner's profit is backed 100% by a loser's loss.
-              </Text>
-            </View>
-
-            <View style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(245, 158, 11, 0.12)' }]}>
-                <MessageSquare size={22} color="#FBBF24" />
-              </View>
-              <Text style={[styles.featureCardTitle, { color: colors.text }]}>1-Tap WhatsApp Settlements</Text>
-              <Text style={[styles.featureCardDesc, { color: colors.textSecondary }]}>
-                Generates clean, beautifully formatted settlement summaries with debtor-to-creditor payment instructions to paste into your game WhatsApp chat.
-              </Text>
-            </View>
-
-            <View style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(59, 130, 246, 0.12)' }]}>
-                <Zap size={22} color="#3B82F6" />
-              </View>
-              <Text style={[styles.featureCardTitle, { color: colors.text }]}>Live Spectator Links</Text>
-              <Text style={[styles.featureCardDesc, { color: colors.textSecondary }]}>
-                Friends can open a live public ledger link on their own smartphones without downloading or logging in, watching pots update via WebSockets.
-              </Text>
-            </View>
-
-            <View style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(168, 85, 247, 0.12)' }]}>
-                <BarChart2 size={22} color="#A855F7" />
-              </View>
-              <Text style={[styles.featureCardTitle, { color: colors.text }]}>Head-to-Head Rivalry Records</Text>
-              <Text style={[styles.featureCardDesc, { color: colors.textSecondary }]}>
-                Track lifetime matchups between you and every friend: total games played together, net profit, win rate, and head-to-head dominance.
-              </Text>
-            </View>
-
-            <View style={[styles.featureCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-              <View style={[styles.featureIconWrap, { backgroundColor: 'rgba(234, 88, 12, 0.12)' }]}>
-                <Users size={22} color={colors.primary} />
-              </View>
-              <Text style={[styles.featureCardTitle, { color: colors.text }]}>Persistent Saved Guests</Text>
-              <Text style={[styles.featureCardDesc, { color: colors.textSecondary }]}>
-                Guests are remembered across games! Their lifetime stats, total buy-ins, and ranking persist on the guest leaderboard for your game group.
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* FREQUENTLY ASKED QUESTIONS */}
+        {/* 4. FREQUENTLY ASKED QUESTIONS */}
         <View nativeID="faq" {...({ id: 'faq' } as any)} style={styles.sectionWrap}>
           <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>QUESTIONS & ANSWERS</Text>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Frequently Asked Questions</Text>
@@ -564,7 +575,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           </View>
         </View>
 
-        {/* FINAL CALL TO ACTION */}
+        {/* 5. FINAL CALL TO ACTION */}
         <View style={[styles.ctaBanner, { backgroundColor: colors.card, borderColor: colors.primaryBorder }]}>
           <Text style={[styles.ctaBannerTitle, { color: colors.text }]}>
             Ready for your next game night?
@@ -582,7 +593,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* FOOTER */}
+        {/* 6. FOOTER WITH HRVA SOLUTIONS CREDIT & POLICY LINKS */}
         <View style={[styles.footer, { borderTopColor: colors.borderSubtle }]}>
           <View style={styles.footerBrandRow}>
             <ChipMateLogo size={28} borderRadius={6} />
@@ -590,6 +601,27 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
               <ChipMateWordmark size={14} spacing={2} />
             </View>
           </View>
+
+          {/* Quick Footer Links */}
+          <View style={styles.footerLinksRow}>
+            <TouchableOpacity onPress={() => setIsPrivacyModalOpen(true)} activeOpacity={0.7} style={styles.footerLinkTouch}>
+              <Text style={[styles.footerLinkText, { color: colors.textSecondary }]}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <Text style={[styles.footerDot, { color: colors.textMuted }]}>•</Text>
+            <TouchableOpacity onPress={() => setIsContactModalOpen(true)} activeOpacity={0.7} style={styles.footerLinkTouch}>
+              <Text style={[styles.footerLinkText, { color: colors.textSecondary }]}>Contact Us</Text>
+            </TouchableOpacity>
+            <Text style={[styles.footerDot, { color: colors.textMuted }]}>•</Text>
+            <TouchableOpacity onPress={() => scrollToSection('faq')} activeOpacity={0.7} style={styles.footerLinkTouch}>
+              <Text style={[styles.footerLinkText, { color: colors.textSecondary }]}>FAQ</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Official Attribution requested by user */}
+          <Text style={[styles.footerHrvaCredit, { color: colors.textSecondary }]}>
+            Made with <Text style={{ color: '#EF4444' }}>❤️</Text> by <Text style={{ fontWeight: '800', color: colors.text }}>HRVA Solutions</Text>
+          </Text>
+
           <Text style={[styles.footerTagline, { color: colors.textMuted }]}>
             CALCULATE . SETTLE . PLAY.
           </Text>
@@ -598,6 +630,130 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           </Text>
         </View>
       </ScrollView>
+
+      {/* CONTACT US MODAL */}
+      <Modal
+        transparent
+        visible={isContactModalOpen}
+        animationType="fade"
+        onRequestClose={() => setIsContactModalOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Mail size={18} color={colors.primary} />
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Contact ChipMate</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsContactModalOpen(false)}
+                style={[styles.modalCloseBtn, { backgroundColor: colors.cardRaised }]}
+                activeOpacity={0.7}
+              >
+                <X size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+              Have feedback, questions about game settlements, or need assistance for your poker club? We would love to hear from you.
+            </Text>
+
+            <View style={[styles.contactCard, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle }]}>
+              <Text style={[styles.contactLabel, { color: colors.textMuted }]}>OFFICIAL SUPPORT EMAIL</Text>
+              <Text style={[styles.contactValue, { color: colors.primary }]}>support@chipmate.online</Text>
+              <Text style={[styles.contactNote, { color: colors.textSecondary }]}>
+                Direct inquiries & assistance for hosts and players.
+              </Text>
+              <TouchableOpacity
+                style={[styles.contactActionBtn, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                    window.location.href = 'mailto:support@chipmate.online?subject=ChipMate%20Inquiry';
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <Mail size={14} color="#FFF" style={{ marginRight: 6 }} />
+                <Text style={styles.contactActionBtnText}>Send Us an Email</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.contactMetaBox, { borderTopColor: colors.borderSubtle }]}>
+              <Text style={[styles.contactMetaText, { color: colors.textMuted }]}>
+                ChipMate is engineered and maintained with pride by <Text style={{ color: colors.text, fontWeight: '700' }}>HRVA Solutions</Text>.
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* PRIVACY POLICY MODAL */}
+      <Modal
+        transparent
+        visible={isPrivacyModalOpen}
+        animationType="fade"
+        onRequestClose={() => setIsPrivacyModalOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, styles.privacyModalCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <ShieldCheck size={18} color={colors.primary} />
+                <Text style={[styles.modalTitle, { color: colors.text }]}>ChipMate Privacy Policy</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsPrivacyModalOpen(false)}
+                style={[styles.modalCloseBtn, { backgroundColor: colors.cardRaised }]}
+                activeOpacity={0.7}
+              >
+                <X size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.privacyScroll} showsVerticalScrollIndicator={true}>
+              <Text style={[styles.privacySectionTitle, { color: colors.text }]}>1. Overview & Commitment</Text>
+              <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
+                ChipMate (developed by HRVA Solutions) is built on the foundation of user privacy and transparency. We do not sell user data, run advertising trackers, or share private table details with third parties.
+              </Text>
+
+              <Text style={[styles.privacySectionTitle, { color: colors.text }]}>2. Host Account Data</Text>
+              <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
+                Table hosts register using a 10-digit mobile number, player display name, and email address for secure OTP verification. This information is used strictly for authentication and account security.
+              </Text>
+
+              <Text style={[styles.privacySectionTitle, { color: colors.text }]}>3. Guest Player Privacy</Text>
+              <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
+                Guest players do NOT need an account, do NOT need to provide an email or phone number, and do NOT need to download an application. Guest statistics are scoped exclusively to the table host's private game group.
+              </Text>
+
+              <Text style={[styles.privacySectionTitle, { color: colors.text }]}>4. Zero Financial & Gambling Transactions</Text>
+              <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
+                ChipMate is an authoritative scorekeeping, physical chip inventory, and debt minimization calculator. ChipMate does NOT process money transfers, does NOT hold player funds, does NOT store bank account or credit card credentials, and does NOT operate as an online gambling service. All settlements generated are mathematical summaries for private peer-to-peer settlement.
+              </Text>
+
+              <Text style={[styles.privacySectionTitle, { color: colors.text }]}>5. Local Device Storage</Text>
+              <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
+                We utilize browser local storage solely to remember authentication session tokens and theme preferences (Day/Night mode) on your device.
+              </Text>
+
+              <Text style={[styles.privacySectionTitle, { color: colors.text }]}>6. Data Contact & Controller</Text>
+              <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
+                If you have questions regarding data privacy or wish to request data deletion, contact HRVA Solutions directly at support@chipmate.online.
+              </Text>
+            </ScrollView>
+
+            <View style={[styles.modalFooterRow, { borderTopColor: colors.borderSubtle }]}>
+              <TouchableOpacity
+                style={[styles.modalCloseDoneBtn, { backgroundColor: colors.primary }]}
+                onPress={() => setIsPrivacyModalOpen(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalCloseDoneBtnText}>I Understand</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -614,6 +770,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     zIndex: 100
   },
+  topBarMobile: {
+    paddingVertical: 10,
+    paddingHorizontal: 12
+  },
   topBarInner: {
     maxWidth: 1120,
     width: '100%',
@@ -629,19 +789,22 @@ const styles = StyleSheet.create({
   desktopNavLinks: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 24
+    gap: 20
   },
   navLinkItem: {
     paddingVertical: 4
   },
   navLinkText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600'
   },
   topBarRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10
+  },
+  topBarRightMobile: {
+    gap: 6
   },
   themeToggleSymbolBtn: {
     width: 36,
@@ -651,15 +814,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1
   },
+  themeToggleSymbolBtnMobile: {
+    width: 32,
+    height: 32,
+    borderRadius: 16
+  },
   loginBtn: {
     paddingVertical: 7,
     paddingHorizontal: 14,
     borderRadius: 8,
     borderWidth: 1
   },
+  loginBtnMobile: {
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: 6
+  },
   loginBtnText: {
     fontSize: 13,
     fontWeight: '700'
+  },
+  loginBtnTextMobile: {
+    fontSize: 12
   },
   launchAppBtn: {
     flexDirection: 'row',
@@ -668,10 +844,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8
   },
+  launchAppBtnMobile: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 6
+  },
   launchAppBtnText: {
     fontSize: 13,
     fontWeight: '800',
     color: '#FFF'
+  },
+  launchAppBtnTextMobile: {
+    fontSize: 12
   },
   scrollView: {
     flex: 1,
@@ -1150,6 +1334,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center'
   },
+  footerLinksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 6,
+    marginBottom: 4
+  },
+  footerLinkTouch: {
+    paddingVertical: 4,
+    paddingHorizontal: 6
+  },
+  footerLinkText: {
+    fontSize: 12,
+    fontWeight: '600'
+  },
+  footerDot: {
+    fontSize: 12
+  },
+  footerHrvaCredit: {
+    fontSize: 12,
+    marginTop: 2,
+    marginBottom: 4,
+    textAlign: 'center'
+  },
   footerTagline: {
     fontSize: 11,
     fontWeight: '700',
@@ -1158,5 +1366,127 @@ const styles = StyleSheet.create({
   footerCopyright: {
     fontSize: 11,
     marginTop: 4
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+    zIndex: 1000
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 480,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10
+  },
+  privacyModalCard: {
+    maxHeight: '85%'
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3
+  },
+  modalCloseBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 16
+  },
+  contactCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 12
+  },
+  contactLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 4
+  },
+  contactValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 6
+  },
+  contactNote: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 14
+  },
+  contactActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8
+  },
+  contactActionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFF'
+  },
+  contactMetaBox: {
+    borderTopWidth: 1,
+    paddingTop: 12,
+    marginTop: 6
+  },
+  contactMetaText: {
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 16
+  },
+  privacyScroll: {
+    maxHeight: 380,
+    marginVertical: 10
+  },
+  privacySectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 12,
+    marginBottom: 4
+  },
+  privacyText: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 8
+  },
+  modalFooterRow: {
+    borderTopWidth: 1,
+    paddingTop: 12,
+    marginTop: 8,
+    alignItems: 'flex-end'
+  },
+  modalCloseDoneBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 8
+  },
+  modalCloseDoneBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFF'
   }
 });

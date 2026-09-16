@@ -3,7 +3,7 @@
     "name": "ChipMate",
     "slug": "chipmate",
     "scheme": "chipmate",
-    "version": "1.1.44",
+    "version": "1.1.45",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -21,7 +21,10 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "ChipMate — Poker & Teen Patti Chip Ledger & Settlement Calculator",
+      "shortName": "ChipMate",
+      "description": "Real-time physical poker chip calculator, bank vault ledger, and 1-tap WhatsApp debt settlement for Texas Hold'em and Teen Patti home games."
     }
   }
 }
