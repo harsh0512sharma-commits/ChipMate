@@ -69,6 +69,15 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
     }
   };
 
+  const scrollToSection = (sectionId: string) => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const el = document.getElementById(sectionId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
   const faqs = [
     {
       q: 'Do all my friends need to download an app or create an account?',
@@ -111,16 +120,16 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           {/* Desktop Nav Links */}
           {isDesktop && (
             <View style={styles.desktopNavLinks}>
-              <TouchableOpacity onPress={onEnterApp} activeOpacity={0.7} style={styles.navLinkItem}>
+              <TouchableOpacity onPress={() => scrollToSection('features')} activeOpacity={0.7} style={styles.navLinkItem}>
                 <Text style={[styles.navLinkText, { color: colors.textSecondary }]}>Features</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={onEnterApp} activeOpacity={0.7} style={styles.navLinkItem}>
+              <TouchableOpacity onPress={() => scrollToSection('how-it-works')} activeOpacity={0.7} style={styles.navLinkItem}>
                 <Text style={[styles.navLinkText, { color: colors.textSecondary }]}>How It Works</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={onEnterApp} activeOpacity={0.7} style={styles.navLinkItem}>
+              <TouchableOpacity onPress={() => scrollToSection('comparison')} activeOpacity={0.7} style={styles.navLinkItem}>
                 <Text style={[styles.navLinkText, { color: colors.textSecondary }]}>Poker vs Teen Patti</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={onEnterApp} activeOpacity={0.7} style={styles.navLinkItem}>
+              <TouchableOpacity onPress={() => scrollToSection('faq')} activeOpacity={0.7} style={styles.navLinkItem}>
                 <Text style={[styles.navLinkText, { color: colors.textSecondary }]}>FAQ</Text>
               </TouchableOpacity>
             </View>
@@ -174,114 +183,161 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* HERO SECTION */}
+        {/* HERO SECTION - SPLIT LAYOUT (HERO COPY + PORTRAIT SMARTPHONE MOCKUP) */}
         <View style={styles.heroSection}>
-          {/* Eyebrow Pill */}
-          <View style={[styles.heroPill, { backgroundColor: colors.primaryLight, borderColor: colors.primaryBorder }]}>
-            <Sparkles size={13} color={colors.primary} style={{ marginRight: 6 }} />
-            <Text style={[styles.heroPillText, { color: colors.primary }]}>
-              THE ZERO-SUM CHIP LEDGER & SETTLEMENT ENGINE
-            </Text>
-          </View>
-
-          {/* Big Headline */}
-          <Text style={[styles.heroHeadline, { color: colors.text }]}>
-            Throw away the spreadsheet.{'\n'}
-            <Text style={{ color: colors.primary }}>Never argue over chips again.</Text>
-          </Text>
-
-          {/* Subtitle */}
-          <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
-            Real-time physical chip ledgers, zero-sum debt minimization, and 1-tap WhatsApp settlements for Texas Hold'em and Teen Patti home games.
-          </Text>
-
-          {/* Hero CTAs */}
-          <View style={styles.heroCtasRow}>
-            <TouchableOpacity
-              style={[styles.heroPrimaryCta, { backgroundColor: colors.primary }]}
-              onPress={onEnterApp}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.heroPrimaryCtaText}>Start a Free Table</Text>
-              <ArrowRight size={17} color="#FFF" style={{ marginLeft: 8 }} />
-            </TouchableOpacity>
-
-            {onOpenSampleLedger && (
-              <TouchableOpacity
-                style={[styles.heroSecondaryCta, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle }]}
-                onPress={onOpenSampleLedger}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.heroSecondaryCtaText, { color: colors.text }]}>View Live Demo</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Trust Badges */}
-          <View style={styles.trustBadgesRow}>
-            <View style={styles.trustBadgeItem}>
-              <CheckCircle2 size={15} color={colors.successText} />
-              <Text style={[styles.trustBadgeText, { color: colors.textSecondary }]}>100% Free</Text>
-            </View>
-            <View style={styles.trustDot} />
-            <View style={styles.trustBadgeItem}>
-              <ShieldCheck size={15} color={colors.primary} />
-              <Text style={[styles.trustBadgeText, { color: colors.textSecondary }]}>Mathematical Zero-Sum</Text>
-            </View>
-            <View style={styles.trustDot} />
-            <View style={styles.trustBadgeItem}>
-              <Zap size={15} color="#FBBF24" />
-              <Text style={[styles.trustBadgeText, { color: colors.textSecondary }]}>Instant WhatsApp Share</Text>
-            </View>
-          </View>
-
-          {/* HERO VIDEO / MEDIA SHOWCASE */}
-          <View style={[styles.videoShowcaseWrapper, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-            <View style={styles.videoHeaderBar}>
-              <View style={styles.macDots}>
-                <View style={[styles.macDot, { backgroundColor: '#EF4444' }]} />
-                <View style={[styles.macDot, { backgroundColor: '#F59E0B' }]} />
-                <View style={[styles.macDot, { backgroundColor: '#10B981' }]} />
-              </View>
-              <View style={styles.videoTitleWrap}>
-                <Text style={[styles.videoTitleText, { color: colors.textSecondary }]}>
-                  ChipMate Authoritative Engine Preview
+          <View style={[styles.heroRow, isDesktop ? styles.heroRowDesktop : styles.heroRowMobile]}>
+            {/* Left Column: Hero Copy & Actions */}
+            <View style={[styles.heroLeftCol, { alignItems: isDesktop ? 'flex-start' : 'center' }]}>
+              {/* Eyebrow Pill */}
+              <View style={[styles.heroPill, { backgroundColor: colors.primaryLight, borderColor: colors.primaryBorder }]}>
+                <Sparkles size={13} color={colors.primary} style={{ marginRight: 6 }} />
+                <Text style={[styles.heroPillText, { color: colors.primary }]}>
+                  THE ZERO-SUM CHIP LEDGER & SETTLEMENT ENGINE
                 </Text>
               </View>
-              <View style={styles.videoControlsRight}>
-                <TouchableOpacity onPress={toggleVideoPlayback} style={styles.videoIconBtn} activeOpacity={0.7}>
-                  <Play size={13} color={colors.textSecondary} />
+
+              {/* Big Headline */}
+              <Text style={[styles.heroHeadline, { color: colors.text, textAlign: isDesktop ? 'left' : 'center' }]}>
+                Throw away the spreadsheet.{'\n'}
+                <Text style={{ color: colors.primary }}>Never argue over chips again.</Text>
+              </Text>
+
+              {/* Subtitle */}
+              <Text style={[styles.heroSubtitle, { color: colors.textSecondary, textAlign: isDesktop ? 'left' : 'center' }]}>
+                Real-time physical chip ledgers, zero-sum debt minimization, and 1-tap WhatsApp settlements for Texas Hold'em and Teen Patti home games.
+              </Text>
+
+              {/* Hero CTAs */}
+              <View style={[styles.heroCtasRow, { justifyContent: isDesktop ? 'flex-start' : 'center' }]}>
+                <TouchableOpacity
+                  style={[styles.heroPrimaryCta, { backgroundColor: colors.primary }]}
+                  onPress={onEnterApp}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.heroPrimaryCtaText}>Start a Free Table</Text>
+                  <ArrowRight size={17} color="#FFF" style={{ marginLeft: 8 }} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={restartVideo} style={styles.videoIconBtn} activeOpacity={0.7}>
-                  <RotateCcw size={13} color={colors.textSecondary} />
-                </TouchableOpacity>
+
+                {onOpenSampleLedger && (
+                  <TouchableOpacity
+                    style={[styles.heroSecondaryCta, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle }]}
+                    onPress={onOpenSampleLedger}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.heroSecondaryCtaText, { color: colors.text }]}>View Live Demo</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Trust Badges */}
+              <View style={[styles.trustBadgesRow, { justifyContent: isDesktop ? 'flex-start' : 'center' }]}>
+                <View style={styles.trustBadgeItem}>
+                  <CheckCircle2 size={15} color={colors.successText} />
+                  <Text style={[styles.trustBadgeText, { color: colors.textSecondary }]}>100% Free</Text>
+                </View>
+                <View style={styles.trustDot} />
+                <View style={styles.trustBadgeItem}>
+                  <ShieldCheck size={15} color={colors.primary} />
+                  <Text style={[styles.trustBadgeText, { color: colors.textSecondary }]}>Mathematical Zero-Sum</Text>
+                </View>
+                <View style={styles.trustDot} />
+                <View style={styles.trustBadgeItem}>
+                  <Zap size={15} color="#FBBF24" />
+                  <Text style={[styles.trustBadgeText, { color: colors.textSecondary }]}>Instant WhatsApp Share</Text>
+                </View>
               </View>
             </View>
 
-            {/* Embedded Video Player */}
-            <View style={styles.videoPlayerBox}>
-              {Platform.OS === 'web' && (
-                <HtmlVideo
-                  ref={videoRef}
-                  src="/splash_video_v2.mp4?v=1.0.22"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  style={{
-                    width: '100%',
-                    height: isDesktop ? 480 : 260,
-                    backgroundColor: '#000000',
-                    objectFit: 'cover'
-                  }}
-                />
-              )}
+            {/* Right Column: High-End Portrait Smartphone Device (Zero Cropping!) */}
+            <View style={styles.heroPhoneColumn}>
+              {/* Outer Ambient Glow */}
+              <View
+                style={[
+                  styles.phoneAmbientGlow,
+                  { backgroundColor: isDark ? 'rgba(234, 88, 12, 0.18)' : 'rgba(234, 88, 12, 0.10)' }
+                ]}
+              />
+
+              {/* Smartphone Chassis Frame */}
+              <View style={[styles.phoneChassis, { borderColor: isDark ? '#262D3D' : '#1F2937' }]}>
+                {/* 9:16 Portrait Screen Glass */}
+                <View style={styles.phoneScreenGlass}>
+                  {/* Top Dynamic Island / Speaker Pill */}
+                  <View style={styles.dynamicIslandPill}>
+                    <View style={styles.dynamicIslandCamera} />
+                  </View>
+
+                  {/* Top Live Engine Badge */}
+                  <View style={styles.phoneTopBadge}>
+                    <View style={styles.phoneLiveDot} />
+                    <Text style={styles.phoneLiveText}>LIVE ENGINE DEMO</Text>
+                  </View>
+
+                  {/* Native Portrait 9:16 Video Player - Zero Cropping */}
+                  {Platform.OS === 'web' && (
+                    <HtmlVideo
+                      ref={videoRef}
+                      src="/splash_video_v2.mp4?v=1.0.22"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: '#000000',
+                        objectFit: 'contain'
+                      }}
+                    />
+                  )}
+
+                  {/* Floating Frosted Glass Video Controls */}
+                  <View style={styles.phoneFloatingControls}>
+                    <TouchableOpacity
+                      onPress={toggleVideoPlayback}
+                      style={styles.phoneGlassBtn}
+                      activeOpacity={0.7}
+                      accessibilityLabel={isVideoPlaying ? 'Pause Video' : 'Play Video'}
+                    >
+                      {isVideoPlaying ? (
+                        <View style={styles.pauseIconBars}>
+                          <View style={styles.pauseBar} />
+                          <View style={styles.pauseBar} />
+                        </View>
+                      ) : (
+                        <Play size={11} color="#FFFFFF" fill="#FFFFFF" />
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={restartVideo}
+                      style={styles.phoneGlassBtn}
+                      activeOpacity={0.7}
+                      accessibilityLabel="Replay Video"
+                    >
+                      <RotateCcw size={11} color="#FFFFFF" />
+                    </TouchableOpacity>
+
+                    <Text style={styles.phoneControlHint}>
+                      {isVideoPlaying ? 'Playing' : 'Paused'}
+                    </Text>
+                  </View>
+
+                  {/* Bottom Home Indicator Bar */}
+                  <View style={styles.homeIndicatorBar} />
+                </View>
+              </View>
+
+              {/* Device Caption */}
+              <Text style={[styles.phoneCaptionText, { color: colors.textMuted }]}>
+                ChipMate Mobile Ledger Preview • 9:16 Portrait
+              </Text>
             </View>
           </View>
         </View>
 
         {/* COMPARISON: CHIPMATE VS OTHERS */}
-        <View style={styles.sectionWrap}>
+        <View nativeID="comparison" {...({ id: 'comparison' } as any)} style={styles.sectionWrap}>
           <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>WHY PLAYERS CHOOSE CHIPMATE</Text>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             Built specifically for Indian & International Home Games
@@ -359,7 +415,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
         </View>
 
         {/* HOW IT WORKS (4 STEPS) */}
-        <View style={styles.sectionWrap}>
+        <View nativeID="how-it-works" {...({ id: 'how-it-works' } as any)} style={styles.sectionWrap}>
           <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>HOW IT WORKS</Text>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Four steps to a stress-free game night</Text>
 
@@ -407,7 +463,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
         </View>
 
         {/* CORE FEATURES GRID */}
-        <View style={styles.sectionWrap}>
+        <View nativeID="features" {...({ id: 'features' } as any)} style={styles.sectionWrap}>
           <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>ENGINEERED FOR SERIOUS CARD PLAYERS</Text>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Everything you need, nothing you don't</Text>
 
@@ -475,7 +531,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
         </View>
 
         {/* FREQUENTLY ASKED QUESTIONS */}
-        <View style={styles.sectionWrap}>
+        <View nativeID="faq" {...({ id: 'faq' } as any)} style={styles.sectionWrap}>
           <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>QUESTIONS & ANSWERS</Text>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Frequently Asked Questions</Text>
 
@@ -626,12 +682,30 @@ const styles = StyleSheet.create({
     paddingBottom: 60
   },
   heroSection: {
-    maxWidth: 1040,
+    maxWidth: 1140,
     width: '100%',
-    alignItems: 'center',
-    paddingTop: 48,
+    paddingTop: 40,
     paddingBottom: 40,
     paddingHorizontal: 20
+  },
+  heroRow: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'space-between'
+  },
+  heroRowDesktop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 48
+  },
+  heroRowMobile: {
+    flexDirection: 'column',
+    gap: 36
+  },
+  heroLeftCol: {
+    flex: 1,
+    maxWidth: 620,
+    width: '100%'
   },
   heroPill: {
     flexDirection: 'row',
@@ -648,25 +722,22 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8
   },
   heroHeadline: {
-    fontSize: 38,
+    fontSize: 36,
     fontWeight: '900',
-    textAlign: 'center',
-    lineHeight: 46,
+    lineHeight: 44,
     letterSpacing: -1,
-    maxWidth: 800,
     marginBottom: 16
   },
   heroSubtitle: {
     fontSize: 16,
     lineHeight: 24,
-    textAlign: 'center',
-    maxWidth: 680,
+    maxWidth: 580,
     marginBottom: 28
   },
   heroCtasRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    flexWrap: 'wrap',
     gap: 14,
     marginBottom: 24
   },
@@ -702,9 +773,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    justifyContent: 'center',
     gap: 12,
-    marginBottom: 36
+    marginBottom: 8
   },
   trustBadgeItem: {
     flexDirection: 'row',
@@ -721,58 +791,141 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#6B7280'
   },
-  videoShowcaseWrapper: {
-    width: '100%',
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 8
-  },
-  videoHeaderBar: {
-    flexDirection: 'row',
+  heroPhoneColumn: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)'
+    justifyContent: 'center',
+    position: 'relative'
   },
-  macDots: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6
+  phoneAmbientGlow: {
+    position: 'absolute',
+    width: 280,
+    height: 380,
+    borderRadius: 140,
+    top: 40,
+    alignSelf: 'center',
+    zIndex: -1
   },
-  macDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5
-  },
-  videoTitleWrap: {
-    flex: 1,
-    alignItems: 'center'
-  },
-  videoTitleText: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.3
-  },
-  videoControlsRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8
-  },
-  videoIconBtn: {
-    padding: 4
-  },
-  videoPlayerBox: {
-    width: '100%',
+  phoneChassis: {
+    borderRadius: 42,
+    borderWidth: 9,
     backgroundColor: '#000000',
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.35,
+    shadowRadius: 28,
+    elevation: 12
+  },
+  phoneScreenGlass: {
+    width: 280,
+    height: 498,
+    position: 'relative',
+    backgroundColor: '#000000',
+    borderRadius: 33,
+    overflow: 'hidden'
+  },
+  dynamicIslandPill: {
+    position: 'absolute',
+    top: 8,
+    alignSelf: 'center',
+    width: 76,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    zIndex: 20,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    paddingRight: 10
+  },
+  dynamicIslandCamera: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#1E293B'
+  },
+  phoneTopBadge: {
+    position: 'absolute',
+    top: 32,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    zIndex: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)'
+  },
+  phoneLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981'
+  },
+  phoneLiveText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.8
+  },
+  phoneFloatingControls: {
+    position: 'absolute',
+    bottom: 22,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.76)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    zIndex: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)'
+  },
+  phoneGlassBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
     alignItems: 'center',
     justifyContent: 'center'
+  },
+  pauseIconBars: {
+    flexDirection: 'row',
+    gap: 2.5
+  },
+  pauseBar: {
+    width: 2.5,
+    height: 9,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 1
+  },
+  phoneControlHint: {
+    fontSize: 9.5,
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontWeight: '600'
+  },
+  homeIndicatorBar: {
+    position: 'absolute',
+    bottom: 6,
+    alignSelf: 'center',
+    width: 90,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    zIndex: 20
+  },
+  phoneCaptionText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 10,
+    textAlign: 'center',
+    letterSpacing: 0.2
   },
   sectionWrap: {
     maxWidth: 1040,
@@ -780,7 +933,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 20,
-    alignItems: 'center'
+    alignItems: 'center',
+    ...(Platform.OS === 'web' ? { scrollMarginTop: 80 } : {})
   },
   sectionEyebrow: {
     fontSize: 11,

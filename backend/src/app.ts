@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.43',
+      version: '1.1.44',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.43',
+      version: '1.1.44',
       buildTime: Date.now(),
-      releaseNotes: 'Marketing landing page with hero video showcase, dual-route smart onboarding, and desktop header symbol-only theme toggle.'
+      releaseNotes: 'Landing page smooth section navigation and portrait smartphone mockup frame for zero-crop hero video.'
     });
   };
   app.get('/version', versionHandler);
