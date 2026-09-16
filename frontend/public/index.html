@@ -67,7 +67,73 @@
         caret-color: var(--cm-primary, #2563EB) !important;
         transition: background-color 5000s ease-in-out 0s;
       }
+      /* Prevent accidental selection on UI elements while preserving text inputs */
+      html, body, #root {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
+      input, textarea {
+        -webkit-user-select: text !important;
+        user-select: text !important;
+      }
     </style>
+
+    <!-- Layer 1 Security: Anti-Inspect and Shortcut Interceptor -->
+    <script>
+      (function() {
+        // Prevent right-click / context menu
+        document.addEventListener('contextmenu', function(e) {
+          e.preventDefault();
+          return false;
+        }, { capture: true });
+
+        // Intercept DevTools shortcuts
+        window.addEventListener('keydown', function(e) {
+          // F12
+          if (e.key === 'F12' || e.keyCode === 123) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+
+          var isModifier = e.ctrlKey || e.metaKey;
+          var key = (e.key || '').toLowerCase();
+          var code = e.keyCode;
+
+          // Ctrl+Shift+I / Cmd+Opt+I (DevTools Inspect)
+          // Ctrl+Shift+J / Cmd+Opt+J (Console)
+          // Ctrl+Shift+C / Cmd+Opt+C (Element Inspector)
+          if (isModifier && e.shiftKey && (key === 'i' || key === 'j' || key === 'c' || code === 73 || code === 74 || code === 67)) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+
+          // Ctrl+U / Cmd+Opt+U (View Source)
+          if (isModifier && (key === 'u' || code === 85)) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+
+          // Ctrl+S / Cmd+S (Save Page)
+          if (isModifier && (key === 's' || code === 83)) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+        }, { capture: true });
+
+        try {
+          console.log(
+            '%cChipMate Security Notice%c\nClient-side inspection is disabled for game ledger integrity.',
+            'color: #3b82f6; font-size: 16px; font-weight: bold;',
+            'color: #94a3b8; font-size: 12px;'
+          );
+        } catch (_) {}
+      })();
+    </script>
   </head>
 
   <body>
