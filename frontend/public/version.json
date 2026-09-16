@@ -1,5 +1,5 @@
 {
-  "version": "1.1.39",
-  "buildTime": 1789583000000,
-  "releaseNotes": "Custom designed Cards & Chip logo across web and mobile, brand typography, and automated clean URL scrubbing."
+  "version": "1.1.40",
+  "buildTime": 1789585000000,
+  "releaseNotes": "Decluttered profile with dedicated full-screen history and updates views, brand orange MATE typography, and enhanced PWA icon cache-busting."
 }

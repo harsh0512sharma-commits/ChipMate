@@ -26,7 +26,9 @@ import {
   Camera,
   Trash2,
   RefreshCw,
-  Shield
+  Shield,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
@@ -38,6 +40,7 @@ import { APP_BUILD_VERSION } from '../../version';
 interface ProfileScreenProps {
   onOpenSummary?: (gameId: string) => void;
   onOpenMasterAdmin?: () => void;
+  initialSubView?: 'MAIN' | 'GAME_HISTORY' | 'APP_UPDATES';
 }
 
 function formatGameDateTime(dateStr?: string): string {
@@ -56,7 +59,16 @@ function formatGameDateTime(dateStr?: string): string {
   return `${datePart} • ${timePart}`;
 }
 
-export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary, onOpenMasterAdmin }) => {
+export const ProfileScreen: React.FC<ProfileScreenProps> = ({
+  onOpenSummary,
+  onOpenMasterAdmin,
+  initialSubView = 'MAIN'
+}) => {
+  const [subView, setSubView] = useState<'MAIN' | 'GAME_HISTORY' | 'APP_UPDATES'>(initialSubView);
+
+  useEffect(() => {
+    if (initialSubView) setSubView(initialSubView);
+  }, [initialSubView]);
   const { user, logout, refreshUser, updateUser } = useAuth();
   const isMasterAdmin = Boolean(user?.isMasterAdmin || user?.phone_number === '7319123393');
   const [copied, setCopied] = useState(false);
@@ -249,6 +261,192 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary, onO
       setDeletingGameId(null);
     }
   };
+
+  if (subView === 'GAME_HISTORY') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.subViewHeader}>
+          <TouchableOpacity
+            style={styles.subViewBackBtn}
+            onPress={() => setSubView('MAIN')}
+            activeOpacity={0.7}
+          >
+            <ChevronLeft size={20} color={colors.text} />
+            <Text style={styles.subViewBackText}>Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.subViewTitle}>Game History</Text>
+          <View style={styles.subViewCountPill}>
+            <Text style={styles.subViewCountText}>{gameHistory.length}</Text>
+          </View>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {gameHistory.length === 0 ? (
+            <View style={styles.emptyStateBox}>
+              <History size={40} color={colors.textMuted} />
+              <Text style={styles.emptyStateTitle}>No Completed Games</Text>
+              <Text style={styles.emptyStateSubtitle}>
+                Completed and settled games will appear here with full ledger breakdowns and winner summaries.
+              </Text>
+            </View>
+          ) : (
+            gameHistory.map(game => {
+              const isHostOrAdmin = game.host_user_id === user?.id || game.player_role === 'HOST' || isMasterAdmin;
+              const isDeleting = deletingGameId === game.id;
+              return (
+                <View key={game.id} style={styles.historyGameRow}>
+                  <TouchableOpacity
+                    style={styles.historyGameItem}
+                    onPress={() => onOpenSummary && onOpenSummary(game.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={styles.historyGameName}>{game.name}</Text>
+                      <Text style={styles.historyGameMeta}>
+                        {game.game_type === 'TEEN_PATTI' ? 'Teen Patti' : 'Poker'} • Host: {game.host_name}
+                      </Text>
+                      <Text style={styles.historyGameDate}>
+                        📅 {formatGameDateTime(game.finalized_at || game.created_at)}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text
+                        style={[
+                          styles.historyGameNet,
+                          { color: (game.net_winnings_money || 0) >= 0 ? colors.successText : colors.dangerText }
+                        ]}
+                      >
+                        {(game.net_winnings_money || 0) >= 0 ? `+₹${game.net_winnings_money || 0}` : `-₹${Math.abs(game.net_winnings_money || 0)}`}
+                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                        <Text style={styles.finalizedBadge}>View Summary</Text>
+                        <ArrowRight size={12} color={colors.primary} style={{ marginLeft: 4 }} />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+
+                  {isHostOrAdmin && (
+                    <TouchableOpacity
+                      style={styles.deleteHistoryGameBtn}
+                      onPress={() => handleDeleteHistoryGame(game)}
+                      disabled={isDeleting}
+                      activeOpacity={0.7}
+                    >
+                      {isDeleting ? (
+                        <ActivityIndicator size={14} color={colors.dangerText} />
+                      ) : (
+                        <Trash2 size={16} color={colors.dangerText} />
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (subView === 'APP_UPDATES') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.subViewHeader}>
+          <TouchableOpacity
+            style={styles.subViewBackBtn}
+            onPress={() => setSubView('MAIN')}
+            activeOpacity={0.7}
+          >
+            <ChevronLeft size={20} color={colors.text} />
+            <Text style={styles.subViewBackText}>Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.subViewTitle}>App Version & Updates</Text>
+          <View style={{ width: 44 }} />
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.card}>
+            <View style={styles.updateCardHeader}>
+              <Sparkles size={18} color={colors.primary} style={{ marginRight: 8 }} />
+              <Text style={styles.sectionTitle}>SYSTEM & BUILD STATUS</Text>
+            </View>
+            <Text style={styles.sectionSubtitle}>
+              Live build tracking, instant cloud releases, and cache-busting tools
+            </Text>
+
+            <View style={styles.versionDetailsBox}>
+              <View style={styles.versionDetailRow}>
+                <Text style={styles.versionDetailLabel}>Current Installed Build</Text>
+                <Text style={styles.versionDetailValue}>v{currentVersion}</Text>
+              </View>
+              <View style={styles.versionDetailRow}>
+                <Text style={styles.versionDetailLabel}>Latest Cloud Release</Text>
+                <Text style={[styles.versionDetailValue, { color: updateAvailable ? colors.primary : colors.successText }]}>
+                  v{latestVersion}
+                </Text>
+              </View>
+              <View style={styles.versionStatusRow}>
+                <View style={[styles.statusDot, { backgroundColor: updateAvailable ? colors.primary : colors.successText }]} />
+                <Text style={[styles.statusText, { color: updateAvailable ? colors.primary : colors.successText }]}>
+                  {updateAvailable
+                    ? `Update Available! (v${latestVersion} ready to apply)`
+                    : 'You are running the latest version'}
+                </Text>
+              </View>
+            </View>
+
+            {updateMsg ? (
+              <Text style={styles.updateMsgText}>{updateMsg}</Text>
+            ) : null}
+
+            {updateAvailable && (
+              <TouchableOpacity
+                style={styles.profileUpdateNowBtn}
+                onPress={applyUpdate}
+                disabled={isApplyingUpdate}
+                activeOpacity={0.8}
+              >
+                {isApplyingUpdate ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Sparkles size={16} color="#FFF" style={{ marginRight: 8 }} />
+                    <Text style={styles.profileUpdateNowText}>🚀 Update to v{latestVersion} Now</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
+            <View style={styles.updateActionsRow}>
+              <TouchableOpacity
+                style={styles.checkUpdateBtn}
+                onPress={handleManualCheckUpdates}
+                disabled={isCheckingUpdates}
+                activeOpacity={0.7}
+              >
+                {isCheckingUpdates ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <>
+                    <RefreshCw size={14} color={colors.primary} style={{ marginRight: 6 }} />
+                    <Text style={styles.checkUpdateBtnText}>Check for Updates</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.clearCacheBtn}
+                onPress={handleForceClearCache}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.clearCacheBtnText}>🧹 Clear Cache</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -508,153 +706,61 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary, onO
           </View>
         </View>
 
-        {/* COMPLETED GAMES HISTORY */}
-        <View style={styles.card}>
-          <View style={styles.historyCardHeader}>
-            <History size={18} color={colors.primary} style={{ marginRight: 8 }} />
-            <Text style={styles.sectionTitle}>GAME HISTORY ({gameHistory.length})</Text>
-          </View>
-          <Text style={styles.sectionSubtitle}>Complete ledger of all your finalized tables</Text>
+        {/* QUICK NAVIGATION: GAME HISTORY & SYSTEM UPDATES */}
+        <View style={styles.navRowsCard}>
+          {/* Game History Row */}
+          <TouchableOpacity
+            style={styles.navRowItem}
+            onPress={() => setSubView('GAME_HISTORY')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.navRowLeft}>
+              <View style={[styles.navRowIconWrap, { backgroundColor: 'rgba(234, 88, 12, 0.12)' }]}>
+                <History size={19} color={colors.primary} />
+              </View>
+              <View style={{ marginLeft: 12 }}>
+                <Text style={styles.navRowTitle}>Game History</Text>
+                <Text style={styles.navRowSubtitle}>
+                  {gameHistory.length} completed {gameHistory.length === 1 ? 'game' : 'games'} • View ledgers & summaries
+                </Text>
+              </View>
+            </View>
+            <View style={styles.navRowRight}>
+              <View style={styles.navRowBadge}>
+                <Text style={styles.navRowBadgeText}>{gameHistory.length}</Text>
+              </View>
+              <ChevronRight size={18} color={colors.textSecondary} style={{ marginLeft: 6 }} />
+            </View>
+          </TouchableOpacity>
 
-          {gameHistory.length === 0 ? (
-            <Text style={styles.emptyHistoryText}>No completed games recorded yet.</Text>
-          ) : (
-            gameHistory.map(game => {
-              const isHostOrAdmin = game.host_user_id === user?.id || game.player_role === 'HOST' || isMasterAdmin;
-              const isDeleting = deletingGameId === game.id;
-              return (
-                <View key={game.id} style={styles.historyGameRow}>
-                  <TouchableOpacity
-                    style={styles.historyGameItem}
-                    onPress={() => onOpenSummary && onOpenSummary(game.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={styles.historyGameName}>{game.name}</Text>
-                      <Text style={styles.historyGameMeta}>
-                        {game.game_type === 'TEEN_PATTI' ? 'Teen Patti' : 'Poker'} • Host: {game.host_name}
-                      </Text>
-                      <Text style={styles.historyGameDate}>
-                        📅 {formatGameDateTime(game.finalized_at || game.created_at)}
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text
-                        style={[
-                          styles.historyGameNet,
-                          { color: (game.net_winnings_money || 0) >= 0 ? colors.successText : colors.dangerText }
-                        ]}
-                      >
-                        {(game.net_winnings_money || 0) >= 0 ? `+₹${game.net_winnings_money || 0}` : `-₹${Math.abs(game.net_winnings_money || 0)}`}
-                      </Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                        <Text style={styles.finalizedBadge}>View Summary</Text>
-                        <ArrowRight size={12} color={colors.primary} style={{ marginLeft: 4 }} />
-                      </View>
-                    </View>
-                  </TouchableOpacity>
+          <View style={styles.navRowDivider} />
 
-                  {isHostOrAdmin && (
-                    <TouchableOpacity
-                      style={styles.deleteHistoryGameBtn}
-                      onPress={() => handleDeleteHistoryGame(game)}
-                      disabled={isDeleting}
-                      activeOpacity={0.7}
-                    >
-                      {isDeleting ? (
-                        <ActivityIndicator size={14} color={colors.dangerText} />
-                      ) : (
-                        <Trash2 size={16} color={colors.dangerText} />
-                      )}
-                    </TouchableOpacity>
-                  )}
+          {/* App Version & Updates Row */}
+          <TouchableOpacity
+            style={styles.navRowItem}
+            onPress={() => setSubView('APP_UPDATES')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.navRowLeft}>
+              <View style={[styles.navRowIconWrap, { backgroundColor: updateAvailable ? 'rgba(234, 88, 12, 0.12)' : 'rgba(16, 185, 129, 0.12)' }]}>
+                <Sparkles size={19} color={updateAvailable ? colors.primary : colors.successText} />
+              </View>
+              <View style={{ marginLeft: 12 }}>
+                <Text style={styles.navRowTitle}>App Version & Updates</Text>
+                <Text style={styles.navRowSubtitle}>
+                  Build v{currentVersion} • {updateAvailable ? 'Update available!' : 'Up to date'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.navRowRight}>
+              {updateAvailable ? (
+                <View style={styles.updatePillBadge}>
+                  <Text style={styles.updatePillBadgeText}>UPDATE</Text>
                 </View>
-              );
-            })
-          )}
-        </View>
-
-        {/* APP VERSION & SYSTEM UPDATES */}
-        <View style={styles.card}>
-          <View style={styles.updateCardHeader}>
-            <Sparkles size={18} color={colors.primary} style={{ marginRight: 8 }} />
-            <Text style={styles.sectionTitle}>APP VERSION & SYSTEM UPDATES</Text>
-          </View>
-          <Text style={styles.sectionSubtitle}>
-            Live build tracking, instant cloud releases, and cache-busting tools
-          </Text>
-
-          {/* Version Details Box */}
-          <View style={styles.versionDetailsBox}>
-            <View style={styles.versionDetailRow}>
-              <Text style={styles.versionDetailLabel}>Current Installed Build</Text>
-              <Text style={styles.versionDetailValue}>v{currentVersion}</Text>
+              ) : null}
+              <ChevronRight size={18} color={colors.textSecondary} style={{ marginLeft: 6 }} />
             </View>
-            <View style={styles.versionDetailRow}>
-              <Text style={styles.versionDetailLabel}>Latest Cloud Release</Text>
-              <Text style={[styles.versionDetailValue, { color: updateAvailable ? colors.primary : colors.successText }]}>
-                v{latestVersion}
-              </Text>
-            </View>
-            <View style={styles.versionStatusRow}>
-              <View style={[styles.statusDot, { backgroundColor: updateAvailable ? colors.primary : colors.successText }]} />
-              <Text style={[styles.statusText, { color: updateAvailable ? colors.primary : colors.successText }]}>
-                {updateAvailable
-                  ? `Update Available! (v${latestVersion} ready to apply)`
-                  : 'You are running the latest version'}
-              </Text>
-            </View>
-          </View>
-
-          {updateMsg ? (
-            <Text style={styles.updateMsgText}>{updateMsg}</Text>
-          ) : null}
-
-          {/* If update available: Big prominent update button */}
-          {updateAvailable && (
-            <TouchableOpacity
-              style={styles.profileUpdateNowBtn}
-              onPress={applyUpdate}
-              disabled={isApplyingUpdate}
-              activeOpacity={0.8}
-            >
-              {isApplyingUpdate ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <>
-                  <Sparkles size={16} color="#FFF" style={{ marginRight: 8 }} />
-                  <Text style={styles.profileUpdateNowText}>🚀 Update to v{latestVersion} Now</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          )}
-
-          {/* Actions Row */}
-          <View style={styles.updateActionsRow}>
-            <TouchableOpacity
-              style={styles.checkUpdateBtn}
-              onPress={handleManualCheckUpdates}
-              disabled={isCheckingUpdates}
-              activeOpacity={0.7}
-            >
-              {isCheckingUpdates ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <>
-                  <RefreshCw size={14} color={colors.primary} style={{ marginRight: 6 }} />
-                  <Text style={styles.checkUpdateBtnText}>Check for Updates</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.clearCacheBtn}
-              onPress={handleForceClearCache}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.clearCacheBtnText}>🧹 Clear Cache</Text>
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Logout Button */}
@@ -1229,5 +1335,148 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.textSecondary
+  },
+  subViewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+    backgroundColor: colors.card
+  },
+  subViewBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  subViewBackText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+    marginLeft: 4
+  },
+  subViewTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.3
+  },
+  subViewCountPill: {
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder
+  },
+  subViewCountText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.primary
+  },
+  navRowsCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    overflow: 'hidden'
+  },
+  navRowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14
+  },
+  navRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12
+  },
+  navRowIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  navRowTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: -0.2
+  },
+  navRowSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2
+  },
+  navRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  navRowBadge: {
+    backgroundColor: colors.cardInset,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  navRowBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.textSecondary
+  },
+  navRowDivider: {
+    height: 1,
+    backgroundColor: colors.borderSubtle,
+    marginLeft: 64
+  },
+  updatePillBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8
+  },
+  updatePillBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: 0.5
+  },
+  emptyStateBox: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    marginTop: 20
+  },
+  emptyStateTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.text,
+    marginTop: 12,
+    letterSpacing: -0.3
+  },
+  emptyStateSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 18,
+    maxWidth: 280
   }
 });

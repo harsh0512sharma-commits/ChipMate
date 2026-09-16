@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.39',
+      version: '1.1.40',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.39',
+      version: '1.1.40',
       buildTime: Date.now(),
-      releaseNotes: 'Custom designed Cards & Chip logo across web and mobile, brand typography, and automated clean URL scrubbing.'
+      releaseNotes: 'Decluttered profile with dedicated full-screen history and updates views, brand orange MATE typography, and enhanced PWA icon cache-busting.'
     });
   };
   app.get('/version', versionHandler);

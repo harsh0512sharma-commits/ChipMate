@@ -80,6 +80,7 @@ function MainNavigator() {
 
   // App screen state
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('TAB_HOME');
+  const [profileSubView, setProfileSubView] = useState<'MAIN' | 'GAME_HISTORY' | 'APP_UPDATES'>('MAIN');
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   const [h2hUserId, setH2hUserId] = useState<string | null>(null);
   const [isSplashDone, setIsSplashDone] = useState(false);
@@ -281,7 +282,10 @@ function MainNavigator() {
           onCreateTable={() => setCurrentScreen('CREATE_TABLE')}
           onOpenJoinTable={() => setCurrentScreen('JOIN_TABLE')}
           onOpenLeaderboard={() => setCurrentScreen('TAB_LEADERBOARD')}
-          onOpenGameHistory={() => setCurrentScreen('TAB_PROFILE')}
+          onOpenGameHistory={() => {
+            setProfileSubView('GAME_HISTORY');
+            setCurrentScreen('TAB_PROFILE');
+          }}
           onOpenSummary={openSummary}
         />
       )}
@@ -299,6 +303,7 @@ function MainNavigator() {
         <ProfileScreen
           onOpenSummary={openSummary}
           onOpenMasterAdmin={() => setCurrentScreen('MASTER_ADMIN')}
+          initialSubView={profileSubView}
         />
       )}
 
@@ -426,7 +431,10 @@ function MainNavigator() {
 
             {/* Player Name and Avatar (Always visible on desktop top bar) */}
             <TouchableOpacity
-              onPress={() => setCurrentScreen('TAB_PROFILE')}
+              onPress={() => {
+                setProfileSubView('MAIN');
+                setCurrentScreen('TAB_PROFILE');
+              }}
               style={styles.desktopUserPill}
               activeOpacity={0.8}
             >
@@ -473,7 +481,12 @@ function MainNavigator() {
                 return (
                   <TouchableOpacity
                     key={item.id}
-                    onPress={() => setCurrentScreen(item.id)}
+                    onPress={() => {
+                      if (item.id === 'TAB_PROFILE') {
+                        setProfileSubView('MAIN');
+                      }
+                      setCurrentScreen(item.id);
+                    }}
                     style={[
                       styles.desktopSidebarItem,
                       isSidebarCollapsed && styles.desktopSidebarItemCollapsed,
@@ -656,7 +669,10 @@ function MainNavigator() {
 
             <TouchableOpacity
               style={styles.tabItem}
-              onPress={() => setCurrentScreen('TAB_PROFILE')}
+              onPress={() => {
+                setProfileSubView('MAIN');
+                setCurrentScreen('TAB_PROFILE');
+              }}
               activeOpacity={0.7}
             >
               <View style={[styles.tabIconWrapper, currentScreen === 'TAB_PROFILE' && styles.tabIconWrapperActive]}>

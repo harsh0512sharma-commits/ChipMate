@@ -9,8 +9,8 @@ import {
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
-export const BRAND_GOLD = '#C5A56C';
-export const BRAND_GOLD_DARK = '#B79966';
+export const BRAND_PRIMARY_ORANGE = '#EA580C';
+export const BRAND_VIBRANT_ORANGE = '#F97316';
 export const BRAND_CHARCOAL = '#1E2129';
 
 interface ChipMateLogoProps {
@@ -79,7 +79,7 @@ export const ChipMateWordmark: React.FC<ChipMateWordmarkProps> = ({
           {
             fontSize: size,
             letterSpacing,
-            color: BRAND_GOLD
+            color: isDark ? BRAND_VIBRANT_ORANGE : BRAND_PRIMARY_ORANGE
           }
         ]}
       >

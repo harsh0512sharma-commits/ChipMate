@@ -1,11 +1,11 @@
-const CACHE_NAME = 'chipmate-pwa-v1.1.39';
+const CACHE_NAME = 'chipmate-pwa-v1.1.40';
 const STATIC_ASSETS = [
   '/',
-  '/manifest.json',
-  '/favicon.png',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/apple-touch-icon.png'
+  '/manifest.json?v=1.1.40',
+  '/favicon.png?v=1.1.40',
+  '/icon-192.png?v=1.1.40',
+  '/icon-512.png?v=1.1.40',
+  '/apple-touch-icon.png?v=1.1.40'
 ];
 
 self.addEventListener('install', event => {
