@@ -54,15 +54,15 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
     if (visible && player) {
       setErrorMsg(null);
       if (isValueMode) {
-        const defaultMoney = player.current_chips ?? 0;
+        const defaultMoney = Math.max(0, player.current_chips ?? 0);
         setMoneyValueStr(String(defaultMoney));
         setChipAmountStr(String(defaultMoney));
       } else if (isDenomMode) {
-        const defaultMoney = player.moneyEquivalent ?? player.total_buyin_amount ?? 0;
+        const defaultMoney = Math.max(0, player.moneyEquivalent ?? player.total_buyin_amount ?? 0);
         setMoneyValueStr(String(defaultMoney));
-        setChipAmountStr(String(player.current_chips ?? 0));
+        setChipAmountStr(String(Math.max(0, player.current_chips ?? 0)));
       } else {
-        const defaultChips = player.current_chips ?? 0;
+        const defaultChips = Math.max(0, player.current_chips ?? 0);
         setChipAmountStr(String(defaultChips));
         setMoneyValueStr(String(defaultChips * chipValue));
       }
@@ -96,11 +96,12 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
   const isLoss = netWinnings < 0;
 
   const handleQuickPreset = (amount: number) => {
+    const val = Math.max(0, Math.floor(amount));
     if (isValueMode || isDenomMode) {
-      setMoneyValueStr(String(Math.max(0, amount)));
+      setMoneyValueStr(String(val));
     } else {
-      setChipAmountStr(String(Math.max(0, amount)));
-      setMoneyValueStr(String(Math.max(0, amount * chipValue)));
+      setChipAmountStr(String(val));
+      setMoneyValueStr(String(val * chipValue));
     }
   };
 
@@ -211,11 +212,12 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
                 keyboardType="numeric"
                 value={isValueMode || isDenomMode ? moneyValueStr : chipAmountStr}
                 onChangeText={txt => {
+                  const sanitized = txt.replace(/[^0-9]/g, '');
                   if (isValueMode || isDenomMode) {
-                    setMoneyValueStr(txt);
+                    setMoneyValueStr(sanitized);
                   } else {
-                    setChipAmountStr(txt);
-                    const c = parseInt(txt, 10) || 0;
+                    setChipAmountStr(sanitized);
+                    const c = parseInt(sanitized, 10) || 0;
                     setMoneyValueStr(String(c * chipValue));
                   }
                 }}
@@ -473,14 +475,15 @@ const styles = StyleSheet.create({
   },
   presetsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
     gap: 8,
     marginBottom: 16
   },
   presetChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    flex: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 9,
     backgroundColor: colors.cardRaised,
     borderRadius: 8,
     borderWidth: 1,
@@ -491,10 +494,11 @@ const styles = StyleSheet.create({
   presetChipText: {
     fontSize: 11,
     color: colors.textSecondary,
-    fontWeight: '600'
+    fontWeight: '600',
+    textAlign: 'center'
   },
   previewCard: {
-    backgroundColor: '#0c1626',
+    backgroundColor: colors.cardRaised,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.3)',
@@ -581,7 +585,7 @@ const styles = StyleSheet.create({
   noticeText: {
     flex: 1,
     fontSize: 11,
-    color: '#94a3b8',
+    color: colors.textSecondary,
     lineHeight: 15
   },
   errorBox: {

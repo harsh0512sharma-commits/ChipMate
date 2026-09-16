@@ -185,9 +185,9 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
           onBack();
           return;
         }
-        if (payload.eventType === 'HOST_CHANGED') {
+        if (payload.eventType === 'HOST_CHANGED' || payload.eventType === 'HOST_TRANSFERRED') {
           if (payload.payload?.newHostUserId === user?.id) {
-            Alert.alert('Host Assigned', 'The previous host left the table. You are now the Table Host!');
+            Alert.alert('Host Assigned', 'You are now the Table Host!');
           }
         }
         fetchTableData();
@@ -829,6 +829,35 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
     }
   };
 
+  const [playerForTransferHost, setPlayerForTransferHost] = useState<any | null>(null);
+  const [isTransferringHost, setIsTransferringHost] = useState(false);
+
+  const handlePromptTransferHost = (player: any) => {
+    setPlayerForTransferHost(player);
+  };
+
+  const handleConfirmTransferHost = async () => {
+    if (!playerForTransferHost || isTransferringHost) return;
+    setIsTransferringHost(true);
+    try {
+      const res = await apiRequest(`/tables/${table.id}/transfer-host`, {
+        method: 'POST',
+        body: { newHostUserId: playerForTransferHost.user_id }
+      });
+      if (res.success) {
+        setPlayerForTransferHost(null);
+        Alert.alert('Host Transferred', `Host controls have been transferred to ${playerForTransferHost.display_name}.`);
+        await fetchTableData();
+      } else {
+        Alert.alert('Error', res.error || 'Failed to transfer host');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to transfer host');
+    } finally {
+      setIsTransferringHost(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Top Header */}
@@ -1315,6 +1344,24 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                       Cash out {selectedPlayerForMenu?.display_name}'s chips and surrender them to bank vault
                     </Text>
                   </TouchableOpacity>
+
+                  {isHost && selectedPlayerForMenu?.user_id && selectedPlayerForMenu?.user_id !== user?.id && !selectedPlayerForMenu?.is_guest && (
+                    <TouchableOpacity
+                      style={[styles.quickActionOption, { borderColor: 'rgba(234, 179, 8, 0.4)', backgroundColor: 'rgba(234, 179, 8, 0.08)' }]}
+                      onPress={() => {
+                        handlePromptTransferHost(selectedPlayerForMenu);
+                        setSelectedPlayerForMenu(null);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.quickActionOptionTitle, { color: '#eab308' }]}>
+                        👑 Make Table Host
+                      </Text>
+                      <Text style={styles.quickActionOptionDesc}>
+                        Transfer table host responsibilities and settlement duties to {selectedPlayerForMenu?.display_name}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </>
               ) : (
                 <TouchableOpacity
@@ -1333,6 +1380,55 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                   </Text>
                 </TouchableOpacity>
               )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* TRANSFER HOST CONFIRMATION MODAL */}
+      <Modal visible={playerForTransferHost !== null} transparent animationType="fade" onRequestClose={() => setPlayerForTransferHost(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modalTitle, { color: '#eab308' }]}>Transfer Host Permissions?</Text>
+                <Text style={styles.modalSubtitle}>Delegate table control to {playerForTransferHost?.display_name}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setPlayerForTransferHost(null)} style={styles.modalCloseBtn} activeOpacity={0.7} disabled={isTransferringHost}>
+                <X size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ marginTop: 14 }}>
+              <Text style={styles.confirmModalWarningText}>
+                Are you sure you want to transfer host permissions to <Text style={{ fontWeight: '700', color: colors.text }}>{playerForTransferHost?.display_name}</Text>?
+                {'\n\n'}
+                They will become the Table Host and be able to issue buy-ins, approve loans, and proceed to final settlement. You will remain at the table as an active player.
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.dangerConfirmBtn, { backgroundColor: '#ca8a04' }, isTransferringHost && { opacity: 0.6 }]}
+                onPress={handleConfirmTransferHost}
+                disabled={isTransferringHost}
+                activeOpacity={0.8}
+              >
+                {isTransferringHost ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.dangerConfirmBtnText}>
+                    👑 Confirm & Transfer Host
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelModalBtn}
+                onPress={() => setPlayerForTransferHost(null)}
+                disabled={isTransferringHost}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelModalBtnText}>Cancel</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -1638,7 +1734,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                 if (isCustomOrValue) {
                   if (p.is_cashed_out) {
                     return (
-                      <View key={p.id} style={[styles.denomPlayerCard, { borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: '#0c1626' }]}>
+                      <View key={p.id} style={[styles.denomPlayerCard, { borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: colors.cardRaised }]}>
                         <View style={styles.denomPlayerHeader}>
                           <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -1648,7 +1744,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                               </View>
                             </View>
                             <Text style={styles.finalChipPlayerMeta}>
-                              Buy-in: ₹{p.total_buyin_amount} • Cashed Out: ₹{p.cashed_out_money} ({p.cashed_out_net >= 0 ? '+' : ''}₹{p.cashed_out_net})
+                              Cashed Out: ₹{p.cashed_out_money} ({p.cashed_out_net >= 0 ? '+' : ''}₹{p.cashed_out_net})
                             </Text>
                           </View>
                           <View style={[styles.denomPlayerTotalPill, { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: 'rgba(56, 189, 248, 0.4)' }]}>
@@ -1682,9 +1778,6 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                               </View>
                             )}
                           </View>
-                          <Text style={styles.finalChipPlayerMeta}>
-                            {isValueMode ? `Buy-in: ₹${p.total_buyin_amount}` : `Buy-in: ₹${p.total_buyin_amount} (${p.total_buyin_chips} chips)`}
-                          </Text>
                         </View>
                         <View style={styles.denomPlayerTotalPill}>
                           <Text style={styles.denomPlayerTotalText}>
@@ -1761,7 +1854,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
 
                 if (p.is_cashed_out) {
                   return (
-                    <View key={p.id} style={[styles.finalChipPlayerRow, { borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: '#0c1626' }]}>
+                    <View key={p.id} style={[styles.finalChipPlayerRow, { borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: colors.cardRaised }]}>
                       <View style={{ flex: 1, paddingRight: 8 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                           <Text style={styles.finalChipPlayerName} numberOfLines={1}>{p.display_name}</Text>
@@ -1770,7 +1863,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                           </View>
                         </View>
                         <Text style={styles.finalChipPlayerMeta}>
-                          Buy-in: ₹{p.total_buyin_amount} ({p.total_buyin_chips} chips) • Cashed Out: {p.cashed_out_chips} chips
+                          Cashed Out: {p.cashed_out_chips} chips
                         </Text>
                       </View>
 
@@ -1804,9 +1897,6 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                           </View>
                         )}
                       </View>
-                      <Text style={styles.finalChipPlayerMeta}>
-                        Buy-in: ₹{p.total_buyin_amount} ({p.total_buyin_chips} chips)
-                      </Text>
                     </View>
 
                     <View style={styles.finalChipInputWrapper}>

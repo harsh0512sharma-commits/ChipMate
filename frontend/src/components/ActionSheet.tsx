@@ -143,11 +143,23 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
   const totalDenomLendChips = Object.values(denomLendCounts).reduce((acc, c) => acc + c, 0);
   const totalDenomLendMoney = Object.entries(denomLendCounts).reduce((acc, [d, c]) => acc + ((parseFloat(d) || 0) * c), 0);
 
+  const activePlayers = players.filter(p => !p.is_cashed_out && !p.isCashedOut);
+
   React.useEffect(() => {
-    if (initialPlayerId) {
+    if (visible && (type === 'LEND' || type === 'TRANSFER')) {
+      const active = players.filter(p => !p.is_cashed_out && !p.isCashedOut);
+      const firstActive = active.find(p => p.id === (initialPlayerId || selectedPlayerId)) || active[0];
+      if (firstActive) {
+        setSelectedPlayerId(firstActive.id);
+        const secondActive = active.find(p => p.id !== firstActive.id);
+        if (secondActive) {
+          setSecondPlayerId(secondActive.id);
+        }
+      }
+    } else if (initialPlayerId) {
       setSelectedPlayerId(initialPlayerId);
     }
-  }, [initialPlayerId, visible]);
+  }, [initialPlayerId, visible, type, players]);
 
   // Reset denomination counts and set default amount when sheet opens
   React.useEffect(() => {
@@ -194,6 +206,14 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
         }
       } else if (type === 'LEND') {
         if (selectedPlayerId === secondPlayerId) throw new Error('Lender and borrower cannot be the same');
+        const lender = players.find(p => p.id === selectedPlayerId);
+        const borrower = players.find(p => p.id === secondPlayerId);
+        if (lender?.is_cashed_out || lender?.isCashedOut) {
+          throw new Error('Cashed-out players cannot lend chips');
+        }
+        if (borrower?.is_cashed_out || borrower?.isCashedOut) {
+          throw new Error('Cannot lend chips to a cashed-out player');
+        }
         if (isValueMode) {
           if (numChips <= 0) throw new Error('Loan amount must be greater than ₹0');
           await onSubmitLend(selectedPlayerId, secondPlayerId, numChips, numChips, undefined);
@@ -214,6 +234,14 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
       } else if (type === 'TRANSFER') {
         if (numChips <= 0) throw new Error('Chip amount must be greater than 0');
         if (selectedPlayerId === secondPlayerId) throw new Error('Sender and recipient cannot be the same');
+        const sender = players.find(p => p.id === selectedPlayerId);
+        const receiver = players.find(p => p.id === secondPlayerId);
+        if (sender?.is_cashed_out || sender?.isCashedOut) {
+          throw new Error('Cashed-out players cannot transfer chips');
+        }
+        if (receiver?.is_cashed_out || receiver?.isCashedOut) {
+          throw new Error('Cannot transfer chips to a cashed-out player');
+        }
         await onSubmitTransfer(selectedPlayerId, secondPlayerId, numChips);
       } else if (type === 'CORRECTION') {
         if (numChips < 0) throw new Error('Chip count cannot be negative');
@@ -439,7 +467,7 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
 
                 <Text style={styles.sectionLabel}>Lender (From)</Text>
                 <View style={styles.chipsSelectorRow}>
-                  {players.map(p => (
+                  {activePlayers.map(p => (
                     <TouchableOpacity
                       key={p.id}
                       onPress={() => setSelectedPlayerId(p.id)}
@@ -454,7 +482,7 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
 
                 <Text style={styles.sectionLabel}>Borrower (To)</Text>
                 <View style={styles.chipsSelectorRow}>
-                  {players.map(p => (
+                  {activePlayers.map(p => (
                     <TouchableOpacity
                       key={p.id}
                       onPress={() => setSecondPlayerId(p.id)}
@@ -632,7 +660,7 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
 
                 <Text style={styles.sectionLabel}>From Player</Text>
                 <View style={styles.chipsSelectorRow}>
-                  {players.map(p => (
+                  {activePlayers.map(p => (
                     <TouchableOpacity
                       key={p.id}
                       onPress={() => setSelectedPlayerId(p.id)}
@@ -647,7 +675,7 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
 
                 <Text style={styles.sectionLabel}>To Player</Text>
                 <View style={styles.chipsSelectorRow}>
-                  {players.map(p => (
+                  {activePlayers.map(p => (
                     <TouchableOpacity
                       key={p.id}
                       onPress={() => setSecondPlayerId(p.id)}

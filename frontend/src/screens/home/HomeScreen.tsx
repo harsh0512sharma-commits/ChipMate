@@ -21,12 +21,15 @@ import {
   TrendingUp,
   Coins,
   Users,
-  Sparkles
+  Sparkles,
+  Sun,
+  Moon
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useUpdate } from '../../context/UpdateContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface HomeScreenProps {
   onOpenLiveTable: (tableId: string) => void;
@@ -62,6 +65,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenSummary
 }) => {
   const { user, refreshUser } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const { updateAvailable, latestVersion, isUpdating, applyUpdate } = useUpdate();
   const [activeTables, setActiveTables] = useState<any[]>([]);
   const [recentCompleted, setRecentCompleted] = useState<any[]>([]);
@@ -141,23 +145,39 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </View>
           </View>
 
-          {updateAvailable && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {updateAvailable && (
+              <TouchableOpacity
+                style={styles.headerUpdateBtn}
+                onPress={applyUpdate}
+                disabled={isUpdating}
+                activeOpacity={0.8}
+              >
+                {isUpdating ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <>
+                    <Sparkles size={14} color="#FFF" style={{ marginRight: 5 }} />
+                    <Text style={styles.headerUpdateBtnText}>Update v{latestVersion}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {/* Day / Night Mode Switch Button */}
             <TouchableOpacity
-              style={styles.headerUpdateBtn}
-              onPress={applyUpdate}
-              disabled={isUpdating}
-              activeOpacity={0.8}
+              style={styles.themeToggleBtn}
+              onPress={toggleTheme}
+              activeOpacity={0.75}
+              accessibilityLabel={isDark ? 'Switch to Day Mode' : 'Switch to Night Mode'}
             >
-              {isUpdating ? (
-                <ActivityIndicator size="small" color="#FFF" />
+              {isDark ? (
+                <Sun size={17} color="#FBBF24" />
               ) : (
-                <>
-                  <Sparkles size={14} color="#FFF" style={{ marginRight: 5 }} />
-                  <Text style={styles.headerUpdateBtnText}>Update v{latestVersion}</Text>
-                </>
+                <Moon size={17} color="#2563EB" />
               )}
             </TouchableOpacity>
-          )}
+          </View>
         </View>
 
         {/* PROMINENT UPDATE NOTICE CARD (If update available) */}
@@ -435,6 +455,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFF',
     letterSpacing: 0.2
+  },
+  themeToggleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   homeUpdateBanner: {
     flexDirection: 'row',

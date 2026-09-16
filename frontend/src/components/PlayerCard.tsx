@@ -84,19 +84,12 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
     displayLabel = 'CASHED OUT';
   } else if (isLenderNegative) {
     // Player lent more than buyin (uncapped shot lending) -> running in profit/credit!
-    // Display positive amount in GREEN without any minus sign!
+    // Display positive amount in GREEN without any minus sign
     displayNumber = isValueMode
       ? `₹${Math.abs(player.current_chips).toLocaleString('en-IN')}`
       : String(Math.abs(player.current_chips));
     displayColor = colors.successText;
-    displayLabel = isValueMode ? 'IN PROFIT (LENT)' : 'CHIPS IN PROFIT';
-  } else if (player.current_chips === 0 && lentCredit > 0) {
-    // Player has 0 chips in hand but lent chips/money to others
-    displayNumber = isValueMode
-      ? `₹${lentCredit.toLocaleString('en-IN')}`
-      : String(lentCredit);
-    displayColor = colors.successText;
-    displayLabel = 'LENT (PROFIT)';
+    displayLabel = isValueMode ? 'IN-HAND BALANCE' : 'CHIPS HELD';
   } else {
     displayNumber = isValueMode
       ? `₹${player.current_chips.toLocaleString('en-IN')}`
@@ -172,22 +165,15 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
           <Text style={[styles.bigChipNumber, { color: displayColor }]}>
             {displayNumber}
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text
-              style={[
-                styles.chipLabel,
-                isCashedOut && { color: '#38bdf8' },
-                isLenderNegative && { color: colors.successText }
-              ]}
-            >
-              {displayLabel}
-            </Text>
-            {loanDebt > 0 && !isCashedOut && (
-              <Text style={styles.loanDebtTag}>
-                {isValueMode ? ` • owes ₹${player.loanDebtOwed}` : ` • owes ${loanDebt}c`}
-              </Text>
-            )}
-          </View>
+          <Text
+            style={[
+              styles.chipLabel,
+              isCashedOut && { color: '#38bdf8' },
+              isLenderNegative && { color: colors.successText }
+            ]}
+          >
+            {displayLabel}
+          </Text>
         </View>
       </View>
     </TouchableOpacity>

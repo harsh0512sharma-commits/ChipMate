@@ -334,4 +334,35 @@ export function undoCashOutPlayer(req: AuthenticatedRequest, res: Response): voi
   }
 }
 
+export function transferHost(req: AuthenticatedRequest, res: Response): void {
+  try {
+    const currentHostUserId = req.user!.userId;
+    const tableId = req.params.tableId as string;
+    const { newHostUserId } = req.body;
+
+    if (!newHostUserId) {
+      res.status(400).json({ success: false, error: 'newHostUserId is required' });
+      return;
+    }
+
+    const result = tableService.transferHost({
+      currentHostUserId,
+      tableId,
+      newHostUserId
+    });
+
+    broadcastTableUpdate(tableId, 'HOST_TRANSFERRED', {
+      tableId,
+      newHostUserId,
+      newHostPlayerId: result.newHostPlayerId,
+      newHostDisplayName: result.newHostDisplayName
+    });
+
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to transfer host' });
+  }
+}
+
+
 

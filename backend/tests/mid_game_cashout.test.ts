@@ -380,4 +380,193 @@ describe('Mid-Game Player Cash-Out Feature Tests', () => {
     const sumNets = preview.players.reduce((sum, p) => sum + p.netPosition, 0);
     expect(Math.round(sumNets)).toBe(0); // Zero-Sum invariant holds strictly!
   });
+
+  test('Test Case 6 — Cashed-out players are strictly forbidden from lending, borrowing, and transferring', () => {
+    const [hostA, playerB, playerC] = setupPlayers(3);
+
+    const { table } = tableService.createTable({
+      hostUserId: hostA.id,
+      name: 'Loan Restriction Test',
+      gameType: 'POKER',
+      totalChips: 1000,
+      chipValue: 10
+    });
+
+    const aId = db.prepare('SELECT id FROM game_players WHERE game_id = ? AND user_id = ?').get(table.id, hostA.id).id;
+    const { playerId: bId } = tableService.joinTableByCode(playerB.id, table.join_code);
+    const { playerId: cId } = tableService.joinTableByCode(playerC.id, table.join_code);
+
+    ledgerService.recordBuyIn({ gameId: table.id, hostUserId: hostA.id, playerId: aId, chipAmount: 20 });
+    ledgerService.recordBuyIn({ gameId: table.id, hostUserId: hostA.id, playerId: bId, chipAmount: 20 });
+    ledgerService.recordBuyIn({ gameId: table.id, hostUserId: hostA.id, playerId: cId, chipAmount: 20 });
+
+    // Player B cashes out
+    ledgerService.recordCashOut({
+      gameId: table.id,
+      actorUserId: playerB.id,
+      playerId: bId,
+      chipAmount: 20
+    });
+
+    // 1. Attempting to lend from cashed-out Player B should throw
+    expect(() => {
+      ledgerService.recordLend({
+        gameId: table.id,
+        hostUserId: hostA.id,
+        lenderPlayerId: bId,
+        borrowerPlayerId: cId,
+        chipAmount: 5
+      });
+    }).toThrow(/Cashed-out players cannot lend chips/);
+
+    // 2. Attempting to lend to cashed-out Player B should throw
+    expect(() => {
+      ledgerService.recordLend({
+        gameId: table.id,
+        hostUserId: hostA.id,
+        lenderPlayerId: cId,
+        borrowerPlayerId: bId,
+        chipAmount: 5
+      });
+    }).toThrow(/Cannot lend chips to a player who has already cashed out/);
+
+    // 3. Attempting to transfer chips involving cashed-out Player B should throw
+    expect(() => {
+      ledgerService.recordTransfer({
+        gameId: table.id,
+        hostUserId: hostA.id,
+        fromPlayerId: bId,
+        toPlayerId: cId,
+        chipAmount: 5
+      });
+    }).toThrow(/Cashed-out players cannot transfer chips/);
+
+    expect(() => {
+      ledgerService.recordTransfer({
+        gameId: table.id,
+        hostUserId: hostA.id,
+        fromPlayerId: cId,
+        toPlayerId: bId,
+        chipAmount: 5
+      });
+    }).toThrow(/Cannot transfer chips to a player who has already cashed out/);
+  });
+
+  test('Test Case 7 — Voluntary Host Transfer promotes registered active player and rejects cashed-out player', () => {
+    const [hostA, playerB, playerC] = setupPlayers(3);
+
+    const { table } = tableService.createTable({
+      hostUserId: hostA.id,
+      name: 'Host Transfer Test',
+      gameType: 'POKER',
+      totalChips: 1000,
+      chipValue: 10
+    });
+
+    const aId = db.prepare('SELECT id FROM game_players WHERE game_id = ? AND user_id = ?').get(table.id, hostA.id).id;
+    const { playerId: bId } = tableService.joinTableByCode(playerB.id, table.join_code);
+    const { playerId: cId } = tableService.joinTableByCode(playerC.id, table.join_code);
+
+    ledgerService.recordBuyIn({ gameId: table.id, hostUserId: hostA.id, playerId: aId, chipAmount: 10 });
+    ledgerService.recordBuyIn({ gameId: table.id, hostUserId: hostA.id, playerId: bId, chipAmount: 10 });
+    ledgerService.recordBuyIn({ gameId: table.id, hostUserId: hostA.id, playerId: cId, chipAmount: 10 });
+
+    // Player C cashes out
+    ledgerService.recordCashOut({
+      gameId: table.id,
+      actorUserId: playerC.id,
+      playerId: cId,
+      chipAmount: 10
+    });
+
+    // Cannot transfer host to cashed-out player C
+    expect(() => {
+      tableService.transferHost({
+        currentHostUserId: hostA.id,
+        tableId: table.id,
+        newHostUserId: playerC.id
+      });
+    }).toThrow(/Cannot transfer host to a player who has already cashed out/);
+
+    // Non-host cannot transfer host
+    expect(() => {
+      tableService.transferHost({
+        currentHostUserId: playerB.id,
+        tableId: table.id,
+        newHostUserId: playerB.id
+      });
+    }).toThrow(/Only the current host can transfer host responsibilities/);
+
+    // Host transfers to active registered player B
+    const transferRes = tableService.transferHost({
+      currentHostUserId: hostA.id,
+      tableId: table.id,
+      newHostUserId: playerB.id
+    });
+
+    expect(transferRes.table.host_user_id).toBe(playerB.id);
+
+    // Verify roles in DB
+    const playerARecord = db.prepare('SELECT role FROM game_players WHERE id = ?').get(aId) as any;
+    const playerBRecord = db.prepare('SELECT role FROM game_players WHERE id = ?').get(bId) as any;
+
+    expect(playerARecord.role).toBe('PLAYER');
+    expect(playerBRecord.role).toBe('HOST');
+
+    // New host B can now record buy-in
+    const rebuyRes = ledgerService.recordBuyIn({
+      gameId: table.id,
+      hostUserId: playerB.id,
+      playerId: aId,
+      chipAmount: 10
+    });
+    expect(rebuyRes.transaction.actor_user_id).toBe(playerB.id);
+  });
+
+  test('Test Case 8 — Automatic Host Reassignment when Host cashes out and creates a new table', () => {
+    const [hostA, playerB] = setupPlayers(2);
+
+    const { table: table1 } = tableService.createTable({
+      hostUserId: hostA.id,
+      name: 'Game 1 - Host Cashes Out',
+      gameType: 'POKER',
+      totalChips: 1000,
+      chipValue: 10
+    });
+
+    const aId = db.prepare('SELECT id FROM game_players WHERE game_id = ? AND user_id = ?').get(table1.id, hostA.id).id;
+    const { playerId: bId } = tableService.joinTableByCode(playerB.id, table1.join_code);
+
+    ledgerService.recordBuyIn({ gameId: table1.id, hostUserId: hostA.id, playerId: aId, chipAmount: 20 });
+    ledgerService.recordBuyIn({ gameId: table1.id, hostUserId: hostA.id, playerId: bId, chipAmount: 20 });
+
+    // Host A cashes out mid-game
+    ledgerService.recordCashOut({
+      gameId: table1.id,
+      actorUserId: hostA.id,
+      playerId: aId,
+      chipAmount: 20
+    });
+
+    // Now Host A wants to create a new table (table2).
+    // Previously, hostActiveGame concurrency check would block Host A with "You are currently in an active game".
+    // With auto-reassignment, Host A is promoted out and Player B becomes the host of table1!
+    const { table: table2 } = tableService.createTable({
+      hostUserId: hostA.id,
+      name: 'Game 2 - New Table',
+      gameType: 'POKER',
+      totalChips: 1000,
+      chipValue: 10
+    });
+
+    expect(table2).toBeDefined();
+    expect(table2.name).toBe('Game 2 - New Table');
+
+    // Table 1 host should have been automatically reassigned to Player B
+    const updatedTable1 = db.prepare('SELECT * FROM games WHERE id = ?').get(table1.id) as any;
+    expect(updatedTable1.host_user_id).toBe(playerB.id);
+
+    const updatedPlayerB = db.prepare('SELECT role FROM game_players WHERE id = ?').get(bId) as any;
+    expect(updatedPlayerB.role).toBe('HOST');
+  });
 });

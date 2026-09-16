@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chipmate-pwa-v1.0.31';
+const CACHE_NAME = 'chipmate-pwa-v1.1.32';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',

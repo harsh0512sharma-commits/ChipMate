@@ -77,6 +77,32 @@ export function createTable(params: {
 }): { table: GameTableRecord; hostPlayerId: string; seatedFriendsCount: number; seatedGuestsCount: number } {
   const db = getDb();
 
+  // Auto-resolve any abandoned tables where host has already cashed out or left
+  const hostUnfinishedGames = db.prepare(`
+    SELECT g.* FROM games g
+    WHERE g.host_user_id = ? AND g.status IN ('WAITING', 'ACTIVE', 'SETTLING')
+  `).all(params.hostUserId) as any[];
+
+  for (const game of hostUnfinishedGames) {
+    const hostPlayer = db.prepare('SELECT * FROM game_players WHERE game_id = ? AND user_id = ?').get(game.id, params.hostUserId) as any;
+    if (hostPlayer && (hostPlayer.is_cashed_out === 1 || hostPlayer.left_at !== null)) {
+      const nextHost = db.prepare(`
+        SELECT gp.* FROM game_players gp
+        WHERE gp.game_id = ? AND gp.user_id IS NOT NULL AND gp.user_id != ? AND gp.is_guest = 0 AND gp.left_at IS NULL
+        ORDER BY (CASE WHEN gp.is_cashed_out = 1 THEN 1 ELSE 0 END) ASC, gp.joined_at ASC
+        LIMIT 1
+      `).get(game.id, params.hostUserId) as any;
+
+      if (nextHost) {
+        db.prepare('UPDATE games SET host_user_id = ? WHERE id = ?').run(nextHost.user_id, game.id);
+        db.prepare("UPDATE game_players SET role = 'PLAYER' WHERE id = ?").run(hostPlayer.id);
+        db.prepare("UPDATE game_players SET role = 'HOST' WHERE id = ?").run(nextHost.id);
+      } else {
+        db.prepare("UPDATE games SET status = 'ARCHIVED', ended_at = ? WHERE id = ?").run(new Date().toISOString(), game.id);
+      }
+    }
+  }
+
   // Concurrency check: Ensure host is not already in an active game
   const hostActiveGame = getUserActiveGame(params.hostUserId);
   if (hostActiveGame) {
@@ -1099,5 +1125,69 @@ export function leaveTable(userId: string, tableId: string): {
       message: 'You left the table.'
     };
   }
+}
+
+export function transferHost(params: {
+  currentHostUserId: string;
+  tableId: string;
+  newHostUserId: string;
+}): { table: GameTableRecord; newHostPlayerId: string; newHostDisplayName: string } {
+  const db = getDb();
+
+  return db.transaction(() => {
+    const table = db.prepare('SELECT * FROM games WHERE id = ?').get(params.tableId) as GameTableRecord | undefined;
+    if (!table) throw new Error('Game table not found');
+
+    if (table.host_user_id !== params.currentHostUserId) {
+      throw new Error('Only the current host can transfer host responsibilities');
+    }
+
+    if (table.status === 'FINALIZED' || table.status === 'ARCHIVED') {
+      throw new Error('Cannot transfer host on a finalized or archived game');
+    }
+
+    if (params.currentHostUserId === params.newHostUserId) {
+      throw new Error('New host cannot be the same as current host');
+    }
+
+    const currentHostPlayer = db.prepare('SELECT * FROM game_players WHERE game_id = ? AND user_id = ?').get(params.tableId, params.currentHostUserId) as any;
+    const newHostPlayer = db.prepare(`
+      SELECT gp.*, u.display_name 
+      FROM game_players gp
+      JOIN users u ON gp.user_id = u.id
+      WHERE gp.game_id = ? AND gp.user_id = ?
+    `).get(params.tableId, params.newHostUserId) as any;
+
+    if (!newHostPlayer) {
+      throw new Error('Selected player must be a registered member of this table');
+    }
+
+    if (newHostPlayer.is_cashed_out === 1) {
+      throw new Error('Cannot transfer host to a player who has already cashed out');
+    }
+
+    if (newHostPlayer.left_at !== null) {
+      throw new Error('Cannot transfer host to a player who has left the table');
+    }
+
+    // Update games host_user_id
+    db.prepare('UPDATE games SET host_user_id = ? WHERE id = ?').run(params.newHostUserId, params.tableId);
+
+    // Demote current host player to regular PLAYER (if found)
+    if (currentHostPlayer) {
+      db.prepare("UPDATE game_players SET role = 'PLAYER' WHERE id = ?").run(currentHostPlayer.id);
+    }
+
+    // Promote new host player to HOST
+    db.prepare("UPDATE game_players SET role = 'HOST' WHERE id = ?").run(newHostPlayer.id);
+
+    const updatedTable = db.prepare('SELECT * FROM games WHERE id = ?').get(params.tableId) as GameTableRecord;
+
+    return { 
+      table: updatedTable, 
+      newHostPlayerId: newHostPlayer.id,
+      newHostDisplayName: newHostPlayer.display_name
+    };
+  })();
 }
 

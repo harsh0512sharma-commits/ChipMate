@@ -659,7 +659,6 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                       <View style={styles.denomPlayerHeader}>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.chipInputName}>{p.displayName}</Text>
-                          <Text style={styles.chipInputSub}>Buy-in: ₹{p.totalBuyinMoney?.toLocaleString('en-IN')}</Text>
                         </View>
                         <View style={styles.denomPlayerTotalPill}>
                           <Text style={styles.denomPlayerTotalText}>
@@ -734,7 +733,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
 
                 if (p.isCashedOut) {
                   return (
-                    <View key={p.playerId} style={[styles.chipInputRow, { borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: '#0c1626' }]}>
+                    <View key={p.playerId} style={[styles.chipInputRow, { borderColor: 'rgba(56, 189, 248, 0.4)', backgroundColor: colors.cardRaised }]}>
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           <Text style={styles.chipInputName}>{p.displayName}</Text>
@@ -742,7 +741,6 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                             <Text style={styles.cashedOutPillText}>✓ CASHED OUT</Text>
                           </View>
                         </View>
-                        <Text style={styles.chipInputSub}>Buy-in: ₹{p.totalBuyinMoney}</Text>
                       </View>
                       <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
                         <Text style={{ fontSize: 14, fontWeight: '700', color: '#38bdf8' }}>
@@ -760,7 +758,6 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                   <View key={p.playerId} style={styles.chipInputRow}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.chipInputName}>{p.displayName}</Text>
-                      <Text style={styles.chipInputSub}>Buy-in: ₹{p.totalBuyinMoney}</Text>
                     </View>
                     <View style={styles.chipInputBoxContainer}>
                       <TextInput

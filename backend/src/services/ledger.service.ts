@@ -357,6 +357,13 @@ export function recordLend(params: {
     if (!lender || !borrower) throw new Error('Lender or borrower not found in this game');
     if (lender.id === borrower.id) throw new Error('Lender and borrower cannot be the same');
 
+    if (lender.is_cashed_out) {
+      throw new Error('Cashed-out players cannot lend chips');
+    }
+    if (borrower.is_cashed_out) {
+      throw new Error('Cannot lend chips to a player who has already cashed out');
+    }
+
     // Uncapped shots/loans: In home games with limited physical chips, players can lend on credit beyond their in-hand chips.
     const isValueMode = table.chip_mode === 'VALUE';
     const moneyValue = (params.moneyValue !== undefined && params.moneyValue > 0)
@@ -509,6 +516,13 @@ export function recordTransfer(params: {
     const receiver = db.prepare('SELECT * FROM game_players WHERE id = ? AND game_id = ?').get(params.toPlayerId, params.gameId) as any;
 
     if (!sender || !receiver) throw new Error('Sender or recipient not found in this game');
+
+    if (sender.is_cashed_out) {
+      throw new Error('Cashed-out players cannot transfer chips');
+    }
+    if (receiver.is_cashed_out) {
+      throw new Error('Cannot transfer chips to a player who has already cashed out');
+    }
 
     if (sender.current_chips < params.chipAmount) {
       throw new Error(`Sender only has ${sender.current_chips} chips available to transfer.`);

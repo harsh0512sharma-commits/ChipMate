@@ -48,6 +48,7 @@ router.delete('/tables/:tableId', requireAuth, tableCtrl.deleteTable);
 router.post('/tables/:tableId/leave', requireAuth, tableCtrl.leaveTable);
 router.post('/tables/:tableId/cash-out', requireAuth, tableCtrl.cashOutPlayer);
 router.post('/tables/:tableId/undo-cash-out', requireAuth, tableCtrl.undoCashOutPlayer);
+router.post('/tables/:tableId/transfer-host', requireAuth, tableCtrl.transferHost);
 
 // Ledger & Transaction routes (Host actions)
 router.post('/tables/:tableId/buy-in', requireAuth, ledgerCtrl.buyIn);

@@ -12,6 +12,7 @@ import {
 import { Home, Trophy, Users, User, ShieldCheck } from 'lucide-react-native';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { UpdateProvider } from './src/context/UpdateContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { colors } from './src/theme/colors';
 import { apiRequest } from './src/api/client';
 import { InstallPromptModal } from './src/components/InstallPromptModal';
@@ -49,6 +50,7 @@ type ScreenType =
 
 function MainNavigator() {
   const { user, token, isLoading, refreshUser } = useAuth();
+  const { isDark } = useTheme();
 
   // Auth screen state
   const [authStep, setAuthStep] = useState<'LOGIN' | 'OTP'>('LOGIN');
@@ -190,8 +192,8 @@ function MainNavigator() {
     currentScreen === 'TAB_PROFILE';
 
   return (
-    <View style={styles.rootWrapper}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+    <View style={[styles.rootWrapper, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <SafeAreaView style={styles.appContainer}>
         {/* Screen Body */}
         <View style={styles.screenBody}>
@@ -380,13 +382,15 @@ function MainNavigator() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <UpdateProvider>
-        <MainNavigator />
-        <InstallPromptModal />
-        <UpdatePromptModal />
-      </UpdateProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <UpdateProvider>
+          <MainNavigator />
+          <InstallPromptModal />
+          <UpdatePromptModal />
+        </UpdateProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

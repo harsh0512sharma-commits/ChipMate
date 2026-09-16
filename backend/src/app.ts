@@ -18,7 +18,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.0.31',
+      version: '1.1.32',
       timestamp: new Date().toISOString()
     });
   });
@@ -26,9 +26,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.0.31',
+      version: '1.1.32',
       buildTime: Date.now(),
-      releaseNotes: 'Compact top-right friends badge, non-clipped host crown, mid-game cashout modal accounting with loans, positive green lender balance, enhanced Public Ledger with accounting breakdown and clean share links.'
+      releaseNotes: 'Day Mode Beta, symmetrical mid-game cashout modal presets, removed Buy-In subtitles in settlement & final balances, cashed-out player loan/transfer restrictions, voluntary and auto host transfer.'
     });
   };
   app.get('/version', versionHandler);
