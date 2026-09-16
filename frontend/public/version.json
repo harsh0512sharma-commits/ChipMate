@@ -1,5 +1,5 @@
 {
-  "version": "1.1.41",
-  "buildTime": 1789586000000,
-  "releaseNotes": "Hide backend hostnames via Vercel reverse proxy, streamline background polling, and eliminate redundant update checks."
+  "version": "1.1.42",
+  "buildTime": 1789587000000,
+  "releaseNotes": "Promote backend URL to official https://api.chipmate.online across all API requests and live WebSockets."
 }

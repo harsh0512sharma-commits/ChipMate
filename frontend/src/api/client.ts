@@ -8,25 +8,29 @@ let cachedToken: string | null = null;
 
 export function getDefaultApiBase(): string {
   // 1. Environment variable (configured in Vercel or local .env)
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  let envUrl = process.env.EXPO_PUBLIC_API_URL;
+
+  // Auto-upgrade any legacy onrender.com URL to our verified custom domain
+  if (envUrl && envUrl.includes('chipmate-h96z.onrender.com')) {
+    envUrl = 'https://api.chipmate.online';
+  }
+
   if (envUrl && envUrl.trim().length > 0) {
     const trimmed = envUrl.trim().replace(/\/+$/, '');
     return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
   }
 
-  // 2. Web browser: use relative '/api' on production web
-  // This proxies through Vercel rewrites directly to Render, eliminating onrender.com from DevTools!
+  // 2. Web browser: use verified custom domain api.chipmate.online
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') {
       return 'http://localhost:4000/api';
     }
-    // Production web deployment: use same-origin relative '/api'
-    return '/api';
+    return 'https://api.chipmate.online/api';
   }
 
-  // 3. Fallback for native mobile builds (Render backend default)
-  return 'https://chipmate-h96z.onrender.com/api';
+  // 3. Fallback for native mobile builds
+  return 'https://api.chipmate.online/api';
 }
 
 export async function loadSavedApiBase(): Promise<string> {

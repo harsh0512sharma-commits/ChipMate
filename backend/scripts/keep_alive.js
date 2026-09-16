@@ -11,7 +11,7 @@
  *   npm run keepalive -- --force   (pings immediately even outside active window)
  */
 
-const TARGET_URL = process.env.RENDER_HEALTH_URL || 'https://chipmate-h96z.onrender.com/health';
+const TARGET_URL = process.env.RENDER_HEALTH_URL || 'https://api.chipmate.online/health';
 const INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
 const args = process.argv.slice(2);

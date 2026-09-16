@@ -15,9 +15,12 @@ export function initSocketClient(): Socket {
     if (apiBase.startsWith('http://') || apiBase.startsWith('https://')) {
       socketUrl = apiBase.replace(/\/api\/?$/, '');
     } else {
-      // Default direct backend for WebSockets (can be overridden by api.chipmate.online)
-      socketUrl = 'https://chipmate-h96z.onrender.com';
+      socketUrl = 'https://api.chipmate.online';
     }
+  }
+
+  if (socketUrl && socketUrl.includes('chipmate-h96z.onrender.com')) {
+    socketUrl = 'https://api.chipmate.online';
   }
 
   socket = io(socketUrl, {
