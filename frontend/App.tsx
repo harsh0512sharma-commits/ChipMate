@@ -32,6 +32,7 @@ import { InstallPromptModal } from './src/components/InstallPromptModal';
 import { UpdatePromptModal } from './src/components/UpdatePromptModal';
 import { SplashScreen } from './src/components/SplashScreen';
 import { APP_BUILD_VERSION } from './src/version';
+import { ChipMateLogo, ChipMateWordmark } from './src/components/ChipMateBrand';
 
 // Screens
 import { LoginScreen } from './src/screens/auth/LoginScreen';
@@ -89,6 +90,17 @@ function MainNavigator() {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       try {
         const searchParams = new URLSearchParams(window.location.search);
+        // Clean cache-busting / version parameters (?_v=... or ?v=...) immediately from URL bar
+        if (searchParams.has('_v') || searchParams.has('v')) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('_v');
+          url.searchParams.delete('v');
+          const cleanSearch = url.searchParams.toString();
+          const cleanUrl = url.pathname + (cleanSearch ? `?${cleanSearch}` : '') + url.hash;
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, document.title, cleanUrl);
+          }
+        }
         const ledgerId = searchParams.get('ledger') || searchParams.get('public_ledger') || searchParams.get('game_ledger');
         if (ledgerId) return ledgerId;
         if (window.location.hash) {
@@ -99,6 +111,22 @@ function MainNavigator() {
     }
     return null;
   });
+
+  // Clean cache-busting / version parameters (?_v=... or ?v=...) from the browser address bar
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.history) {
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('_v') || url.searchParams.has('v')) {
+          url.searchParams.delete('_v');
+          url.searchParams.delete('v');
+          const cleanSearch = url.searchParams.toString();
+          const cleanUrl = url.pathname + (cleanSearch ? `?${cleanSearch}` : '') + url.hash;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+      } catch (_) {}
+    }
+  }, []);
 
   // Poll for incoming friend requests
   useEffect(() => {
@@ -354,10 +382,8 @@ function MainNavigator() {
               style={styles.desktopBrandWrap}
               activeOpacity={0.8}
             >
-              <View style={styles.desktopLogoIcon}>
-                <Coins size={18} color={colors.primary} />
-              </View>
-              <Text style={styles.desktopBrandTitle}>ChipMate</Text>
+              <ChipMateLogo size={32} borderRadius={8} />
+              <ChipMateWordmark size={16} spacing={3} />
               <View style={styles.desktopBrandBadge}>
                 <Text style={styles.desktopBrandBadgeText}>PRO</Text>
               </View>
@@ -523,11 +549,16 @@ function MainNavigator() {
 
             {/* Sidebar Footer */}
             <View style={styles.desktopSidebarFooter}>
-              <Text style={styles.desktopSidebarVersionText}>
-                {isSidebarCollapsed ? `v${APP_BUILD_VERSION}` : `ChipMate v${APP_BUILD_VERSION}`}
-              </Text>
-              {!isSidebarCollapsed && (
-                <Text style={styles.desktopSidebarSubText}>Physical Chips Ledger</Text>
+              {isSidebarCollapsed ? (
+                <ChipMateLogo size={28} borderRadius={6} />
+              ) : (
+                <>
+                  <ChipMateWordmark size={12} spacing={2} />
+                  <Text style={styles.desktopSidebarSubText}>CALCULATE . SETTLE . PLAY.</Text>
+                  <Text style={[styles.desktopSidebarVersionText, { marginTop: 4 }]}>
+                    v{APP_BUILD_VERSION}
+                  </Text>
+                </>
               )}
             </View>
           </View>

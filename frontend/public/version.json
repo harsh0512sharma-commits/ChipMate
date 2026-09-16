@@ -1,5 +1,5 @@
 {
-  "version": "1.1.38",
-  "buildTime": 1789582000000,
-  "releaseNotes": "Hide scrollbars everywhere, eliminate desktop margins, fix 0 sidebar badge, streamline profile editing, remove duplicate theme button, and condense cashout UI."
+  "version": "1.1.39",
+  "buildTime": 1789583000000,
+  "releaseNotes": "Custom designed Cards & Chip logo across web and mobile, brand typography, and automated clean URL scrubbing."
 }

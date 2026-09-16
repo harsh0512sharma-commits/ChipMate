@@ -31,6 +31,7 @@ import {
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import { ChipMateLogo, ChipMateWordmark } from '../../components/ChipMateBrand';
 
 interface LoginScreenProps {
   onOtpSent: (email: string, devOtp?: string, phoneNumber?: string, name?: string) => void;
@@ -264,17 +265,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
         <View style={styles.card}>
           {/* Brand Logo & Header */}
           <View style={styles.logoRow}>
-            <Image
-              source={require('../../../assets/chip_icon.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
+            <ChipMateLogo size={76} borderRadius={16} />
           </View>
 
-          <Text style={styles.title}>ChipMate</Text>
-          <Text style={styles.subtitle}>
-            Poker Chip Calculator & Records
-          </Text>
+          <View style={{ alignItems: 'center', marginTop: 10, marginBottom: 4 }}>
+            <ChipMateWordmark size={24} spacing={4} />
+            <Text style={styles.subtitle}>
+              CALCULATE . SETTLE . PLAY.
+            </Text>
+          </View>
 
           {/* Dual Mode Tab Selector or Reset Password Header */}
           {authMode === 'FORGOT_PASSWORD' ? (
@@ -810,11 +809,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5
   },
   subtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94A3B8',
     textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 12
+    letterSpacing: 2.2,
+    marginTop: 6,
+    marginBottom: 14,
+    textTransform: 'uppercase',
+    fontFamily: Platform.OS === 'web' ? "'Montserrat', 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" : undefined
   },
   badgeRow: {
     flexDirection: 'row',

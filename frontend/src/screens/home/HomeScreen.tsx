@@ -31,6 +31,7 @@ import { apiRequest } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useUpdate } from '../../context/UpdateContext';
 import { useTheme } from '../../context/ThemeContext';
+import { ChipMateLogo } from '../../components/ChipMateBrand';
 
 interface HomeScreenProps {
   onOpenLiveTable: (tableId: string) => void;
@@ -147,11 +148,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             {user?.avatar_url ? (
               <Image source={{ uri: user.avatar_url }} style={styles.headerAvatar} />
             ) : (
-              <Image
-                source={require('../../../assets/chip_icon.png')}
-                style={styles.headerChipIcon}
-                resizeMode="contain"
-              />
+              <ChipMateLogo size={42} borderRadius={10} />
             )}
             <View style={{ marginLeft: 10 }}>
               <Text style={styles.greetingText}>Welcome,</Text>
