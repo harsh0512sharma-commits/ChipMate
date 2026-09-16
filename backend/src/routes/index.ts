@@ -16,6 +16,8 @@ router.post('/auth/signup-verify-otp', authCtrl.signupVerifyOtp);
 router.post('/auth/login', authCtrl.loginWithPassword);
 router.post('/auth/request-otp', authCtrl.requestOtp);
 router.post('/auth/verify-otp', authCtrl.verifyOtp);
+router.post('/auth/reset-password-request-otp', authCtrl.resetPasswordRequestOtp);
+router.post('/auth/reset-password-confirm', authCtrl.resetPasswordConfirm);
 
 // User & Profile (protected)
 router.get('/auth/me', requireAuth, authCtrl.getMe);

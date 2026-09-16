@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,9 +19,12 @@ import {
   Eye,
   EyeOff,
   ArrowRight,
+  ArrowLeft,
+  KeyRound,
   Coins,
   ShieldCheck,
   CheckCircle,
+  CheckCircle2,
   Sparkles,
   RefreshCw
 } from 'lucide-react-native';
@@ -35,7 +38,7 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
   const { login } = useAuth();
-  const [authMode, setAuthMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'SIGNUP' | 'FORGOT_PASSWORD'>('LOGIN');
 
   // Sign In inputs
   const [loginPhone, setLoginPhone] = useState('');
@@ -47,17 +50,115 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
 
+  // Reset Password inputs
+  const [resetStep, setResetStep] = useState<'REQUEST' | 'VERIFY'>('REQUEST');
+  const [resetIdentifier, setResetIdentifier] = useState('');
+  const [resetMaskedEmail, setResetMaskedEmail] = useState('');
+  const [resetOtp, setResetOtp] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  useEffect(() => {
+    let timer: any;
+    if (resendCooldown > 0) {
+      timer = setInterval(() => setResendCooldown(c => c - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   const handleRetry = () => {
     setError(null);
     if (authMode === 'LOGIN') {
       handleSignIn();
-    } else {
+    } else if (authMode === 'SIGNUP') {
       handleSignUp();
+    } else if (resetStep === 'REQUEST') {
+      handleRequestResetOtp();
+    } else {
+      handleConfirmResetPassword();
+    }
+  };
+
+  // Handle Requesting Reset OTP
+  const handleRequestResetOtp = async () => {
+    const trimmed = resetIdentifier.trim();
+    if (!trimmed) {
+      setError('Please enter your registered mobile number or email.');
+      return;
+    }
+
+    setError(null);
+    setSuccessMessage(null);
+    setLoading(true);
+
+    try {
+      const res = await apiRequest('/auth/reset-password-request-otp', {
+        method: 'POST',
+        body: { identifier: trimmed }
+      });
+
+      if (res.success) {
+        setResetMaskedEmail(res.maskedEmail || res.email);
+        setResetStep('VERIFY');
+        setResendCooldown(30);
+        setSuccessMessage(`Reset code sent to ${res.maskedEmail || 'your registered email'}`);
+      } else {
+        setError(res.error || 'Failed to send reset code.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to send reset code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Confirming Reset OTP and setting New Password
+  const handleConfirmResetPassword = async () => {
+    const trimmedCode = resetOtp.trim();
+    if (!trimmedCode || trimmedCode.length < 6) {
+      setError('Please enter the 6-digit verification code.');
+      return;
+    }
+    if (!resetNewPassword || resetNewPassword.length < 6) {
+      setError('New password must be at least 6 characters long.');
+      return;
+    }
+    if (resetNewPassword !== resetConfirmPassword) {
+      setError('Passwords do not match. Please verify both passwords.');
+      return;
+    }
+
+    setError(null);
+    setSuccessMessage(null);
+    setLoading(true);
+
+    try {
+      const res = await apiRequest('/auth/reset-password-confirm', {
+        method: 'POST',
+        body: {
+          identifier: resetIdentifier.trim(),
+          code: trimmedCode,
+          newPassword: resetNewPassword
+        }
+      });
+
+      if (res.success && res.token && res.user) {
+        await login(res.token, res.user);
+      } else {
+        setError(res.error || 'Failed to reset password.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to reset password.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -175,34 +276,65 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
             Poker Chip Calculator & Records
           </Text>
 
-          {/* Dual Mode Tab Selector */}
-          <View style={styles.tabBar}>
-            <TouchableOpacity
-              style={[styles.tabBtn, authMode === 'LOGIN' && styles.tabBtnActive]}
-              onPress={() => {
-                setAuthMode('LOGIN');
-                setError(null);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.tabBtnText, authMode === 'LOGIN' && styles.tabBtnTextActive]}>
-                Sign In
+          {/* Dual Mode Tab Selector or Reset Password Header */}
+          {authMode === 'FORGOT_PASSWORD' ? (
+            <View style={styles.forgotHeaderRow}>
+              <TouchableOpacity
+                onPress={() => {
+                  setAuthMode('LOGIN');
+                  setError(null);
+                  setSuccessMessage(null);
+                }}
+                style={styles.backToLoginBtn}
+                activeOpacity={0.7}
+              >
+                <ArrowLeft size={18} color={colors.primary} />
+                <Text style={styles.backToLoginText}>Back to Sign In</Text>
+              </TouchableOpacity>
+              <Text style={styles.forgotTitle}>Reset Password</Text>
+              <Text style={styles.forgotSubtitle}>
+                {resetStep === 'REQUEST'
+                  ? 'Enter your registered 10-digit mobile number or email. We will send a 6-digit verification code to reset your password.'
+                  : `Enter the 6-digit code sent to ${resetMaskedEmail || 'your email'} and set your new password.`}
               </Text>
-            </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.tabBar}>
+              <TouchableOpacity
+                style={[styles.tabBtn, authMode === 'LOGIN' && styles.tabBtnActive]}
+                onPress={() => {
+                  setAuthMode('LOGIN');
+                  setError(null);
+                  setSuccessMessage(null);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.tabBtnText, authMode === 'LOGIN' && styles.tabBtnTextActive]}>
+                  Sign In
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.tabBtn, authMode === 'SIGNUP' && styles.tabBtnActive]}
-              onPress={() => {
-                setAuthMode('SIGNUP');
-                setError(null);
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.tabBtnText, authMode === 'SIGNUP' && styles.tabBtnTextActive]}>
-                Sign Up
-              </Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={[styles.tabBtn, authMode === 'SIGNUP' && styles.tabBtnActive]}
+                onPress={() => {
+                  setAuthMode('SIGNUP');
+                  setError(null);
+                  setSuccessMessage(null);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.tabBtnText, authMode === 'SIGNUP' && styles.tabBtnTextActive]}>
+                  Sign Up
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {successMessage && (
+            <View style={styles.successBox}>
+              <Text style={styles.successText}>{successMessage}</Text>
+            </View>
+          )}
 
           {error && (
             <View style={styles.errorBox}>
@@ -225,9 +357,177 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
           )}
 
           {/* ================================================================= */}
-          {/* TAB 1: SIGN IN MODE (Mobile Number + Password)                   */}
+          {/* TAB 0: FORGOT / RESET PASSWORD MODE                               */}
           {/* ================================================================= */}
-          {authMode === 'LOGIN' ? (
+          {authMode === 'FORGOT_PASSWORD' ? (
+            resetStep === 'REQUEST' ? (
+              <View>
+                {/* Identifier field */}
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>MOBILE NUMBER OR EMAIL</Text>
+                  <View style={[styles.inputRow, focusedField === 'resetIdentifier' && styles.inputRowFocused]}>
+                    <Phone size={18} color={focusedField === 'resetIdentifier' ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="10-digit mobile or registered email"
+                      placeholderTextColor={colors.textMuted}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      value={resetIdentifier}
+                      onChangeText={setResetIdentifier}
+                      onFocus={() => setFocusedField('resetIdentifier')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                  </View>
+                  <Text style={styles.fieldHint}>We will send a 6-digit reset code to your linked email address.</Text>
+                </View>
+
+                {/* Send Code Button */}
+                <TouchableOpacity
+                  style={[styles.button, loading && { opacity: 0.7 }]}
+                  onPress={handleRequestResetOtp}
+                  disabled={loading}
+                  activeOpacity={0.85}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <View style={styles.btnContent}>
+                      <Text style={styles.buttonText}>Send Reset Code</Text>
+                      <ArrowRight size={18} color="#FFF" style={{ marginLeft: 8 }} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.switchModeRow}
+                  onPress={() => {
+                    setAuthMode('LOGIN');
+                    setError(null);
+                    setSuccessMessage(null);
+                  }}
+                >
+                  <Text style={styles.switchModeText}>
+                    Remember your password? <Text style={styles.switchModeHighlight}>Sign In</Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View>
+                {/* 6-Digit OTP Code */}
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>6-DIGIT VERIFICATION CODE</Text>
+                  <View style={[styles.inputRow, focusedField === 'resetOtp' && styles.inputRowFocused]}>
+                    <KeyRound size={18} color={focusedField === 'resetOtp' ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
+                    <TextInput
+                      style={[styles.input, { letterSpacing: 4, fontWeight: '700' }]}
+                      placeholder="• • • • • •"
+                      placeholderTextColor={colors.textMuted}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      value={resetOtp}
+                      onChangeText={setResetOtp}
+                      onFocus={() => setFocusedField('resetOtp')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                  </View>
+                </View>
+
+                {/* Resend Cooldown */}
+                <View style={styles.resendRow}>
+                  {resendCooldown > 0 ? (
+                    <Text style={styles.resendCooldownText}>Resend code in {resendCooldown}s</Text>
+                  ) : (
+                    <TouchableOpacity onPress={handleRequestResetOtp} disabled={loading}>
+                      <Text style={styles.resendLinkText}>Resend Code</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* New Password */}
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>NEW PASSWORD</Text>
+                  <View style={[styles.inputRow, focusedField === 'resetNewPassword' && styles.inputRowFocused]}>
+                    <Lock size={18} color={focusedField === 'resetNewPassword' ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="At least 6 characters"
+                      placeholderTextColor={colors.textMuted}
+                      secureTextEntry={!showResetPassword}
+                      value={resetNewPassword}
+                      onChangeText={setResetNewPassword}
+                      onFocus={() => setFocusedField('resetNewPassword')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setShowResetPassword(prev => !prev)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      {showResetPassword ? (
+                        <EyeOff size={18} color={colors.textSecondary} />
+                      ) : (
+                        <Eye size={18} color={colors.textSecondary} />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Confirm New Password */}
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>CONFIRM NEW PASSWORD</Text>
+                  <View style={[styles.inputRow, focusedField === 'resetConfirmPassword' && styles.inputRowFocused]}>
+                    <Lock size={18} color={focusedField === 'resetConfirmPassword' ? colors.primary : colors.textSecondary} style={{ marginRight: 12 }} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Re-enter your new password"
+                      placeholderTextColor={colors.textMuted}
+                      secureTextEntry={!showResetPassword}
+                      value={resetConfirmPassword}
+                      onChangeText={setResetConfirmPassword}
+                      onFocus={() => setFocusedField('resetConfirmPassword')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                    {resetConfirmPassword.length >= 6 && resetConfirmPassword === resetNewPassword && (
+                      <CheckCircle2 size={16} color={colors.successText} />
+                    )}
+                  </View>
+                </View>
+
+                {/* Reset & Sign In Button */}
+                <TouchableOpacity
+                  style={[styles.button, loading && { opacity: 0.7 }]}
+                  onPress={handleConfirmResetPassword}
+                  disabled={loading}
+                  activeOpacity={0.85}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <View style={styles.btnContent}>
+                      <Text style={styles.buttonText}>Reset Password & Sign In</Text>
+                      <ArrowRight size={18} color="#FFF" style={{ marginLeft: 8 }} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.switchModeRow}
+                  onPress={() => {
+                    setResetStep('REQUEST');
+                    setError(null);
+                    setSuccessMessage(null);
+                  }}
+                >
+                  <Text style={styles.switchModeText}>
+                    Change mobile/email? <Text style={styles.switchModeHighlight}>Back</Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )
+          ) : authMode === 'LOGIN' ? (
+            /* ================================================================= */
+            /* TAB 1: SIGN IN MODE (Mobile Number + Password)                   */
+            /* ================================================================= */
             <View>
               {/* Field 1: Mobile Number */}
               <View style={styles.inputContainer}>
@@ -276,6 +576,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
                 </View>
               </View>
 
+              {/* Forgot Password Link */}
+              <View style={styles.forgotPasswordRow}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setAuthMode('FORGOT_PASSWORD');
+                    setResetStep('REQUEST');
+                    setResetIdentifier(loginPhone);
+                    setError(null);
+                    setSuccessMessage(null);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                </TouchableOpacity>
+              </View>
+
               {/* Sign In Button */}
               <TouchableOpacity
                 style={[styles.button, loading && { opacity: 0.7 }]}
@@ -298,6 +614,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
                 onPress={() => {
                   setAuthMode('SIGNUP');
                   setError(null);
+                  setSuccessMessage(null);
                 }}
               >
                 <Text style={styles.switchModeText}>
@@ -686,5 +1003,73 @@ const styles = StyleSheet.create({
     marginTop: 14,
     fontWeight: '600',
     letterSpacing: 0.3
+  },
+  forgotPasswordRow: {
+    alignItems: 'flex-end',
+    marginTop: -8,
+    marginBottom: 16,
+    paddingVertical: 4
+  },
+  forgotPasswordText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600'
+  },
+  forgotHeaderRow: {
+    marginBottom: 20
+  },
+  backToLoginBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12
+  },
+  backToLoginText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
+    marginLeft: 6
+  },
+  forgotTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.3,
+    marginBottom: 6
+  },
+  forgotSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 4
+  },
+  successBox: {
+    backgroundColor: colors.successLight,
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.successBorder
+  },
+  successText: {
+    fontSize: 13,
+    color: colors.successText,
+    textAlign: 'center',
+    fontWeight: '600'
+  },
+  resendRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: -8,
+    marginBottom: 16
+  },
+  resendLinkText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '700'
+  },
+  resendCooldownText: {
+    fontSize: 12,
+    color: colors.textMuted
   }
 });

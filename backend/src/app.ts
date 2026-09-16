@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.35',
+      version: '1.1.36',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.35',
+      version: '1.1.36',
       buildTime: Date.now(),
-      releaseNotes: 'Add 3-layer security hardening: client-side anti-inspect protection, Helmet HTTP security headers, and Express API rate limiting.'
+      releaseNotes: 'Add secure Forgot/Reset Password feature via email OTP verification and automatic login.'
     });
   };
   app.get('/version', versionHandler);
@@ -86,6 +86,8 @@ export function createApp() {
   app.use('/api/auth/request-otp', authOtpLimiter);
   app.use('/api/auth/signup-verify-otp', authOtpLimiter);
   app.use('/api/auth/verify-otp', authOtpLimiter);
+  app.use('/api/auth/reset-password-request-otp', authOtpLimiter);
+  app.use('/api/auth/reset-password-confirm', authOtpLimiter);
   app.use('/api/auth/login', loginLimiter);
 
   // Apply general limiter to all API routes

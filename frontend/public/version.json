@@ -1,5 +1,5 @@
 {
-  "version": "1.1.35",
-  "buildTime": 1789560000000,
-  "releaseNotes": "Add 3-layer security hardening: client-side anti-inspect protection, Helmet HTTP security headers, and Express API rate limiting."
+  "version": "1.1.36",
+  "buildTime": 1789570000000,
+  "releaseNotes": "Add secure Forgot/Reset Password feature via email OTP verification and automatic login."
 }

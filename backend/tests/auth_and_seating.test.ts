@@ -118,6 +118,65 @@ describe('Auth & Frictionless Seating Test Suite', () => {
       expect(loginRes.token).toBeDefined();
       expect(loginRes.user.phone_number).toBe(testPhone);
     });
+
+    describe('Password Reset Engine', () => {
+      let resetDevOtp: string;
+      const newPassword = 'NewSuperSecret2026!';
+
+      test('rejects reset password request for non-existent mobile or email', async () => {
+        await expect(authService.resetPasswordRequestOtp('9000000000')).rejects.toThrow('No account found');
+        await expect(authService.resetPasswordRequestOtp('nonexistent@email.com')).rejects.toThrow('No account found');
+      });
+
+      test('generates reset OTP for registered mobile number and masks email', async () => {
+        const res = await authService.resetPasswordRequestOtp(testPhone);
+        expect(res.success).toBe(true);
+        expect(res.maskedEmail).toBeDefined();
+        expect(res.maskedEmail).toContain('@chipmate.test');
+        expect(res.devOtp).toBeDefined();
+        resetDevOtp = res.devOtp!;
+      });
+
+      test('rejects reset confirm with invalid OTP code or short password', () => {
+        expect(() => {
+          authService.resetPasswordConfirm({
+            identifier: testPhone,
+            code: '000000',
+            newPassword: 'short'
+          });
+        }).toThrow('New password must be at least 6 characters long');
+
+        expect(() => {
+          authService.resetPasswordConfirm({
+            identifier: testPhone,
+            code: '000000',
+            newPassword
+          });
+        }).toThrow('Invalid or expired verification code');
+      });
+
+      test('confirms password reset with valid OTP and authenticates user', () => {
+        const res = authService.resetPasswordConfirm({
+          identifier: testPhone,
+          code: resetDevOtp,
+          newPassword
+        });
+
+        expect(res.success).toBe(true);
+        expect(res.token).toBeDefined();
+        expect(res.user.phone_number).toBe(testPhone);
+
+        // Verify old password no longer works
+        expect(() => {
+          authService.loginWithPassword(testPhone, testPassword);
+        }).toThrow('Invalid mobile number or password');
+
+        // Verify new password works
+        const loginRes = authService.loginWithPassword(testPhone, newPassword);
+        expect(loginRes.token).toBeDefined();
+        expect(loginRes.user.phone_number).toBe(testPhone);
+      });
+    });
   });
 
   describe('Frictionless Friend Seating Engine', () => {

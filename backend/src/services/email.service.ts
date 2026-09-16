@@ -4,13 +4,23 @@ export interface SendOtpOptions {
   email: string;
   code: string;
   displayName?: string;
+  purpose?: 'SIGNUP' | 'LOGIN' | 'PASSWORD_RESET';
 }
 
 export async function sendOtpEmail(options: SendOtpOptions): Promise<{ success: boolean; error?: string; devOtp?: string }> {
-  const { email, code, displayName } = options;
+  const { email, code, displayName, purpose = 'SIGNUP' } = options;
+
+  const isPasswordReset = purpose === 'PASSWORD_RESET';
+  const emailSubject = isPasswordReset
+    ? `${code} is your ChipMate password reset code`
+    : `${code} is your ChipMate verification code`;
+  const emailHeading = isPasswordReset ? 'ChipMate Password Reset' : 'ChipMate Verification';
+  const emailIntro = isPasswordReset
+    ? 'Use the verification code below to reset your ChipMate password:'
+    : 'Use the verification code below to complete your registration:';
 
   console.log(`\n========================================`);
-  console.log(`📧 [ChipMate OTP Service]`);
+  console.log(`📧 [ChipMate OTP Service - ${purpose}]`);
   console.log(`To: ${email}`);
   console.log(`Recipient Name: ${displayName || 'User'}`);
   console.log(`Verification OTP: [ ${code} ]`);
@@ -37,11 +47,11 @@ export async function sendOtpEmail(options: SendOtpOptions): Promise<{ success: 
         await transporter.sendMail({
           from: `"${config.senderName}" <${config.senderEmail}>`,
           to: displayName ? `"${displayName}" <${email}>` : email,
-          subject: `${code} is your ChipMate verification code`,
+          subject: emailSubject,
           html: `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
-              <h2 style="color: #0f172a; margin-top: 0;">ChipMate Verification</h2>
-              <p style="color: #475569; font-size: 16px;">Use the verification code below to complete your registration:</p>
+              <h2 style="color: #0f172a; margin-top: 0;">${emailHeading}</h2>
+              <p style="color: #475569; font-size: 16px;">${emailIntro}</p>
               <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 18px; text-align: center; margin: 24px 0;">
                 <span style="font-size: 32px; font-weight: 700; letter-spacing: 6px; color: #0f172a;">${code}</span>
               </div>
@@ -83,11 +93,11 @@ export async function sendOtpEmail(options: SendOtpOptions): Promise<{ success: 
                 name: displayName || email.split('@')[0]
               }
             ],
-            subject: `${code} is your ChipMate verification code`,
+            subject: emailSubject,
             htmlContent: `
               <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
-                <h2 style="color: #0f172a; margin-top: 0;">ChipMate Verification</h2>
-                <p style="color: #475569; font-size: 16px;">Use the verification code below to complete your registration:</p>
+                <h2 style="color: #0f172a; margin-top: 0;">${emailHeading}</h2>
+                <p style="color: #475569; font-size: 16px;">${emailIntro}</p>
                 <div style="background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 18px; text-align: center; margin: 24px 0;">
                   <span style="font-size: 32px; font-weight: 700; letter-spacing: 6px; color: #0f172a;">${code}</span>
                 </div>

@@ -422,3 +422,158 @@ export function getUserByFriendCode(friendCode: string): UserRecord | null {
   `).get(trimmed, trimmed.toUpperCase()) as UserRecord | undefined;
   return user || null;
 }
+
+export function maskEmail(email: string): string {
+  const parts = email.split('@');
+  if (parts.length !== 2) return email;
+  const [username, domain] = parts;
+  if (username.length <= 2) {
+    return `${username[0]}*@${domain}`;
+  }
+  const visibleStart = username.slice(0, 2);
+  const visibleEnd = username.slice(-1);
+  const maskedLength = Math.max(username.length - 3, 3);
+  return `${visibleStart}${'*'.repeat(maskedLength)}${visibleEnd}@${domain}`;
+}
+
+export function findUserByIdentifier(identifier: string): UserRecord | undefined {
+  const trimmed = identifier.trim();
+  if (!trimmed) return undefined;
+  const db = getDb();
+
+  // Try phone normalization first
+  try {
+    const phone = normalizePhoneNumber(trimmed);
+    const userByPhone = db.prepare('SELECT * FROM users WHERE phone_number = ?').get(phone) as UserRecord | undefined;
+    if (userByPhone) return userByPhone;
+  } catch (_) {}
+
+  // Try email
+  if (trimmed.includes('@')) {
+    const userByEmail = db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?)').get(trimmed) as UserRecord | undefined;
+    if (userByEmail) return userByEmail;
+  }
+
+  // Fallback direct matches
+  return db.prepare('SELECT * FROM users WHERE phone_number = ? OR LOWER(email) = LOWER(?)').get(trimmed, trimmed) as UserRecord | undefined;
+}
+
+export async function resetPasswordRequestOtp(identifier: string): Promise<{ success: boolean; maskedEmail: string; email: string; message: string; devOtp?: string }> {
+  const trimmed = identifier.trim();
+  if (!trimmed) {
+    throw new Error('Please enter your mobile number or email address.');
+  }
+
+  const user = findUserByIdentifier(trimmed);
+  if (!user) {
+    throw new Error('No account found with this mobile number or email address.');
+  }
+
+  const db = getDb();
+  const now = new Date();
+
+  // Rate limiting check: 30s cooldown
+  const recentOtp = db.prepare(`
+    SELECT created_at FROM otp_codes 
+    WHERE email = ? AND datetime(created_at) > datetime(?, '-30 seconds')
+    ORDER BY created_at DESC LIMIT 1
+  `).get(user.email, now.toISOString()) as { created_at: string } | undefined;
+
+  if (recentOtp) {
+    throw new Error('Please wait 30 seconds before requesting another code.');
+  }
+
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(now.getTime() + config.otpExpiryMinutes * 60 * 1000).toISOString();
+  const otpId = uuidv4();
+
+  // Invalidate previous unconsumed OTPs for this email
+  db.prepare('UPDATE otp_codes SET consumed = 1 WHERE email = ?').run(user.email);
+
+  // Store new OTP
+  db.prepare(`
+    INSERT INTO otp_codes (id, email, code, expires_at, consumed, created_at)
+    VALUES (?, ?, ?, ?, 0, ?)
+  `).run(otpId, user.email, code, expiresAt, now.toISOString());
+
+  const emailResult = await sendOtpEmail({
+    email: user.email,
+    code,
+    displayName: user.display_name,
+    purpose: 'PASSWORD_RESET'
+  });
+
+  const masked = maskEmail(user.email);
+
+  return {
+    success: true,
+    email: user.email,
+    maskedEmail: masked,
+    message: `Verification code sent to ${masked}`,
+    devOtp: emailResult.devOtp
+  };
+}
+
+export function resetPasswordConfirm(params: {
+  identifier: string;
+  code: string;
+  newPassword: string;
+}): { success: boolean; message: string; token: string; user: UserRecord } {
+  const { identifier, code, newPassword } = params;
+
+  if (!identifier || !identifier.trim()) {
+    throw new Error('Mobile number or email is required.');
+  }
+  if (!code || !code.trim()) {
+    throw new Error('Verification code is required.');
+  }
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error('New password must be at least 6 characters long.');
+  }
+
+  const user = findUserByIdentifier(identifier);
+  if (!user) {
+    throw new Error('User not found.');
+  }
+
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  // Verify OTP
+  const otpRecord = db.prepare(`
+    SELECT * FROM otp_codes
+    WHERE email = ? AND code = ? AND consumed = 0 AND expires_at > ?
+    ORDER BY created_at DESC LIMIT 1
+  `).get(user.email, code.trim(), now) as { id: string } | undefined;
+
+  if (!otpRecord) {
+    throw new Error('Invalid or expired verification code.');
+  }
+
+  // Consume OTP
+  db.prepare('UPDATE otp_codes SET consumed = 1 WHERE id = ?').run(otpRecord.id);
+
+  // Hash new password
+  const newPasswordHash = hashPassword(newPassword);
+  const updatedAt = new Date().toISOString();
+
+  // Update password in database (automatically replicated to Turso via wrapDatabaseWithReplication)
+  db.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?').run(newPasswordHash, updatedAt, user.id);
+
+  const updatedUser = getUserById(user.id) || user;
+
+  // Generate new JWT
+  const token = jwt.sign(
+    { userId: updatedUser.id, email: updatedUser.email, phoneNumber: updatedUser.phone_number, friendCode: updatedUser.friend_code },
+    config.jwtSecret,
+    { expiresIn: '30d' }
+  );
+
+  return {
+    success: true,
+    message: 'Password reset successfully! You are now logged in.',
+    token,
+    user: updatedUser
+  };
+}
+

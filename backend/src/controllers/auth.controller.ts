@@ -132,3 +132,34 @@ export function lookupUser(req: Request, res: Response): void {
     res.status(500).json({ success: false, error: err.message || 'Lookup failed' });
   }
 }
+
+export async function resetPasswordRequestOtp(req: Request, res: Response): Promise<void> {
+  try {
+    const { identifier } = req.body;
+    if (!identifier || !identifier.trim()) {
+      res.status(400).json({ success: false, error: 'Mobile number or email is required.' });
+      return;
+    }
+
+    const result = await authService.resetPasswordRequestOtp(identifier);
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to send reset code' });
+  }
+}
+
+export function resetPasswordConfirm(req: Request, res: Response): void {
+  try {
+    const { identifier, code, newPassword } = req.body;
+    if (!identifier || !code || !newPassword) {
+      res.status(400).json({ success: false, error: 'Mobile number/email, verification code, and new password are required.' });
+      return;
+    }
+
+    const result = authService.resetPasswordConfirm({ identifier, code, newPassword });
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err.message || 'Failed to reset password' });
+  }
+}
+
