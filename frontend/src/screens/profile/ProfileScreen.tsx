@@ -25,7 +25,8 @@ import {
   ArrowRight,
   Camera,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Shield
 } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
@@ -385,23 +386,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary, onO
             <TouchableOpacity
               style={styles.masterAdminButton}
               onPress={onOpenMasterAdmin}
-              activeOpacity={0.8}
+              activeOpacity={0.7}
             >
               <View style={styles.masterAdminIconWrap}>
-                <Text style={{ fontSize: 20 }}>👑</Text>
+                <Shield size={16} color={colors.primary} />
               </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={styles.masterAdminTitle}>Master Admin Controls</Text>
-                  <View style={styles.rootBadge}>
-                    <Text style={styles.rootBadgeText}>EXCLUSIVE</Text>
-                  </View>
-                </View>
-                <Text style={styles.masterAdminSubtitle}>
-                  Inspect all players, view platform analytics & delete any game
-                </Text>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.masterAdminTitle}>Master Admin Controls</Text>
               </View>
-              <ArrowRight size={18} color="#FFD700" />
+              <ArrowRight size={15} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -1110,43 +1103,30 @@ const styles = StyleSheet.create({
   masterAdminButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1C1A14',
-    borderWidth: 1.5,
-    borderColor: '#FFD700',
-    borderRadius: 14,
-    padding: 14,
+    backgroundColor: colors.cardInset,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     marginTop: 12,
+    width: '100%'
   },
   masterAdminIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFD70022',
+    width: 28,
+    height: 28,
+    borderRadius: 7,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
   masterAdminTitle: {
-    color: '#FFD700',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  rootBadge: {
-    backgroundColor: '#DA3633',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  rootBadgeText: {
-    color: '#FFF',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  masterAdminSubtitle: {
-    color: '#C9D1D9',
-    fontSize: 11,
-    marginTop: 3,
-    lineHeight: 15,
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2
   },
   updateCardHeader: {
     flexDirection: 'row',

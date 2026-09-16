@@ -158,6 +158,8 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   const [showBatchBuyInModal, setShowBatchBuyInModal] = useState(false);
   const [showCashOutModal, setShowCashOutModal] = useState(false);
   const [cashOutTargetPlayer, setCashOutTargetPlayer] = useState<any | null>(null);
+  const [playerForTransferHost, setPlayerForTransferHost] = useState<any | null>(null);
+  const [isTransferringHost, setIsTransferringHost] = useState(false);
 
   const fetchTableData = useCallback(async () => {
     try {
@@ -532,7 +534,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
 
   // Build loan descriptions map per player
   const loansMap: Record<string, string[]> = {};
-  for (const l of activeLoans) {
+  for (const l of (activeLoans || [])) {
     if (!loansMap[l.borrower_player_id]) loansMap[l.borrower_player_id] = [];
     loansMap[l.borrower_player_id].push(
       `Owes ${l.lender_name} ${l.remaining_chip_amount} chips (₹${l.moneyEquivalent})`
@@ -828,9 +830,6 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
       Alert.alert('Error', err.message || 'Failed to undo cash-out');
     }
   };
-
-  const [playerForTransferHost, setPlayerForTransferHost] = useState<any | null>(null);
-  const [isTransferringHost, setIsTransferringHost] = useState(false);
 
   const handlePromptTransferHost = (player: any) => {
     setPlayerForTransferHost(player);
@@ -1151,7 +1150,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
         )}
 
         <View style={styles.playerCardsGrid}>
-          {players.map((p: any) => (
+          {(players || []).map((p: any) => (
             <View key={p.id} style={styles.playerCardGridItem}>
               <PlayerCard
                 player={p}
