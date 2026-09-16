@@ -347,7 +347,7 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
                               style={[styles.counterBtn, count <= 0 && { opacity: 0.35 }]}
                               disabled={count <= 0}
                             >
-                              <Minus size={14} color="#FFF" />
+                              <Minus size={14} color={colors.text} />
                             </TouchableOpacity>
 
                             <TextInput
@@ -362,7 +362,7 @@ export const BatchBuyInModal: React.FC<BatchBuyInModalProps> = ({
                               style={[styles.counterBtn, (count + 1) * Math.max(1, numPlayers) > avail && { opacity: 0.35 }]}
                               disabled={(count + 1) * Math.max(1, numPlayers) > avail}
                             >
-                              <Plus size={14} color="#FFF" />
+                              <Plus size={14} color={colors.text} />
                             </TouchableOpacity>
                           </View>
 
@@ -1023,7 +1023,7 @@ const styles = StyleSheet.create({
     height: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)'
+    backgroundColor: colors.cardRaised
   },
   counterInput: {
     width: 38,

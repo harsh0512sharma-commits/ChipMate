@@ -487,14 +487,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardRaised,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    borderColor: colors.borderDark,
     alignItems: 'center',
     justifyContent: 'center'
   },
   presetChipText: {
     fontSize: 11,
     color: colors.textSecondary,
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center'
   },
   previewCard: {
@@ -619,11 +619,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardRaised,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.borderSubtle
+    borderColor: colors.borderDark
   },
   cancelBtnText: {
     color: colors.textSecondary,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: 14
   },
   confirmBtn: {

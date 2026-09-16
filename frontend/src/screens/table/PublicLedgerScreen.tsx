@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+    borderBottomColor: colors.borderSubtle,
     alignItems: 'center'
   },
   playerResultRow: {
@@ -657,16 +657,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
+    borderBottomColor: colors.borderSubtle,
     alignItems: 'flex-start'
   },
   rankText: {
     fontSize: 13,
-    fontWeight: '700',
-    color: colors.textMuted
+    fontWeight: '800',
+    color: colors.textSecondary
   },
   rankFirst: {
-    fontSize: 15
+    fontSize: 16
   },
   playerNameText: {
     fontSize: 14,
@@ -758,7 +758,8 @@ const styles = StyleSheet.create({
     color: colors.dangerText
   },
   pnlEvenText: {
-    color: colors.textMuted
+    color: colors.textSecondary,
+    fontWeight: '700'
   },
   emptyCard: {
     backgroundColor: colors.card,
@@ -785,7 +786,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.04)'
+    borderBottomColor: colors.borderSubtle
   },
   txIconBox: {
     width: 32,
@@ -847,7 +848,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.04)'
+    borderBottomColor: colors.borderSubtle
   },
   settleFlowBox: {
     flex: 1,

@@ -312,6 +312,7 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
                       value={chipAmount}
                       onChangeText={setChipAmount}
                       placeholder="Enter ₹ amount"
+                      placeholderTextColor={colors.textMuted}
                       style={styles.input}
                     />
 
@@ -367,7 +368,7 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
                                 style={[styles.counterBtn, count <= 0 && { opacity: 0.35 }]}
                                 disabled={count <= 0}
                               >
-                                <Minus size={14} color="#FFF" />
+                                <Minus size={14} color={colors.text} />
                               </TouchableOpacity>
 
                               <TextInput
@@ -382,7 +383,7 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
                                 style={[styles.counterBtn, count >= avail && { opacity: 0.35 }]}
                                 disabled={count >= avail}
                               >
-                                <Plus size={14} color="#FFF" />
+                                <Plus size={14} color={colors.text} />
                               </TouchableOpacity>
                             </View>
 
@@ -410,6 +411,7 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
                       value={chipAmount}
                       onChangeText={setChipAmount}
                       placeholder="Enter chips"
+                      placeholderTextColor={colors.textMuted}
                       style={styles.input}
                     />
 
@@ -504,6 +506,7 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
                       value={chipAmount}
                       onChangeText={setChipAmount}
                       placeholder="Enter ₹ amount"
+                      placeholderTextColor={colors.textMuted}
                       style={styles.input}
                     />
 
@@ -732,6 +735,7 @@ export const ActionSheet: React.FC<ActionSheetProps> = ({
                   value={correctionReason}
                   onChangeText={setCorrectionReason}
                   placeholder="e.g. Recount at table break"
+                  placeholderTextColor={colors.textMuted}
                   style={styles.input}
                 />
               </View>

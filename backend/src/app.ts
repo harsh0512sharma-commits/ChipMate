@@ -18,7 +18,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.32',
+      version: '1.1.33',
       timestamp: new Date().toISOString()
     });
   });
@@ -26,9 +26,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.32',
+      version: '1.1.33',
       buildTime: Date.now(),
-      releaseNotes: 'Day Mode Beta, symmetrical mid-game cashout modal presets, removed Buy-In subtitles in settlement & final balances, cashed-out player loan/transfer restrictions, voluntary and auto host transfer.'
+      releaseNotes: 'Final Results & Rankings in Game Summary matching Game Ledger, Day Mode color contrast fixes across Buy-in, Cash-out, Share Ledger, and Player Cards.'
     });
   };
   app.get('/version', versionHandler);

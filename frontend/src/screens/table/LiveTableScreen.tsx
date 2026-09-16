@@ -1008,7 +1008,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                 style={[styles.actionBtn, styles.actionLend]}
                 onPress={() => setActiveSheet('LEND')}
               >
-                <Text style={styles.actionBtnText}>{isValueMode ? '🤝 LEND (₹)' : '🤝 LEND'}</Text>
+                <Text style={styles.actionLendText}>{isValueMode ? '🤝 LEND (₹)' : '🤝 LEND'}</Text>
               </TouchableOpacity>
             </View>
 
@@ -2103,6 +2103,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.3
   },
+  actionLendText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.3
+  },
   secondaryActionRow: {
     flexDirection: 'row',
     marginBottom: 10
@@ -2161,7 +2167,7 @@ const styles = StyleSheet.create({
     marginBottom: 8
   },
   viewSettlementBtn: {
-    backgroundColor: colors.warningText,
+    backgroundColor: colors.primary,
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center'

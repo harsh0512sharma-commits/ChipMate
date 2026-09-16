@@ -10,7 +10,7 @@ import {
   Platform,
   Alert
 } from 'react-native';
-import { Trophy, TrendingDown, HandCoins, ArrowRight, Home, History, Users, Share2, Check, CheckCircle2 } from 'lucide-react-native';
+import { Trophy, TrendingDown, HandCoins, ArrowRight, Home, History, Users, Share2, Check, CheckCircle2, Crown } from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
 import { formatTxSummary } from '../table/LiveTableScreen';
@@ -44,6 +44,7 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
 }) => {
   const [insights, setInsights] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [ledger, setLedger] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showAllTx, setShowAllTx] = useState(false);
   const [standingFilter, setStandingFilter] = useState<'ALL' | 'WON' | 'LOST'>('ALL');
@@ -87,9 +88,10 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
   useEffect(() => {
     async function load() {
       try {
-        const [insightsRes, txRes] = await Promise.allSettled([
+        const [insightsRes, txRes, ledgerRes] = await Promise.allSettled([
           apiRequest(`/stats/game-insights/${gameId}`),
-          apiRequest(`/tables/${gameId}/transactions`)
+          apiRequest(`/tables/${gameId}/transactions`),
+          apiRequest(`/tables/${gameId}/public-ledger`)
         ]);
 
         if (insightsRes.status === 'fulfilled' && insightsRes.value.success) {
@@ -97,6 +99,9 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
         }
         if (txRes.status === 'fulfilled' && txRes.value.success) {
           setTransactions(txRes.value.transactions || []);
+        }
+        if (ledgerRes.status === 'fulfilled' && ledgerRes.value.success && ledgerRes.value.ledger) {
+          setLedger(ledgerRes.value.ledger);
         }
       } catch (err) {
         console.warn('Failed to load summary details:', err);
@@ -115,7 +120,7 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
     );
   }
 
-  const playersList: any[] = insights?.players || [];
+  const playersList: any[] = (ledger?.players && ledger.players.length > 0) ? ledger.players : (insights?.players || []);
   const wonCount = playersList.filter((p: any) => (p.netWinnings || 0) > 0).length;
   const lostCount = playersList.filter((p: any) => (p.netWinnings || 0) < 0).length;
 
@@ -200,13 +205,13 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
           )}
         </View>
 
-        {/* Player Standings & Gain/Loss Breakdown */}
+        {/* Final Results & Rankings Section */}
         {playersList.length > 0 && (
           <View style={styles.standingsCard}>
             <View style={styles.standingsHeaderRow}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Users size={16} color={colors.primary} style={{ marginRight: 8 }} />
-                <Text style={styles.standingsTitle}>PLAYER BREAKDOWN</Text>
+                <Trophy size={16} color={colors.chipGoldText} style={{ marginRight: 8 }} />
+                <Text style={styles.standingsTitle}>FINAL RESULTS & RANKINGS</Text>
               </View>
               <View style={styles.standingsCountBadge}>
                 <Text style={styles.standingsCountText}>{playersList.length} players</Text>
@@ -214,7 +219,7 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
             </View>
 
             <Text style={styles.standingsSubtitle}>
-              Final net profit & loss for each player in this game
+              Sorted by Net Profit / Loss • Official Game Settlement
             </Text>
 
             {/* Filter Buttons */}
@@ -286,81 +291,80 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
                 </Text>
               </View>
             ) : (
-              <View style={styles.playerListContainer}>
-                {filteredPlayers.map((player: any) => {
+              <View style={styles.tableCard}>
+                {filteredPlayers.map((player: any, idx: number) => {
                   const net = player.netWinnings || 0;
-                  const isWinner = net > 0;
-                  const isLoser = net < 0;
-
-                  let rankBadgeBg = colors.cardInset;
-                  let rankTextColor = colors.textMuted;
-                  let rankBorderColor = colors.borderDark;
-                  if (player.rank === 1) {
-                    rankBadgeBg = colors.chipGoldBg;
-                    rankTextColor = colors.chipGoldText;
-                    rankBorderColor = 'rgba(217, 119, 6, 0.35)';
-                  } else if (player.rank === 2) {
-                    rankBadgeBg = 'rgba(148, 163, 184, 0.12)';
-                    rankTextColor = '#E2E8F0';
-                    rankBorderColor = 'rgba(148, 163, 184, 0.25)';
-                  } else if (player.rank === 3) {
-                    rankBadgeBg = 'rgba(180, 83, 9, 0.12)';
-                    rankTextColor = '#FDBA74';
-                    rankBorderColor = 'rgba(180, 83, 9, 0.25)';
-                  }
-
-                  const initial = (player.displayName || 'P').charAt(0).toUpperCase();
+                  const isWin = net > 0;
+                  const isLoss = net < 0;
+                  const isHost = player.role === 'HOST';
 
                   return (
-                    <View key={player.userId || `${player.rank}-${player.displayName}`} style={styles.playerRow}>
-                      <View style={styles.playerRowLeft}>
-                        <View
-                          style={[
-                            styles.rankBadge,
-                            { backgroundColor: rankBadgeBg, borderColor: rankBorderColor }
-                          ]}
-                        >
-                          <Text style={[styles.rankText, { color: rankTextColor }]}>
-                            #{player.rank}
+                    <View
+                      key={player.userId || player.playerId || idx}
+                      style={[
+                        styles.playerResultRow,
+                        idx === filteredPlayers.length - 1 && { borderBottomWidth: 0 }
+                      ]}
+                    >
+                      {/* Rank Medal / Badge */}
+                      <View style={{ width: 32, justifyContent: 'flex-start', paddingTop: 2 }}>
+                        <Text style={[styles.rankText, idx === 0 && styles.rankFirst]}>
+                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                        </Text>
+                      </View>
+
+                      {/* Player Details, Role Badges & Full Accounting Breakdown */}
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <Text style={styles.playerNameText} numberOfLines={1}>
+                            {player.displayName}
                           </Text>
+                          {isHost && (
+                            <View style={styles.hostBadgeMini}>
+                              <Crown size={9} color={colors.primary} />
+                            </View>
+                          )}
+                          {player.isCashedOut && (
+                            <View style={styles.cashedOutPill}>
+                              <Text style={styles.cashedOutPillText}>Cashed Out</Text>
+                            </View>
+                          )}
+                          {player.isGuest && (
+                            <Text style={styles.playerMetaText}>(Guest)</Text>
+                          )}
                         </View>
 
-                        <View style={styles.playerAvatar}>
-                          <Text style={styles.playerAvatarText}>{initial}</Text>
-                        </View>
-
-                        <View style={{ flex: 1, marginRight: 8 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <Text style={styles.playerName} numberOfLines={1}>
-                              {player.displayName}
+                        {/* Accounting Breakdown matching Public Ledger & Settlement */}
+                        <View style={styles.accountingBreakdown}>
+                          <Text style={styles.breakdownItem}>
+                            Buy-ins: <Text style={styles.negVal}>-₹{(player.buyInMoney ?? player.buyinMoney ?? 0).toLocaleString('en-IN')}</Text>
+                          </Text>
+                          {Number(player.loanDebtOwed) > 0 && (
+                            <Text style={styles.breakdownItem}>
+                              Borrowed: <Text style={styles.loanDebtVal}>-₹{Number(player.loanDebtOwed).toLocaleString('en-IN')}</Text>
                             </Text>
-                            {player.isGuest && (
-                              <View style={styles.guestPill}>
-                                <Text style={styles.guestPillText}>Guest</Text>
-                              </View>
-                            )}
-                          </View>
-                          <Text style={styles.playerSubtext}>
-                            Buy-in ₹{(player.buyinMoney || 0).toLocaleString('en-IN')} • {player.finalChips || 0} chips
+                          )}
+                          {Number(player.loanCreditOwed) > 0 && (
+                            <Text style={styles.breakdownItem}>
+                              Lent: <Text style={styles.loanCreditVal}>+₹{Number(player.loanCreditOwed).toLocaleString('en-IN')}</Text>
+                            </Text>
+                          )}
+                          <Text style={styles.breakdownItem}>
+                            {player.isCashedOut ? 'Cashed out: ' : 'Final in-hand: '}
+                            <Text style={styles.posVal}>+₹{(player.inHandMoney ?? 0).toLocaleString('en-IN')}</Text>
                           </Text>
                         </View>
                       </View>
 
-                      <View
-                        style={[
-                          styles.netBadge,
-                          isWinner && styles.netBadgeWon,
-                          isLoser && styles.netBadgeLost
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.netBadgeText,
-                            isWinner && styles.netBadgeTextWon,
-                            isLoser && styles.netBadgeTextLost
-                          ]}
-                        >
-                          {isWinner ? `+₹${net.toLocaleString('en-IN')}` : isLoser ? `-₹${Math.abs(net).toLocaleString('en-IN')}` : `₹0`}
+                      {/* Net P&L Column */}
+                      <View style={{ alignItems: 'flex-end', justifyContent: 'center', minWidth: 84 }}>
+                        <View style={[styles.pnlPill, isWin ? styles.pnlWin : isLoss ? styles.pnlLoss : styles.pnlEven]}>
+                          <Text style={[styles.pnlText, isWin ? styles.pnlWinText : isLoss ? styles.pnlLossText : styles.pnlEvenText]}>
+                            {isWin ? `+₹${net.toLocaleString('en-IN')}` : isLoss ? `-₹${Math.abs(net).toLocaleString('en-IN')}` : '₹0'}
+                          </Text>
+                        </View>
+                        <Text style={styles.netLabelText}>
+                          {isWin ? 'Profit' : isLoss ? 'Loss' : 'Even'}
                         </Text>
                       </View>
                     </View>
@@ -475,12 +479,12 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
         >
           {copied ? (
             <>
-              <Check size={18} color="#FFF" style={{ marginRight: 8 }} />
-              <Text style={styles.shareLedgerBtnText}>Public Ledger Link Copied!</Text>
+              <Check size={18} color={colors.successText} style={{ marginRight: 8 }} />
+              <Text style={[styles.shareLedgerBtnText, { color: colors.successText }]}>Public Ledger Link Copied!</Text>
             </>
           ) : (
             <>
-              <Share2 size={18} color="#FFF" style={{ marginRight: 8 }} />
+              <Share2 size={18} color={colors.primary} style={{ marginRight: 8 }} />
               <Text style={styles.shareLedgerBtnText}>Share Public Game Ledger</Text>
             </>
           )}
@@ -605,9 +609,9 @@ const styles = StyleSheet.create({
     marginTop: 1
   },
   shareLedgerBtn: {
-    backgroundColor: colors.cardRaised,
-    borderWidth: 1,
-    borderColor: 'rgba(234, 88, 12, 0.4)',
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1.5,
+    borderColor: colors.primaryBorder,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -622,7 +626,7 @@ const styles = StyleSheet.create({
   shareLedgerBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFF'
+    color: colors.primary
   },
   leaderboardBtn: {
     backgroundColor: colors.primary,
@@ -852,103 +856,115 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontStyle: 'italic'
   },
-  playerListContainer: {
+  tableCard: {
+    backgroundColor: colors.cardInset,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    overflow: 'hidden',
     marginTop: 4
   },
-  playerRow: {
+  playerResultRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderDark
-  },
-  playerRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1
-  },
-  rankBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10
+    borderBottomColor: colors.borderSubtle,
+    alignItems: 'flex-start'
   },
   rankText: {
-    fontSize: 11,
-    fontWeight: '800'
-  },
-  playerAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.cardRaised,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10
-  },
-  playerAvatarText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.text
-  },
-  playerName: {
     fontSize: 13,
+    fontWeight: '800',
+    color: colors.textSecondary
+  },
+  rankFirst: {
+    fontSize: 16
+  },
+  playerNameText: {
+    fontSize: 14,
     fontWeight: '700',
     color: colors.text
   },
-  guestPill: {
-    backgroundColor: colors.chipGoldBg,
-    borderRadius: 4,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    marginLeft: 6
-  },
-  guestPillText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: colors.chipGoldText
-  },
-  playerSubtext: {
+  playerMetaText: {
     fontSize: 10,
     color: colors.textMuted,
-    marginTop: 2
+    marginTop: 1
   },
-  netBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+  hostBadgeMini: {
+    padding: 3,
+    borderRadius: 4,
+    backgroundColor: colors.primaryLight
+  },
+  cashedOutPill: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     borderWidth: 1,
-    borderColor: colors.borderDark,
-    backgroundColor: colors.cardInset,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 70
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 1
   },
-  netBadgeWon: {
-    backgroundColor: colors.successLight,
-    borderColor: colors.successBorder
-  },
-  netBadgeLost: {
-    backgroundColor: colors.dangerLight,
-    borderColor: colors.dangerBorder
-  },
-  netBadgeText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.textMuted,
-    letterSpacing: -0.2
-  },
-  netBadgeTextWon: {
+  cashedOutPillText: {
+    fontSize: 10,
+    fontWeight: '700',
     color: colors.successText
   },
-  netBadgeTextLost: {
+  accountingBreakdown: {
+    marginTop: 4,
+    gap: 2
+  },
+  breakdownItem: {
+    fontSize: 11,
+    color: colors.textSecondary
+  },
+  negVal: {
+    color: colors.dangerText,
+    fontWeight: '600'
+  },
+  posVal: {
+    color: colors.successText,
+    fontWeight: '600'
+  },
+  loanDebtVal: {
+    color: colors.dangerText,
+    fontWeight: '600'
+  },
+  loanCreditVal: {
+    color: colors.successText,
+    fontWeight: '600'
+  },
+  netLabelText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted,
+    marginTop: 3,
+    textTransform: 'uppercase'
+  },
+  pnlPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8
+  },
+  pnlWin: {
+    backgroundColor: colors.successLight
+  },
+  pnlLoss: {
+    backgroundColor: colors.dangerLight
+  },
+  pnlEven: {
+    backgroundColor: colors.cardRaised
+  },
+  pnlText: {
+    fontSize: 12,
+    fontWeight: '800'
+  },
+  pnlWinText: {
+    color: colors.successText
+  },
+  pnlLossText: {
     color: colors.dangerText
+  },
+  pnlEvenText: {
+    color: colors.textSecondary
   },
   settlementsCard: {
     backgroundColor: colors.card,

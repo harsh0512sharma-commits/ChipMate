@@ -407,7 +407,7 @@ export function getHeadToHeadStats(userIdA: string, userIdB: string) {
 export function getGameInsights(gameId: string) {
   const db = getDb();
   const results = db.prepare(`
-    SELECT r.*, u.display_name, u.friend_code, gp.guest_name, gp.is_guest
+    SELECT r.*, u.display_name, u.friend_code, gp.guest_name, gp.is_guest, gp.role, gp.is_cashed_out, gp.cashed_out_money
     FROM player_game_results r
     JOIN users u ON r.user_id = u.id
     LEFT JOIN game_players gp ON (gp.game_id = r.game_id AND gp.user_id = r.user_id)
@@ -432,19 +432,29 @@ export function getGameInsights(gameId: string) {
     LIMIT 1
   `).get(gameId) as any;
 
-  const game = db.prepare('SELECT id, name, game_type, created_at, started_at, finalized_at FROM games WHERE id = ?').get(gameId) as any;
+  const game = db.prepare('SELECT id, name, game_type, chip_value, created_at, started_at, finalized_at FROM games WHERE id = ?').get(gameId) as any;
 
   const players = results.map((r, idx) => {
     const isGuest = Boolean(r.is_guest || (r.user_id && r.user_id.startsWith('guest_')));
     const displayName = (isGuest && r.guest_name) ? r.guest_name : r.display_name;
+    const inHand = r.final_chip_money !== null && r.final_chip_money !== undefined
+      ? Number(r.final_chip_money)
+      : r.is_cashed_out
+        ? Number(r.cashed_out_money || 0)
+        : Number(r.final_chips || 0) * Number(game?.chip_value || 1);
+
     return {
       rank: idx + 1,
       userId: r.user_id,
       displayName,
       friendCode: r.friend_code,
+      role: r.role || 'PLAYER',
       isGuest,
-      netWinnings: r.net_winnings_money,
-      buyinMoney: r.buyin_money,
+      isCashedOut: Boolean(r.is_cashed_out),
+      netWinnings: Number(r.net_winnings_money || 0),
+      buyInMoney: Number(r.buyin_money || 0),
+      buyinMoney: Number(r.buyin_money || 0),
+      inHandMoney: inHand,
       finalChips: r.final_chips,
       isWinner: Boolean(r.is_winner)
     };

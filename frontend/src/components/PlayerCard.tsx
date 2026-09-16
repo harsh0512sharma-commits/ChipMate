@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   },
   cashedOutCard: {
     borderColor: 'rgba(56, 189, 248, 0.45)',
-    backgroundColor: '#0c1626'
+    backgroundColor: 'rgba(56, 189, 248, 0.08)'
   },
   topRightFriendBadge: {
     width: 22,
