@@ -1,5 +1,5 @@
 {
-  "version": "1.1.40",
-  "buildTime": 1789585000000,
-  "releaseNotes": "Decluttered profile with dedicated full-screen history and updates views, brand orange MATE typography, and enhanced PWA icon cache-busting."
+  "version": "1.1.41",
+  "buildTime": 1789586000000,
+  "releaseNotes": "Hide backend hostnames via Vercel reverse proxy, streamline background polling, and eliminate redundant update checks."
 }

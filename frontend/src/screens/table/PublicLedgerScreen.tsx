@@ -75,7 +75,7 @@ export const PublicLedgerScreen: React.FC<PublicLedgerScreenProps> = ({
   const handleShare = async () => {
     const shareUrl = Platform.OS === 'web' && typeof window !== 'undefined'
       ? `${window.location.origin}/?ledger=${tableId}`
-      : `https://chipmate-h96z.onrender.com/?ledger=${tableId}`;
+      : `https://chipmate.online/?ledger=${tableId}`;
 
     const shareTitle = ledger?.name ? `${ledger.name} — ChipMate Ledger` : 'ChipMate Game Ledger';
     const shareIntro = `Check out the live game ledger for "${ledger?.name || 'Poker'}" on ChipMate:`;

@@ -484,7 +484,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   };
 
   const handleShareLedger = async () => {
-    const origin = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : 'https://chipmate-h96z.onrender.com';
+    const origin = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : 'https://chipmate.online';
     const ledgerUrl = `${origin}/?ledger=${tableId}`;
     const shareTitle = data?.table?.name ? `${data.table.name} — ChipMate Public Ledger` : 'ChipMate Public Ledger';
     const shareIntro = `View the live public game ledger for "${data?.table?.name || 'Poker'}" on ChipMate (no login required):`;

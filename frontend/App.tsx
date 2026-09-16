@@ -141,7 +141,8 @@ function MainNavigator() {
       } catch (_) {}
     };
     checkRequests();
-    const interval = setInterval(checkRequests, 12000);
+    // Poll every 35s to keep notifications fresh while avoiding network flooding and battery drain
+    const interval = setInterval(checkRequests, 35000);
     return () => clearInterval(interval);
   }, [token, user]);
 

@@ -51,7 +51,7 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
   const [copied, setCopied] = useState(false);
 
   const handleShareSummary = async () => {
-    const origin = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : 'https://chipmate-h96z.onrender.com';
+    const origin = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : 'https://chipmate.online';
     const ledgerUrl = `${origin}/?ledger=${gameId}`;
     const shareTitle = insights?.gameName ? `${insights.gameName} — ChipMate Summary` : 'ChipMate Game Summary';
     const shareIntro = `Check out the final results & full ledger for "${insights?.gameName || 'Poker'}" on ChipMate:`;

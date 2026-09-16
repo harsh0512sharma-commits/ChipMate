@@ -10,8 +10,15 @@ export function initSocketClient(): Socket {
   if (socket) return socket;
 
   const apiBase = getDefaultApiBase();
-  // Strip /api from the end to get base socket URL
-  const socketUrl = apiBase.replace(/\/api\/?$/, '');
+  let socketUrl = process.env.EXPO_PUBLIC_SOCKET_URL;
+  if (!socketUrl) {
+    if (apiBase.startsWith('http://') || apiBase.startsWith('https://')) {
+      socketUrl = apiBase.replace(/\/api\/?$/, '');
+    } else {
+      // Default direct backend for WebSockets (can be overridden by api.chipmate.online)
+      socketUrl = 'https://chipmate-h96z.onrender.com';
+    }
+  }
 
   socket = io(socketUrl, {
     transports: ['websocket', 'polling'],

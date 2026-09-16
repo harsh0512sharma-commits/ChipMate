@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.40',
+      version: '1.1.41',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.40',
+      version: '1.1.41',
       buildTime: Date.now(),
-      releaseNotes: 'Decluttered profile with dedicated full-screen history and updates views, brand orange MATE typography, and enhanced PWA icon cache-busting.'
+      releaseNotes: 'Hide backend hostnames via Vercel reverse proxy, streamline background polling, and eliminate redundant update checks.'
     });
   };
   app.get('/version', versionHandler);

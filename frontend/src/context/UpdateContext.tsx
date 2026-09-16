@@ -38,7 +38,7 @@ interface UpdateContextType {
 
 const UpdateContext = createContext<UpdateContextType | null>(null);
 
-const POLL_INTERVAL_MS = 35 * 1000; // Check every 35s
+const POLL_INTERVAL_MS = 60 * 1000; // Check every 60s
 
 export const UpdateProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
@@ -69,7 +69,8 @@ export const UpdateProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       } catch (_) {}
     }
 
-    // 1. Check static version.json
+    // 1. Check static version.json on the CDN (fast, cached at edge, same-origin)
+    let fetchedFromStatic = false;
     try {
       const res = await fetch(`/version.json?_t=${Date.now()}`, {
         cache: 'no-store',
@@ -86,37 +87,15 @@ export const UpdateProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             candidateVersion = v;
             candidateNotes = data.releaseNotes || '';
           }
+          fetchedFromStatic = true;
         }
       }
     } catch (_) {}
 
-    // 2. Check backend API version
-    try {
-      const cleanBase = getDefaultApiBase().replace(/\/+api\/?$/, '');
-      const res = await fetch(`${cleanBase}/api/version?_t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
-        }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.version) {
-          const v = String(data.version).trim();
-          if (compareVersions(v, candidateVersion) > 0) {
-            candidateVersion = v;
-            candidateNotes = data.releaseNotes || candidateNotes;
-          }
-        }
-      }
-    } catch (_) {}
-
-    // 3. Fallback direct /version
-    if (candidateVersion === APP_BUILD_VERSION) {
+    // 2. Fallback to API only if static version.json check was unreachable
+    if (!fetchedFromStatic) {
       try {
-        const cleanBase = getDefaultApiBase().replace(/\/+api\/?$/, '');
-        const res = await fetch(`${cleanBase}/version?_t=${Date.now()}`, {
+        const res = await fetch(`/version?_t=${Date.now()}`, {
           cache: 'no-store'
         });
         if (res.ok) {

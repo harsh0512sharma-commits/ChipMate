@@ -14,15 +14,18 @@ export function getDefaultApiBase(): string {
     return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
   }
 
-  // 2. Localhost development on web
+  // 2. Web browser: use relative '/api' on production web
+  // This proxies through Vercel rewrites directly to Render, eliminating onrender.com from DevTools!
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') {
       return 'http://localhost:4000/api';
     }
+    // Production web deployment: use same-origin relative '/api'
+    return '/api';
   }
 
-  // 3. Fallback for deployed cloud apps (Render backend default)
+  // 3. Fallback for native mobile builds (Render backend default)
   return 'https://chipmate-h96z.onrender.com/api';
 }
 
