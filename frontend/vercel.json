@@ -1,1 +1,10 @@
-{"$schema": "https://openapi.vercel.sh/vercel.json", "rewrites": [{"source": "/api/:path*", "destination": "https://chipmate-h96z.onrender.com/api/:path*"}, {"source": "/health", "destination": "https://chipmate-h96z.onrender.com/health"}, {"source": "/version", "destination": "https://chipmate-h96z.onrender.com/version"}]}
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://chipmate-h96z.onrender.com/api/:path*" },
+    { "source": "/health", "destination": "https://chipmate-h96z.onrender.com/health" },
+    { "source": "/version", "destination": "https://chipmate-h96z.onrender.com/version" }
+  ]
+}

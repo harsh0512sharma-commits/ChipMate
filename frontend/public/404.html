@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Page Not Found (404) – ChipMate</title>
+  <meta name="robots" content="noindex, follow" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <style>
+  :root {
+    --cm-bg: #080C16;
+    --cm-surface: #0F172A;
+    --cm-card: #111827;
+    --cm-card-border: #1F2937;
+    --cm-primary: #EA580C;
+    --cm-primary-hover: #F97316;
+    --cm-emerald: #10B981;
+    --cm-text: #F8FAFC;
+    --cm-text-secondary: #94A3B8;
+    --cm-text-muted: #64748B;
+    --cm-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: var(--cm-bg);
+    color: var(--cm-text);
+    font-family: var(--cm-font);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(8, 12, 22, 0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--cm-card-border);
+    padding: 14px 24px;
+  }
+  .header-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+  }
+  .logo-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+  }
+  .logo-orange { color: var(--cm-primary); }
+  .nav-links {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cm-text-secondary);
+  }
+  .nav-links a:hover { color: var(--cm-text); }
+  .cta-btn-sm {
+    background: linear-gradient(135deg, #EA580C, #F97316);
+    color: #FFF !important;
+    font-weight: 800;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cta-btn-sm:hover { opacity: 0.95; transform: translateY(-1px); }
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 20px 80px 20px;
+  }
+  .breadcrumbs {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--cm-text-muted);
+    margin-bottom: 24px;
+    align-items: center;
+  }
+  .breadcrumbs a { color: var(--cm-text-secondary); }
+  .breadcrumbs a:hover { color: var(--cm-text); }
+  .tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--cm-primary);
+    background: rgba(234, 88, 12, 0.12);
+    border: 1px solid rgba(234, 88, 12, 0.25);
+    padding: 5px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.5px;
+    margin-bottom: 16px;
+    color: var(--cm-text);
+  }
+  .lead-p {
+    font-size: 17px;
+    color: var(--cm-text-secondary);
+    line-height: 1.7;
+    margin-bottom: 32px;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-top: 36px;
+    margin-bottom: 16px;
+    color: var(--cm-text);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 8px;
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-top: 24px;
+    margin-bottom: 10px;
+    color: var(--cm-text);
+  }
+  p {
+    font-size: 15px;
+    color: #CBD5E1;
+    line-height: 1.75;
+    margin-bottom: 18px;
+  }
+  ul, ol {
+    margin-left: 24px;
+    margin-bottom: 24px;
+    color: #CBD5E1;
+    font-size: 15px;
+    line-height: 1.8;
+  }
+  li { margin-bottom: 8px; }
+  strong { color: var(--cm-text); font-weight: 700; }
+  code {
+    background: #1E293B;
+    color: #38BDF8;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13.5px;
+    font-family: monospace;
+  }
+  .card-box {
+    background: var(--cm-surface);
+    border: 1px solid var(--cm-card-border);
+    border-radius: 14px;
+    padding: 24px;
+    margin: 28px 0;
+  }
+  .formula-box {
+    background: rgba(16, 185, 129, 0.06);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 24px 0;
+  }
+  .formula-title {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--cm-emerald);
+    margin-bottom: 8px;
+  }
+  .formula-math {
+    font-size: 18px;
+    font-weight: 700;
+    color: #FFF;
+    font-family: monospace;
+  }
+  .cta-banner {
+    background: linear-gradient(135deg, rgba(234, 88, 12, 0.15), rgba(15, 23, 42, 0.9));
+    border: 1px solid rgba(234, 88, 12, 0.4);
+    border-radius: 16px;
+    padding: 36px 28px;
+    text-align: center;
+    margin: 48px 0;
+  }
+  .cta-banner h3 {
+    font-size: 24px;
+    margin-bottom: 12px;
+    color: #FFF;
+  }
+  .cta-banner p {
+    color: var(--cm-text-secondary);
+    max-width: 580px;
+    margin: 0 auto 24px auto;
+    font-size: 15px;
+  }
+  .cta-btn-lg {
+    background: linear-gradient(135deg, #EA580C, #F97316);
+    color: #FFF !important;
+    font-weight: 800;
+    font-size: 16px;
+    padding: 14px 32px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 20px rgba(234, 88, 12, 0.4);
+  }
+  .cta-btn-lg:hover { opacity: 0.92; }
+  .table-wrap {
+    overflow-x: auto;
+    margin: 24px 0;
+    border: 1px solid var(--cm-card-border);
+    border-radius: 12px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    text-align: left;
+  }
+  th {
+    background: #1E293B;
+    color: var(--cm-text);
+    padding: 12px 16px;
+    font-weight: 700;
+  }
+  td {
+    padding: 12px 16px;
+    border-top: 1px solid var(--cm-card-border);
+    color: #CBD5E1;
+  }
+  tr:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
+  .related-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .related-card {
+    background: var(--cm-card);
+    border: 1px solid var(--cm-card-border);
+    border-radius: 12px;
+    padding: 18px;
+    display: block;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .related-card:hover {
+    border-color: var(--cm-primary);
+    transform: translateY(-2px);
+  }
+  .related-card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--cm-text);
+    margin-bottom: 6px;
+  }
+  .related-card-desc {
+    font-size: 13px;
+    color: var(--cm-text-secondary);
+    line-height: 1.5;
+  }
+  footer {
+    background: #050811;
+    border-top: 1px solid var(--cm-card-border);
+    padding: 48px 24px 32px 24px;
+    color: var(--cm-text-muted);
+    font-size: 13px;
+  }
+  .footer-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 32px;
+    margin-bottom: 40px;
+  }
+  .footer-col h4 {
+    color: var(--cm-text);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .footer-col ul { list-style: none; margin: 0; padding: 0; }
+  .footer-col li { margin-bottom: 8px; }
+  .footer-col a { color: var(--cm-text-secondary); }
+  .footer-col a:hover { color: var(--cm-text); }
+  .footer-bottom {
+    max-width: 1100px;
+    margin: 0 auto;
+    text-align: center;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .hrvs-credit {
+    font-size: 13px;
+    color: var(--cm-text-secondary);
+    margin-bottom: 6px;
+  }
+  .hrvs-credit strong { color: var(--cm-text); font-weight: 800; }
+  @media (max-width: 640px) {
+    h1 { font-size: 26px; }
+    .header-inner { flex-direction: row; }
+    .nav-links a.hide-mobile { display: none; }
+    .container { padding: 24px 16px 60px 16px; }
+  }
+</style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a href="/" class="logo">
+        <img src="/icon.png" alt="ChipMate Logo" class="logo-icon" />
+        <span><span class="logo-orange">CHIP</span>MATE</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/">Home</a>
+        <a href="/faq">FAQ</a>
+        <a href="/" class="cta-btn-sm">Launch App &rarr;</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container" style="text-align: center; padding: 80px 20px;">
+    <div class="tag-pill" style="margin-bottom: 24px;">404 Error</div>
+    <h1 style="font-size: 40px; margin-bottom: 16px;">This Card Has Been Folded</h1>
+    <p class="lead-p" style="max-width: 520px; margin: 0 auto 36px auto;">The page you are looking for does not exist or has been moved. Choose an option below to get back in the action:</p>
+
+    <div style="display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin-bottom: 48px;">
+      <a href="/" class="cta-btn-lg">Return to Homepage &rarr;</a>
+      <a href="/poker-settlement-calculator" class="cta-btn-sm" style="padding: 14px 24px; font-size: 15px; background: #1E293B; border: 1px solid #334155;">Poker Calculator</a>
+      <a href="/teen-patti-settlement-calculator" class="cta-btn-sm" style="padding: 14px 24px; font-size: 15px; background: #1E293B; border: 1px solid #334155;">Teen Patti Calculator</a>
+    </div>
+
+    <div class="card-box" style="text-align: left; max-width: 600px; margin: 0 auto;">
+      <h3 style="margin-top: 0;">Looking for Game Guides?</h3>
+      <ul style="margin-bottom: 0;">
+        <li><a href="/guides/how-to-settle-a-home-poker-game" style="color: #38BDF8;">How to Settle a Home Poker Game</a></li>
+        <li><a href="/guides/how-to-calculate-teen-patti-settlement" style="color: #38BDF8;">How to Calculate Teen Patti Settlement</a></li>
+        <li><a href="/guides/how-to-track-borrowed-poker-chips" style="color: #38BDF8;">How to Track Borrowed Poker Chips</a></li>
+        <li><a href="/faq" style="color: #38BDF8;">Frequently Asked Questions</a></li>
+      </ul>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-bottom" style="border-top: none;">
+      <p class="hrvs-credit">Made with <span style="color: #ef4444;">❤️</span> by <strong>HRVS</strong></p>
+      <p>&copy; 2026 ChipMate. All rights reserved.</p>
+    </div>
+  </footer>
+</body>
+</html>

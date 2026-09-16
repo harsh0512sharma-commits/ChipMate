@@ -83,6 +83,12 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
     }
   };
 
+  const navigateExternalUrl = (path: string) => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.location.href = path;
+    }
+  };
+
   const faqs = [
     {
       q: 'Do all my friends need to download an app or create an account?',
@@ -199,11 +205,21 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           <View style={[styles.heroRow, isDesktop ? styles.heroRowDesktop : styles.heroRowMobile]}>
             {/* Left Column: Hero Copy & Actions */}
             <View style={[styles.heroLeftCol, { alignItems: isDesktop ? 'flex-start' : 'center' }]}>
+              {/* Single Clear H1 for SEO & Accessibility */}
+              <Text
+                // @ts-ignore
+                accessibilityRole="header"
+                aria-level={1}
+                style={[styles.heroH1Text, { color: colors.primary, textAlign: isDesktop ? 'left' : 'center' }]}
+              >
+                ChipMate – Poker &amp; Teen Patti Settlement Calculator
+              </Text>
+
               {/* Eyebrow Pill */}
               <View style={[styles.heroPill, { backgroundColor: colors.primaryLight, borderColor: colors.primaryBorder }]}>
                 <Sparkles size={13} color={colors.primary} style={{ marginRight: 6 }} />
                 <Text style={[styles.heroPillText, { color: colors.primary }]}>
-                  THE ZERO-SUM CHIP LEDGER & SETTLEMENT ENGINE
+                  THE ZERO-SUM CHIP LEDGER &amp; SETTLEMENT ENGINE
                 </Text>
               </View>
 
@@ -213,9 +229,9 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                 <Text style={{ color: colors.primary }}>Never argue over chips again.</Text>
               </Text>
 
-              {/* Subtitle */}
+              {/* Subtitle with Natural Explanation */}
               <Text style={[styles.heroSubtitle, { color: colors.textSecondary, textAlign: isDesktop ? 'left' : 'center' }]}>
-                Real-time physical chip ledgers, zero-sum debt minimization, and 1-tap WhatsApp settlements for Texas Hold'em and Teen Patti home games.
+                The free real-time chip ledger and debt settlement calculator for home Poker and Teen Patti games. Effortlessly track player buy-ins, physical chip bank vaults, borrowed chips, and player balances with automated zero-sum verification and 1-tap WhatsApp settlements.
               </Text>
 
               {/* Hero CTAs */}
@@ -602,6 +618,63 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
             </View>
           </View>
 
+          {/* Calculators & Guides SEO Directory */}
+          <View style={styles.footerDirectorySection}>
+            <View style={styles.footerDirCol}>
+              <Text style={[styles.footerDirHeader, { color: colors.text }]}>Settlement Calculators</Text>
+              <TouchableOpacity onPress={() => navigateExternalUrl('/teen-patti-settlement-calculator')} style={styles.footerDirLinkTouch}>
+                <Text style={[styles.footerDirLinkText, { color: colors.textSecondary }]}>Teen Patti Settlement Calculator</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigateExternalUrl('/poker-settlement-calculator')} style={styles.footerDirLinkTouch}>
+                <Text style={[styles.footerDirLinkText, { color: colors.textSecondary }]}>Poker Settlement Calculator</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigateExternalUrl('/poker-chip-calculator')} style={styles.footerDirLinkTouch}>
+                <Text style={[styles.footerDirLinkText, { color: colors.textSecondary }]}>Poker Chip Calculator</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigateExternalUrl('/teen-patti-chip-calculator')} style={styles.footerDirLinkTouch}>
+                <Text style={[styles.footerDirLinkText, { color: colors.textSecondary }]}>Teen Patti Chip Calculator</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.footerDirCol}>
+              <Text style={[styles.footerDirHeader, { color: colors.text }]}>Game Settlement Guides</Text>
+              <TouchableOpacity onPress={() => navigateExternalUrl('/guides/how-to-calculate-teen-patti-settlement')} style={styles.footerDirLinkTouch}>
+                <Text style={[styles.footerDirLinkText, { color: colors.textSecondary }]}>How to Calculate Teen Patti Settlement</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigateExternalUrl('/guides/how-to-calculate-poker-settlement')} style={styles.footerDirLinkTouch}>
+                <Text style={[styles.footerDirLinkText, { color: colors.textSecondary }]}>How to Calculate Poker Settlement</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigateExternalUrl('/guides/how-poker-chips-buy-ins-and-settlement-work')} style={styles.footerDirLinkTouch}>
+                <Text style={[styles.footerDirLinkText, { color: colors.textSecondary }]}>How Poker Chips &amp; Buy-ins Work</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigateExternalUrl('/guides/how-to-track-borrowed-poker-chips')} style={styles.footerDirLinkTouch}>
+                <Text style={[styles.footerDirLinkText, { color: colors.textSecondary }]}>How to Track Borrowed Poker Chips</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigateExternalUrl('/guides/how-to-settle-a-home-poker-game')} style={styles.footerDirLinkTouch}>
+                <Text style={[styles.footerDirLinkText, { color: colors.textSecondary }]}>How to Settle a Home Poker Game</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.footerDirCol}>
+              <Text style={[styles.footerDirHeader, { color: colors.text }]}>Resources &amp; Company</Text>
+              <TouchableOpacity onPress={() => navigateExternalUrl('/about')} style={styles.footerDirLinkTouch}>
+                <Text style={[styles.footerDirLinkText, { color: colors.textSecondary }]}>About ChipMate</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigateExternalUrl('/how-it-works')} style={styles.footerDirLinkTouch}>
+                <Text style={[styles.footerDirLinkText, { color: colors.textSecondary }]}>How ChipMate Works</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => navigateExternalUrl('/faq')} style={styles.footerDirLinkTouch}>
+                <Text style={[styles.footerDirLinkText, { color: colors.textSecondary }]}>ChipMate FAQ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setIsPrivacyModalOpen(true)} style={styles.footerDirLinkTouch}>
+                <Text style={[styles.footerDirLinkText, { color: colors.textSecondary }]}>Privacy Policy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setIsContactModalOpen(true)} style={styles.footerDirLinkTouch}>
+                <Text style={[styles.footerDirLinkText, { color: colors.textSecondary }]}>Contact Support</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* Quick Footer Links */}
           <View style={styles.footerLinksRow}>
             <TouchableOpacity onPress={() => setIsPrivacyModalOpen(true)} activeOpacity={0.7} style={styles.footerLinkTouch}>
@@ -619,7 +692,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
 
           {/* Official Attribution requested by user */}
           <Text style={[styles.footerHrvaCredit, { color: colors.textSecondary }]}>
-            Made with <Text style={{ color: '#EF4444' }}>❤️</Text> by <Text style={{ fontWeight: '800', color: colors.text }}>HRVA Solutions</Text>
+            Made with <Text style={{ color: '#EF4444' }}>❤️</Text> by <Text style={{ fontWeight: '800', color: colors.text }}>HRVS</Text>
           </Text>
 
           <Text style={[styles.footerTagline, { color: colors.textMuted }]}>
@@ -680,7 +753,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
 
             <View style={[styles.contactMetaBox, { borderTopColor: colors.borderSubtle }]}>
               <Text style={[styles.contactMetaText, { color: colors.textMuted }]}>
-                ChipMate is engineered and maintained with pride by <Text style={{ color: colors.text, fontWeight: '700' }}>HRVA Solutions</Text>.
+                ChipMate is engineered and maintained with pride by <Text style={{ color: colors.text, fontWeight: '700' }}>HRVS</Text>.
               </Text>
             </View>
           </View>
@@ -711,9 +784,9 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
             </View>
 
             <ScrollView style={styles.privacyScroll} showsVerticalScrollIndicator={true}>
-              <Text style={[styles.privacySectionTitle, { color: colors.text }]}>1. Overview & Commitment</Text>
+              <Text style={[styles.privacySectionTitle, { color: colors.text }]}>1. Overview &amp; Commitment</Text>
               <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
-                ChipMate (developed by HRVA Solutions) is built on the foundation of user privacy and transparency. We do not sell user data, run advertising trackers, or share private table details with third parties.
+                ChipMate (developed by HRVS) is built on the foundation of user privacy and transparency. We do not sell user data, run advertising trackers, or share private table details with third parties.
               </Text>
 
               <Text style={[styles.privacySectionTitle, { color: colors.text }]}>2. Host Account Data</Text>
@@ -726,7 +799,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                 Guest players do NOT need an account, do NOT need to provide an email or phone number, and do NOT need to download an application. Guest statistics are scoped exclusively to the table host's private game group.
               </Text>
 
-              <Text style={[styles.privacySectionTitle, { color: colors.text }]}>4. Zero Financial & Gambling Transactions</Text>
+              <Text style={[styles.privacySectionTitle, { color: colors.text }]}>4. Zero Financial &amp; Gambling Transactions</Text>
               <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
                 ChipMate is an authoritative scorekeeping, physical chip inventory, and debt minimization calculator. ChipMate does NOT process money transfers, does NOT hold player funds, does NOT store bank account or credit card credentials, and does NOT operate as an online gambling service. All settlements generated are mathematical summaries for private peer-to-peer settlement.
               </Text>
@@ -736,9 +809,9 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                 We utilize browser local storage solely to remember authentication session tokens and theme preferences (Day/Night mode) on your device.
               </Text>
 
-              <Text style={[styles.privacySectionTitle, { color: colors.text }]}>6. Data Contact & Controller</Text>
+              <Text style={[styles.privacySectionTitle, { color: colors.text }]}>6. Data Contact &amp; Controller</Text>
               <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
-                If you have questions regarding data privacy or wish to request data deletion, contact HRVA Solutions directly at support@chipmate.online.
+                If you have questions regarding data privacy or wish to request data deletion, contact HRVS directly at support@chipmate.online.
               </Text>
             </ScrollView>
 
@@ -890,6 +963,13 @@ const styles = StyleSheet.create({
     flex: 1,
     maxWidth: 620,
     width: '100%'
+  },
+  heroH1Text: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 10
   },
   heroPill: {
     flexDirection: 'row',
@@ -1333,6 +1413,38 @@ const styles = StyleSheet.create({
   footerBrandRow: {
     flexDirection: 'row',
     alignItems: 'center'
+  },
+  footerDirectorySection: {
+    width: '100%',
+    maxWidth: 960,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 24,
+    paddingVertical: 24,
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.07)'
+  },
+  footerDirCol: {
+    flex: 1,
+    minWidth: 200,
+    gap: 10
+  },
+  footerDirHeader: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+    textTransform: 'uppercase'
+  },
+  footerDirLinkTouch: {
+    paddingVertical: 3
+  },
+  footerDirLinkText: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '500'
   },
   footerLinksRow: {
     flexDirection: 'row',

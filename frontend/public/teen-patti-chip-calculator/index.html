@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Teen Patti Chip Calculator – ChipMate</title>
+  <meta name="title" content="Teen Patti Chip Calculator – ChipMate" />
+  <meta name="description" content="Calculate Teen Patti chip values, boot stack distributions, blind limits, and rebuy values for Indian 3-Patti home games. Fast, accurate, and free." />
+  <meta name="author" content="HRVS" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <link rel="canonical" href="https://chipmate.online/teen-patti-chip-calculator" />
+
+  <!-- Open Graph / Facebook / WhatsApp -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="ChipMate" />
+  <meta property="og:url" content="https://chipmate.online/teen-patti-chip-calculator" />
+  <meta property="og:title" content="Teen Patti Chip Calculator – ChipMate" />
+  <meta property="og:description" content="Calculate Teen Patti chip values, boot stack distributions, blind limits, and rebuy values for Indian 3-Patti home games. Fast, accurate, and free." />
+  <meta property="og:image" content="https://chipmate.online/icon.png" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://chipmate.online/teen-patti-chip-calculator" />
+  <meta name="twitter:title" content="Teen Patti Chip Calculator – ChipMate" />
+  <meta name="twitter:description" content="Calculate Teen Patti chip values, boot stack distributions, blind limits, and rebuy values for Indian 3-Patti home games. Fast, accurate, and free." />
+  <meta name="twitter:image" content="https://chipmate.online/icon.png" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  <style>
+  :root {
+    --cm-bg: #080C16;
+    --cm-surface: #0F172A;
+    --cm-card: #111827;
+    --cm-card-border: #1F2937;
+    --cm-primary: #EA580C;
+    --cm-primary-hover: #F97316;
+    --cm-emerald: #10B981;
+    --cm-text: #F8FAFC;
+    --cm-text-secondary: #94A3B8;
+    --cm-text-muted: #64748B;
+    --cm-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: var(--cm-bg);
+    color: var(--cm-text);
+    font-family: var(--cm-font);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(8, 12, 22, 0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--cm-card-border);
+    padding: 14px 24px;
+  }
+  .header-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+  }
+  .logo-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+  }
+  .logo-orange { color: var(--cm-primary); }
+  .nav-links {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cm-text-secondary);
+  }
+  .nav-links a:hover { color: var(--cm-text); }
+  .cta-btn-sm {
+    background: linear-gradient(135deg, #EA580C, #F97316);
+    color: #FFF !important;
+    font-weight: 800;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cta-btn-sm:hover { opacity: 0.95; transform: translateY(-1px); }
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 20px 80px 20px;
+  }
+  .breadcrumbs {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--cm-text-muted);
+    margin-bottom: 24px;
+    align-items: center;
+  }
+  .breadcrumbs a { color: var(--cm-text-secondary); }
+  .breadcrumbs a:hover { color: var(--cm-text); }
+  .tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--cm-primary);
+    background: rgba(234, 88, 12, 0.12);
+    border: 1px solid rgba(234, 88, 12, 0.25);
+    padding: 5px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.5px;
+    margin-bottom: 16px;
+    color: var(--cm-text);
+  }
+  .lead-p {
+    font-size: 17px;
+    color: var(--cm-text-secondary);
+    line-height: 1.7;
+    margin-bottom: 32px;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-top: 36px;
+    margin-bottom: 16px;
+    color: var(--cm-text);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 8px;
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-top: 24px;
+    margin-bottom: 10px;
+    color: var(--cm-text);
+  }
+  p {
+    font-size: 15px;
+    color: #CBD5E1;
+    line-height: 1.75;
+    margin-bottom: 18px;
+  }
+  ul, ol {
+    margin-left: 24px;
+    margin-bottom: 24px;
+    color: #CBD5E1;
+    font-size: 15px;
+    line-height: 1.8;
+  }
+  li { margin-bottom: 8px; }
+  strong { color: var(--cm-text); font-weight: 700; }
+  code {
+    background: #1E293B;
+    color: #38BDF8;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13.5px;
+    font-family: monospace;
+  }
+  .card-box {
+    background: var(--cm-surface);
+    border: 1px solid var(--cm-card-border);
+    border-radius: 14px;
+    padding: 24px;
+    margin: 28px 0;
+  }
+  .formula-box {
+    background: rgba(16, 185, 129, 0.06);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 24px 0;
+  }
+  .formula-title {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--cm-emerald);
+    margin-bottom: 8px;
+  }
+  .formula-math {
+    font-size: 18px;
+    font-weight: 700;
+    color: #FFF;
+    font-family: monospace;
+  }
+  .cta-banner {
+    background: linear-gradient(135deg, rgba(234, 88, 12, 0.15), rgba(15, 23, 42, 0.9));
+    border: 1px solid rgba(234, 88, 12, 0.4);
+    border-radius: 16px;
+    padding: 36px 28px;
+    text-align: center;
+    margin: 48px 0;
+  }
+  .cta-banner h3 {
+    font-size: 24px;
+    margin-bottom: 12px;
+    color: #FFF;
+  }
+  .cta-banner p {
+    color: var(--cm-text-secondary);
+    max-width: 580px;
+    margin: 0 auto 24px auto;
+    font-size: 15px;
+  }
+  .cta-btn-lg {
+    background: linear-gradient(135deg, #EA580C, #F97316);
+    color: #FFF !important;
+    font-weight: 800;
+    font-size: 16px;
+    padding: 14px 32px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 20px rgba(234, 88, 12, 0.4);
+  }
+  .cta-btn-lg:hover { opacity: 0.92; }
+  .table-wrap {
+    overflow-x: auto;
+    margin: 24px 0;
+    border: 1px solid var(--cm-card-border);
+    border-radius: 12px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    text-align: left;
+  }
+  th {
+    background: #1E293B;
+    color: var(--cm-text);
+    padding: 12px 16px;
+    font-weight: 700;
+  }
+  td {
+    padding: 12px 16px;
+    border-top: 1px solid var(--cm-card-border);
+    color: #CBD5E1;
+  }
+  tr:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
+  .related-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .related-card {
+    background: var(--cm-card);
+    border: 1px solid var(--cm-card-border);
+    border-radius: 12px;
+    padding: 18px;
+    display: block;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .related-card:hover {
+    border-color: var(--cm-primary);
+    transform: translateY(-2px);
+  }
+  .related-card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--cm-text);
+    margin-bottom: 6px;
+  }
+  .related-card-desc {
+    font-size: 13px;
+    color: var(--cm-text-secondary);
+    line-height: 1.5;
+  }
+  footer {
+    background: #050811;
+    border-top: 1px solid var(--cm-card-border);
+    padding: 48px 24px 32px 24px;
+    color: var(--cm-text-muted);
+    font-size: 13px;
+  }
+  .footer-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 32px;
+    margin-bottom: 40px;
+  }
+  .footer-col h4 {
+    color: var(--cm-text);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .footer-col ul { list-style: none; margin: 0; padding: 0; }
+  .footer-col li { margin-bottom: 8px; }
+  .footer-col a { color: var(--cm-text-secondary); }
+  .footer-col a:hover { color: var(--cm-text); }
+  .footer-bottom {
+    max-width: 1100px;
+    margin: 0 auto;
+    text-align: center;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .hrvs-credit {
+    font-size: 13px;
+    color: var(--cm-text-secondary);
+    margin-bottom: 6px;
+  }
+  .hrvs-credit strong { color: var(--cm-text); font-weight: 800; }
+  @media (max-width: 640px) {
+    h1 { font-size: 26px; }
+    .header-inner { flex-direction: row; }
+    .nav-links a.hide-mobile { display: none; }
+    .container { padding: 24px 16px 60px 16px; }
+  }
+</style>
+
+  <script type="application/ld+json">
+  {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://chipmate.online/#org",
+      "name": "ChipMate by HRVS",
+      "url": "https://chipmate.online/",
+      "logo": "https://chipmate.online/icon.png"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://chipmate.online/teen-patti-chip-calculator#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://chipmate.online/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Teen Patti Chip Calculator",
+          "item": "https://chipmate.online/teen-patti-chip-calculator"
+        }
+      ]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "ChipMate Teen Patti Chip Calculator",
+      "applicationCategory": "GameApplication, UtilityApplication",
+      "operatingSystem": "All (Web, iOS, Android)",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "description": "Free Teen Patti chip calculator and boot stack distribution engine."
+    }
+  ]
+}
+  </script>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a href="/" class="logo">
+        <img src="/icon.png" alt="ChipMate Logo" class="logo-icon" />
+        <span><span class="logo-orange">CHIP</span>MATE</span>
+      </a>
+      <nav class="nav-links">
+        <a href="/poker-settlement-calculator" class="hide-mobile">Poker</a>
+        <a href="/teen-patti-settlement-calculator" class="hide-mobile">Teen Patti</a>
+        <a href="/guides/how-to-settle-a-home-poker-game" class="hide-mobile">Guides</a>
+        <a href="/faq">FAQ</a>
+        <a href="/" class="cta-btn-sm">Launch App &rarr;</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="breadcrumbs">
+      <a href="https://chipmate.online/">Home</a> <span>&gt;</span> <span>Teen Patti Chip Calculator</span>
+    </div>
+
+    <div class="tag-pill">3-Patti Chip Manager</div>
+
+    <h1>Teen Patti Chip Calculator & Boot Manager</h1>
+
+    <p class="lead-p">Calculate Teen Patti chip values, boot stack distributions, and fast rebuy packs for 3-Patti home games. Keep blind rounds flowing smoothly without chip shortages.</p>
+
+    
+      <h2>Why Teen Patti Requires Unique Chip Calculations</h2>
+      <p>Teen Patti has a very different chip velocity than Texas Hold'em. In poker, only two players post blinds each hand. In Teen Patti, <strong>every single player posts a boot amount before every hand</strong>. In a 7-player game, 7 chips enter the pot on every deal, meaning small-denomination chips circulate at triple the speed of a poker table.</p>
+      <p>If you don't calculate your chip tray properly, the table will run out of small chips within 45 minutes, stalling the game while people exchange bills or make change.</p>
+
+      <h2>Recommended Chip Structure for Home 3-Patti</h2>
+      <p>For a standard Diwali or weekend game with ₹100 or ₹200 buy-in packs and ₹5 or ₹10 boots:</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Chip Color</th>
+              <th>Recommended Value</th>
+              <th>Purpose in Teen Patti</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>White</strong></td>
+              <td>₹5 or ₹10</td>
+              <td>Boot Pot & Blind Bets (Keep at least 150 chips in bank)</td>
+            </tr>
+            <tr>
+              <td><strong>Red</strong></td>
+              <td>₹25 or ₹50</td>
+              <td>Chaal & Double Chaal rounds</td>
+            </tr>
+            <tr>
+              <td><strong>Blue / Green</strong></td>
+              <td>₹100 or ₹200</td>
+              <td>Sideshows, Deep Showdowns & Large Pots</td>
+            </tr>
+            <tr>
+              <td><strong>Black</strong></td>
+              <td>₹500</td>
+              <td>High Rebuy Reserves (kept in the Host Bank)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Standardized Rebuy Packs for Fast Play</h2>
+      <p>To avoid pausing the game every time a player busts out, hosts should pre-bundle standardized <strong>Rebuy Packs</strong>. When a player says "rebuy", the host taps 1 button in ChipMate and hands them an identical pre-counted bundle:</p>
+      <ul>
+        <li><strong>Standard ₹500 Pack:</strong> 10 Whites (₹100) + 8 Reds (₹200) + 2 Blues (₹200).</li>
+        <li><strong>Fast Rebuy in ChipMate:</strong> The host logs the buy-in with one click, updating the player's balance without disrupting the current hand.</li>
+      </ul>
+
+      <h2>Related Calculators & Guides</h2>
+      <div class="related-grid">
+        <a href="/teen-patti-settlement-calculator" class="related-card">
+          <div class="related-card-title">Teen Patti Settlement Calculator</div>
+          <div class="related-card-desc">Calculate end-of-night net profit/loss and minimize UPI payments.</div>
+        </a>
+        <a href="/guides/how-to-calculate-teen-patti-settlement" class="related-card">
+          <div class="related-card-title">How to Calculate Teen Patti Settlement</div>
+          <div class="related-card-desc">Step-by-step accounting guide for boots, rebuys, and zero-sum payouts.</div>
+        </a>
+      </div>
+    
+
+    <div class="cta-banner">
+      <h3>Ready to settle your home game in 30 seconds?</h3>
+      <p>Stop arguing over missing chips and confusing late-night math. ChipMate gives you real-time chip counts, zero-sum verification, and 1-tap WhatsApp debt settlement.</p>
+      <a href="/" class="cta-btn-lg">Start Free Game on ChipMate &rarr;</a>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-col">
+        <h4>Settlement Calculators</h4>
+        <ul>
+          <li><a href="/teen-patti-settlement-calculator">Teen Patti Settlement Calculator</a></li>
+          <li><a href="/poker-settlement-calculator">Poker Settlement Calculator</a></li>
+          <li><a href="/poker-chip-calculator">Poker Chip Calculator</a></li>
+          <li><a href="/teen-patti-chip-calculator">Teen Patti Chip Calculator</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Home Game Guides</h4>
+        <ul>
+          <li><a href="/guides/how-to-calculate-teen-patti-settlement">How to Calculate Teen Patti Settlement</a></li>
+          <li><a href="/guides/how-to-calculate-poker-settlement">How to Calculate Poker Settlement</a></li>
+          <li><a href="/guides/how-poker-chips-buy-ins-and-settlement-work">How Poker Chips & Buy-ins Work</a></li>
+          <li><a href="/guides/how-to-track-borrowed-poker-chips">How to Track Borrowed Chips</a></li>
+          <li><a href="/guides/how-to-settle-a-home-poker-game">How to Settle a Home Poker Game</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Product & Company</h4>
+        <ul>
+          <li><a href="/">ChipMate Home</a></li>
+          <li><a href="/how-it-works">How It Works</a></li>
+          <li><a href="/faq">Frequently Asked Questions</a></li>
+          <li><a href="/about">About ChipMate</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p class="hrvs-credit">Made with <span style="color: #ef4444;">❤️</span> by <strong>HRVS</strong></p>
+      <p>&copy; 2026 ChipMate. All rights reserved. 100% Free Home Game Chip Ledger.</p>
+    </div>
+  </footer>
+</body>
+</html>

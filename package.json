@@ -1,12 +1,12 @@
 {
   "name": "chipmate",
-  "version": "1.1.45",
+  "version": "1.1.46",
   "description": "ChipMate - Real-Time Home Game Chip Ledger, Settlement & Player Statistics Application",
   "scripts": {
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run web",
     "build:backend": "cd backend && npm run build",
-    "build:frontend": "cd frontend && npx expo export -p web",
+    "build:frontend": "cd frontend && node scripts/generate-seo-pages.js && npx expo export -p web",
     "start:backend": "cd backend && npm start",
     "test": "cd backend && npm test"
   },

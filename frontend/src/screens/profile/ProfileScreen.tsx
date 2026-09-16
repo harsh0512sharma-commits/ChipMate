@@ -773,7 +773,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <View style={styles.versionFooter}>
           <Text style={styles.versionFooterText}>ChipMate v{APP_BUILD_VERSION}</Text>
           <Text style={styles.versionSubText}>Zero-Sum Card Ledger</Text>
-          <Text style={styles.madeWithLoveText}>Made with ❤️ by HRVS Solutions</Text>
+          <Text style={styles.madeWithLoveText}>Made with ❤️ by HRVS</Text>
         </View>
       </ScrollView>
     </View>

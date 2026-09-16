@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.45',
+      version: '1.1.46',
       buildTime: Date.now(),
-      releaseNotes: 'Comprehensive SEO engine, robots.txt, sitemap.xml, sequential landing flow, mobile button clipping fix, Contact Us, Privacy Policy, and HRVA Solutions attribution.'
+      releaseNotes: 'Production SEO Foundation: dedicated public landing pages, guides, calculator routes, sitemap.xml, 404 handler, JSON-LD schemas, and HRVS attribution.'
     });
   };
   app.get('/version', versionHandler);
