@@ -50,7 +50,7 @@ export function createApp() {
 
   const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: isTest ? 10000 : 600, // 600 requests / 15 min per IP (~40 req/min for real-time table sync)
+    limit: isTest ? 10000 : 1500, // 1,500 requests / 15 min per IP (generous for multi-player games on shared Wi-Fi)
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: {
@@ -60,24 +60,24 @@ export function createApp() {
   });
 
   const authOtpLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000, // 10 minutes
-    limit: isTest ? 1000 : 10, // 10 OTP requests per 10 minutes per IP
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    limit: isTest ? 1000 : 30, // 30 OTP requests per 15 minutes per IP (supports multiple players on same Wi-Fi)
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: {
       success: false,
-      error: 'Too many OTP requests from this IP. Please wait a few minutes before trying again.'
+      error: 'Too many OTP requests from this network. Please wait a few minutes before trying again.'
     }
   });
 
   const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: isTest ? 1000 : 20, // 20 login attempts per 15 minutes per IP
+    limit: isTest ? 1000 : 60, // 60 login attempts per 15 minutes per IP
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: {
       success: false,
-      error: 'Too many login attempts. Please wait 15 minutes before trying again.'
+      error: 'Too many login attempts from this network. Please wait a few minutes before trying again.'
     }
   });
 
