@@ -1826,7 +1826,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                                     style={[styles.counterBtnSmall, count <= 0 && { opacity: 0.35 }]}
                                     disabled={count <= 0}
                                   >
-                                    <Minus size={12} color="#FFF" />
+                                    <Minus size={12} color={colors.text} />
                                   </TouchableOpacity>
                                   <TextInput
                                     style={styles.counterInputSmall}
@@ -1838,7 +1838,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
                                     onPress={() => updateFinalPlayerDenom(p.id, item.denom, 1)}
                                     style={styles.counterBtnSmall}
                                   >
-                                    <Plus size={12} color="#FFF" />
+                                    <Plus size={12} color={colors.text} />
                                   </TouchableOpacity>
                                 </View>
                                 <Text style={styles.denomRowSubtotal}>₹{(count * item.denom).toLocaleString('en-IN')}</Text>
@@ -2678,8 +2678,8 @@ const styles = StyleSheet.create({
     width: 90
   },
   finalChipInput: {
-    backgroundColor: colors.cardInset,
-    borderWidth: 1,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1.5,
     borderColor: colors.borderDark,
     borderRadius: 8,
     color: colors.text,
@@ -2735,7 +2735,7 @@ const styles = StyleSheet.create({
     marginLeft: 6
   },
   guestBadgeText: {
-    color: '#E2E8F0',
+    color: colors.textSecondary,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5
@@ -2750,15 +2750,15 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     borderRadius: 12,
     backgroundColor: colors.cardRaised,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 1.5,
+    borderColor: colors.borderDark,
     alignItems: 'center',
     justifyContent: 'center'
   },
   modalCancelBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#F8FAFC'
+    color: colors.textSecondary
   },
   modalConfirmBtn: {
     flex: 1.6,
@@ -2847,7 +2847,7 @@ const styles = StyleSheet.create({
     height: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)'
+    backgroundColor: colors.cardRaised
   },
   counterInputSmall: {
     width: 34,
@@ -2890,9 +2890,9 @@ const styles = StyleSheet.create({
   directValueBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.cardInset,
+    backgroundColor: colors.cardRaised,
     borderRadius: 6,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.borderDark,
     paddingHorizontal: 8,
     height: 32

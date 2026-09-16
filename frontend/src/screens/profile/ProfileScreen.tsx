@@ -726,8 +726,8 @@ const styles = StyleSheet.create({
     marginBottom: 6
   },
   nameInput: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1.5,
     borderColor: colors.borderDark,
     borderRadius: 10,
     paddingHorizontal: 12,
@@ -780,8 +780,8 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle
+    borderWidth: 1.5,
+    borderColor: colors.borderDark
   },
   avatarWrapper: {
     alignItems: 'center',
@@ -847,8 +847,8 @@ const styles = StyleSheet.create({
     marginBottom: 16
   },
   friendCodeBox: {
-    backgroundColor: colors.cardInset,
-    borderWidth: 1,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1.5,
     borderColor: colors.borderDark,
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -883,8 +883,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 18,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle
+    borderWidth: 1.5,
+    borderColor: colors.borderDark
   },
   sectionTitle: {
     fontSize: 11,

@@ -773,13 +773,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary
   },
   customInput: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1.5,
+    borderColor: colors.borderDark,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.text,
     width: 90,

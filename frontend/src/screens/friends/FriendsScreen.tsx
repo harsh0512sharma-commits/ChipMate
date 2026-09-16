@@ -645,9 +645,9 @@ const styles = StyleSheet.create({
   },
   modalInput: {
     flex: 1,
-    backgroundColor: colors.cardInset,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1.5,
+    borderColor: colors.borderDark,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,

@@ -908,9 +908,9 @@ const styles = StyleSheet.create({
     fontWeight: '700'
   },
   input: {
-    backgroundColor: colors.cardInset,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1.5,
+    borderColor: colors.borderDark,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,

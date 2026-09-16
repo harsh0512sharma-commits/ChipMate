@@ -52,15 +52,19 @@
         outline: none !important;
         -webkit-tap-highlight-color: transparent;
         background-color: transparent !important;
-        color: #F8FAFC !important;
+        color: var(--cm-text, #F8FAFC) !important;
+      }
+      input::placeholder, textarea::placeholder {
+        color: var(--cm-text-muted, #94A3B8) !important;
+        opacity: 0.85 !important;
       }
       input:-webkit-autofill,
       input:-webkit-autofill:hover,
       input:-webkit-autofill:focus,
       input:-webkit-autofill:active {
-        -webkit-box-shadow: 0 0 0 1000px #12151C inset !important;
-        -webkit-text-fill-color: #F8FAFC !important;
-        caret-color: #EB5E28 !important;
+        -webkit-box-shadow: 0 0 0 1000px var(--cm-card-inset, #12151C) inset !important;
+        -webkit-text-fill-color: var(--cm-text, #F8FAFC) !important;
+        caret-color: var(--cm-primary, #2563EB) !important;
         transition: background-color 5000s ease-in-out 0s;
       }
     </style>

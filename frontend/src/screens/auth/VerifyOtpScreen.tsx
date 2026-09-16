@@ -396,25 +396,25 @@ const styles = StyleSheet.create({
     flex: 1,
     maxWidth: 50,
     height: 54,
-    backgroundColor: '#12151C',
+    backgroundColor: colors.cardRaised,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#242A36',
+    borderColor: colors.borderDark,
     justifyContent: 'center',
     alignItems: 'center'
   },
   otpBoxActive: {
     borderColor: colors.primary,
-    backgroundColor: '#161922'
+    backgroundColor: colors.cardInset
   },
   otpBoxFilled: {
-    borderColor: 'rgba(235, 94, 40, 0.4)',
-    backgroundColor: '#161922'
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.cardRaised
   },
   otpDigitText: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#F8FAFC',
+    color: colors.text,
     textAlign: 'center'
   },
   otpNativeHiddenInput: {

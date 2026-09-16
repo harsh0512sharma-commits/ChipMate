@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     fontWeight: '500'
   },
   input: {
-    backgroundColor: colors.cardInset,
+    backgroundColor: colors.cardRaised,
     borderWidth: 1.5,
     borderColor: colors.primaryBorder,
     borderRadius: 14,

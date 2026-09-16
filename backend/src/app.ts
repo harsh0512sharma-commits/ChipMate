@@ -18,7 +18,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.33',
+      version: '1.1.34',
       timestamp: new Date().toISOString()
     });
   });
@@ -26,9 +26,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.33',
+      version: '1.1.34',
       buildTime: Date.now(),
-      releaseNotes: 'Final Results & Rankings in Game Summary matching Game Ledger, Day Mode color contrast fixes across Buy-in, Cash-out, Share Ledger, and Player Cards.'
+      releaseNotes: 'Fix Day Mode contrast across all text inputs (Sign-up/Login, Join Game, Create Table, Buy-In, Loans, Cash-Out, End Game, Friends), cancel buttons, and distinct profile card borders.'
     });
   };
   app.get('/version', versionHandler);

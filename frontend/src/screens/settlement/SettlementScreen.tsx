@@ -706,7 +706,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                                     style={[styles.counterBtnSmall, count <= 0 && { opacity: 0.35 }]}
                                     disabled={count <= 0}
                                   >
-                                    <Minus size={12} color="#FFF" />
+                                    <Minus size={12} color={colors.text} />
                                   </TouchableOpacity>
                                   <TextInput
                                     style={styles.counterInputSmall}
@@ -718,7 +718,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
                                     onPress={() => updatePlayerDenom(p.playerId, item.denom, 1)}
                                     style={styles.counterBtnSmall}
                                   >
-                                    <Plus size={12} color="#FFF" />
+                                    <Plus size={12} color={colors.text} />
                                   </TouchableOpacity>
                                 </View>
                                 <Text style={styles.denomRowSubtotal}>₹{(count * item.denom).toLocaleString('en-IN')}</Text>
@@ -1223,7 +1223,7 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     borderRadius: 12,
     backgroundColor: colors.cardRaised,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.borderDark,
     alignItems: 'center',
     justifyContent: 'center'
@@ -1231,7 +1231,7 @@ const styles = StyleSheet.create({
   modalCancelBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#F8FAFC'
+    color: colors.textSecondary
   },
   modalConfirmBtn: {
     flex: 1.3,
@@ -1421,7 +1421,7 @@ const styles = StyleSheet.create({
   },
   chipInputBox: {
     width: 72,
-    backgroundColor: colors.cardInset,
+    backgroundColor: colors.cardRaised,
     color: colors.text,
     fontSize: 16,
     fontWeight: '700',
@@ -1429,8 +1429,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 8,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle
+    borderWidth: 1.5,
+    borderColor: colors.borderDark
   },
   chipsSuffix: {
     fontSize: 12,
@@ -1511,7 +1511,7 @@ const styles = StyleSheet.create({
     height: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)'
+    backgroundColor: colors.cardRaised
   },
   counterInputSmall: {
     width: 34,
@@ -1554,9 +1554,9 @@ const styles = StyleSheet.create({
   directValueBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.cardInset,
+    backgroundColor: colors.cardRaised,
     borderRadius: 6,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.borderDark,
     paddingHorizontal: 8,
     height: 32

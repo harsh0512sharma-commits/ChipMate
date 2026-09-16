@@ -728,9 +728,9 @@ const styles = StyleSheet.create({
   joinInput: {
     flex: 1,
     minWidth: 0,
-    backgroundColor: colors.cardInset,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1.5,
+    borderColor: colors.borderDark,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,

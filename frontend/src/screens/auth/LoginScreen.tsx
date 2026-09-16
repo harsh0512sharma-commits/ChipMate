@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: colors.textMuted,
+    color: colors.textSecondary,
     letterSpacing: 0.6
   },
   fieldHint: {
@@ -600,9 +600,9 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#11141B',
+    backgroundColor: colors.cardRaised,
     borderWidth: 1.5,
-    borderColor: '#232936',
+    borderColor: colors.borderDark,
     borderRadius: 14,
     paddingHorizontal: 16,
     height: 54,
@@ -610,13 +610,13 @@ const styles = StyleSheet.create({
   },
   inputRowFocused: {
     borderColor: colors.primary,
-    backgroundColor: '#151922'
+    backgroundColor: colors.cardInset
   },
   input: {
     flex: 1,
     height: '100%',
     fontSize: 16,
-    color: '#F8FAFC',
+    color: colors.text,
     paddingVertical: 0,
     backgroundColor: 'transparent',
     ...(Platform.OS === 'web' ? {

@@ -62,9 +62,9 @@ export const lightColors = {
   cardInset: '#F8FAFC',
 
   // Clean Slate Borders
-  border: '#E2E8F0',
+  border: '#CBD5E1',
   borderSubtle: '#E2E8F0',
-  borderDark: '#CBD5E1',
+  borderDark: '#94A3B8',
 
   // Typography
   text: '#0F172A',

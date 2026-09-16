@@ -791,9 +791,9 @@ const styles = StyleSheet.create({
     marginBottom: 10
   },
   input: {
-    backgroundColor: colors.cardInset,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1.5,
+    borderColor: colors.borderDark,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -1238,9 +1238,9 @@ const styles = StyleSheet.create({
     color: '#FFF'
   },
   pokerDenomInput: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    backgroundColor: colors.cardRaised,
+    borderWidth: 1.5,
+    borderColor: colors.borderDark,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
