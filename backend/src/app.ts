@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.42',
+      version: '1.1.43',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.42',
+      version: '1.1.43',
       buildTime: Date.now(),
-      releaseNotes: 'Promote backend URL to official https://api.chipmate.online across all API requests and live WebSockets.'
+      releaseNotes: 'Marketing landing page with hero video showcase, dual-route smart onboarding, and desktop header symbol-only theme toggle.'
     });
   };
   app.get('/version', versionHandler);

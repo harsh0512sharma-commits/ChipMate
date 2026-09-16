@@ -1,5 +1,5 @@
 {
-  "version": "1.1.42",
-  "buildTime": 1789587000000,
-  "releaseNotes": "Promote backend URL to official https://api.chipmate.online across all API requests and live WebSockets."
+  "version": "1.1.43",
+  "buildTime": 1789588000000,
+  "releaseNotes": "Marketing landing page with hero video showcase, dual-route smart onboarding, and desktop header symbol-only theme toggle."
 }

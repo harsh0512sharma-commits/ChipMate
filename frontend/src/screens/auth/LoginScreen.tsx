@@ -35,9 +35,10 @@ import { ChipMateLogo, ChipMateWordmark } from '../../components/ChipMateBrand';
 
 interface LoginScreenProps {
   onOtpSent: (email: string, devOtp?: string, phoneNumber?: string, name?: string) => void;
+  onBackToLanding?: () => void;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent, onBackToLanding }) => {
   const { login } = useAuth();
   const [authMode, setAuthMode] = useState<'LOGIN' | 'SIGNUP' | 'FORGOT_PASSWORD'>('LOGIN');
 
@@ -263,6 +264,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onOtpSent }) => {
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
+          {onBackToLanding && (
+            <TouchableOpacity
+              onPress={onBackToLanding}
+              style={styles.backToOverviewBtn}
+              activeOpacity={0.7}
+            >
+              <ArrowLeft size={15} color={colors.textSecondary} />
+              <Text style={styles.backToOverviewText}>Back to Overview</Text>
+            </TouchableOpacity>
+          )}
+
           {/* Brand Logo & Header */}
           <View style={styles.logoRow}>
             <ChipMateLogo size={76} borderRadius={16} />
@@ -1074,5 +1086,21 @@ const styles = StyleSheet.create({
   resendCooldownText: {
     fontSize: 12,
     color: colors.textMuted
+  },
+  backToOverviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: colors.cardRaised
+  },
+  backToOverviewText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginLeft: 6
   }
 });

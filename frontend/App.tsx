@@ -35,6 +35,7 @@ import { APP_BUILD_VERSION } from './src/version';
 import { ChipMateLogo, ChipMateWordmark } from './src/components/ChipMateBrand';
 
 // Screens
+import { LandingScreen } from './src/screens/landing/LandingScreen';
 import { LoginScreen } from './src/screens/auth/LoginScreen';
 import { VerifyOtpScreen } from './src/screens/auth/VerifyOtpScreen';
 import { HomeScreen } from './src/screens/home/HomeScreen';
@@ -85,6 +86,7 @@ function MainNavigator() {
   const [h2hUserId, setH2hUserId] = useState<string | null>(null);
   const [isSplashDone, setIsSplashDone] = useState(false);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [showLanding, setShowLanding] = useState<boolean>(true);
 
   // Check for public ledger link in URL (?ledger=<id> or ?public_ledger=<id>)
   const [publicLedgerTableId, setPublicLedgerTableId] = useState<string | null>(() => {
@@ -168,7 +170,8 @@ function MainNavigator() {
     );
   }
 
-  if (!isSplashDone) {
+  // Returning authenticated user: play the signature cinematic splash once
+  if (token && user && !isSplashDone) {
     return (
       <SplashScreen
         isLoading={isLoading}
@@ -188,6 +191,15 @@ function MainNavigator() {
 
   // Not authenticated
   if (!token || !user) {
+    if (showLanding) {
+      return (
+        <LandingScreen
+          onEnterApp={() => setShowLanding(false)}
+          onOpenSampleLedger={() => setShowLanding(false)}
+        />
+      );
+    }
+
     if (authStep === 'LOGIN') {
       return (
         <LoginScreen
@@ -198,6 +210,7 @@ function MainNavigator() {
             setAuthName(name);
             setAuthStep('OTP');
           }}
+          onBackToLanding={() => setShowLanding(true)}
         />
       );
     }
@@ -430,7 +443,21 @@ function MainNavigator() {
               </TouchableOpacity>
             )}
 
-            {/* Player Name and Avatar (Always visible on desktop top bar) */}
+            {/* Day / Night Mode Switch Button (Symbol only, placed to the left of Player Profile) */}
+            <TouchableOpacity
+              style={styles.desktopThemeToggleBtn}
+              onPress={toggleTheme}
+              activeOpacity={0.75}
+              accessibilityLabel={isDark ? 'Switch to Day Mode' : 'Switch to Night Mode'}
+            >
+              {isDark ? (
+                <Sun size={17} color="#FBBF24" />
+              ) : (
+                <Moon size={17} color="#2563EB" />
+              )}
+            </TouchableOpacity>
+
+            {/* Player Name and Avatar (At the very top-right corner) */}
             <TouchableOpacity
               onPress={() => {
                 setProfileSubView('MAIN');
@@ -447,26 +474,6 @@ function MainNavigator() {
               <Text style={styles.desktopUserName} numberOfLines={1}>
                 {user?.display_name || 'Player'}
               </Text>
-            </TouchableOpacity>
-
-            {/* Day / Night Mode Switch Button (Always visible on desktop top bar) */}
-            <TouchableOpacity
-              style={styles.desktopThemeToggleBtn}
-              onPress={toggleTheme}
-              activeOpacity={0.75}
-              accessibilityLabel={isDark ? 'Switch to Day Mode' : 'Switch to Night Mode'}
-            >
-              {isDark ? (
-                <>
-                  <Sun size={17} color="#FBBF24" />
-                  <Text style={styles.desktopThemeToggleText}>Day</Text>
-                </>
-              ) : (
-                <>
-                  <Moon size={17} color="#2563EB" />
-                  <Text style={[styles.desktopThemeToggleText, { color: '#2563EB' }]}>Night</Text>
-                </>
-              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -942,20 +949,14 @@ const styles = StyleSheet.create({
     maxWidth: 140
   },
   desktopThemeToggleBtn: {
-    flexDirection: 'row',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.cardRaised,
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: colors.borderDark,
-    gap: 6
-  },
-  desktopThemeToggleText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.text
+    borderColor: colors.borderDark
   },
   desktopMainRow: {
     flex: 1,
