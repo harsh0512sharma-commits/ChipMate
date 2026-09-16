@@ -9,7 +9,8 @@ import {
   ScrollView,
   Platform,
   KeyboardAvoidingView,
-  ActivityIndicator
+  ActivityIndicator,
+  useWindowDimensions
 } from 'react-native';
 import { X, LogOut, AlertCircle, Coins, ArrowRight, CheckCircle2, Minus, Plus } from 'lucide-react-native';
 import { colors } from '../theme/colors';
@@ -45,6 +46,9 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
   const [moneyValueStr, setMoneyValueStr] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   const isValueMode = chipMode === 'VALUE';
   const isDenomMode = chipMode === 'DENOMINATION';
@@ -166,7 +170,7 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
         style={styles.overlay}
       >
-        <View style={styles.container}>
+        <View style={[styles.container, isDesktop && styles.containerDesktop]}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
@@ -187,7 +191,8 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
 
           <ScrollView
             style={{ flex: 1 }}
-            contentContainerStyle={styles.content}
+            contentContainerStyle={[styles.content, isDesktop && styles.contentDesktop]}
+            showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
             {/* Current Player Standing Summary */}
@@ -435,12 +440,15 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginHorizontal: 'auto'
   },
+  containerDesktop: {
+    maxWidth: 540
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSubtle
   },
@@ -449,38 +457,41 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   iconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     backgroundColor: 'rgba(56, 189, 248, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12
+    marginRight: 10
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.text
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textMuted,
-    marginTop: 2
+    marginTop: 1
   },
   closeBtn: {
     padding: 6
   },
   content: {
-    padding: 20
+    padding: 14
+  },
+  contentDesktop: {
+    padding: 16
   },
   standingCard: {
     flexDirection: 'row',
     backgroundColor: colors.cardRaised,
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 10,
+    padding: 10,
     borderWidth: 1,
     borderColor: colors.borderDark,
-    marginBottom: 18
+    marginBottom: 10
   },
   standingCol: {
     flex: 1,
@@ -489,34 +500,34 @@ const styles = StyleSheet.create({
   standingDivider: {
     width: 1,
     backgroundColor: colors.borderDark,
-    marginHorizontal: 12
+    marginHorizontal: 10
   },
   standingLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     color: colors.textMuted,
     letterSpacing: 0.5,
-    marginBottom: 4
+    marginBottom: 2
   },
   standingValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: colors.text
   },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: colors.textMuted,
-    marginBottom: 8,
+    marginBottom: 6,
     letterSpacing: 0.6
   },
   inputCard: {
     backgroundColor: colors.cardRaised,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderColor: '#38bdf8',
-    padding: 8,
-    marginBottom: 10
+    padding: 6,
+    marginBottom: 8
   },
   stepperRow: {
     flexDirection: 'row',
@@ -581,13 +592,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    gap: 8,
-    marginBottom: 16
+    gap: 6,
+    marginBottom: 10
   },
   presetChip: {
     flex: 1,
-    paddingHorizontal: 6,
-    paddingVertical: 9,
+    paddingHorizontal: 4,
+    paddingVertical: 7,
     backgroundColor: colors.cardRaised,
     borderRadius: 8,
     borderWidth: 1,
@@ -603,17 +614,17 @@ const styles = StyleSheet.create({
   },
   previewCard: {
     backgroundColor: colors.cardRaised,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.3)',
-    padding: 14,
-    marginBottom: 14
+    padding: 10,
+    marginBottom: 10
   },
   previewCardTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#38bdf8',
-    marginBottom: 10,
+    marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5
   },
@@ -621,35 +632,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6
+    marginBottom: 4
   },
   previewLabel: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary
   },
   previewLabelBig: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: colors.text
   },
   previewValueBold: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.text
   },
   previewValueMuted: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textMuted
   },
   previewDivider: {
     height: 1,
     backgroundColor: 'rgba(56, 189, 248, 0.2)',
-    marginVertical: 8
+    marginVertical: 6
   },
   netBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
     backgroundColor: colors.cardRaised
   },
   netBadgeProfit: {
@@ -663,7 +674,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239, 68, 68, 0.3)'
   },
   netBadgeText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: colors.textMuted
   },
@@ -676,50 +687,51 @@ const styles = StyleSheet.create({
   noticeCard: {
     flexDirection: 'row',
     backgroundColor: 'rgba(56, 189, 248, 0.08)',
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: 8,
+    padding: 8,
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.2)'
   },
   noticeIcon: {
-    marginRight: 8
+    marginRight: 6
   },
   noticeText: {
     flex: 1,
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textSecondary,
-    lineHeight: 15
+    lineHeight: 14
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(239, 68, 68, 0.12)',
     borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
-    gap: 8,
+    padding: 8,
+    marginBottom: 10,
+    gap: 6,
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.3)'
   },
   errorText: {
     flex: 1,
     color: colors.danger,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500'
   },
   footer: {
     flexDirection: 'row',
-    padding: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderTopWidth: 1,
     borderTopColor: colors.borderSubtle,
-    gap: 12
+    gap: 10
   },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingVertical: 10,
+    borderRadius: 8,
     backgroundColor: colors.cardRaised,
     alignItems: 'center',
     borderWidth: 1,
@@ -728,13 +740,13 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     color: colors.textSecondary,
     fontWeight: '700',
-    fontSize: 14
+    fontSize: 13
   },
   confirmBtn: {
     flex: 2,
     flexDirection: 'row',
-    paddingVertical: 12,
-    borderRadius: 10,
+    paddingVertical: 10,
+    borderRadius: 8,
     backgroundColor: '#0284c7',
     alignItems: 'center',
     justifyContent: 'center'
@@ -742,7 +754,7 @@ const styles = StyleSheet.create({
   confirmBtnText: {
     color: '#ffffff',
     fontWeight: '700',
-    fontSize: 14
+    fontSize: 13
   },
   btnDisabled: {
     opacity: 0.6

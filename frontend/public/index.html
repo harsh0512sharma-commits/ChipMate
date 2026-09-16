@@ -41,6 +41,18 @@
       body {
         overflow: hidden;
       }
+      /* Completely hide scrollbars everywhere while preserving full scrolling functionality */
+      *::-webkit-scrollbar,
+      ::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        background: transparent !important;
+      }
+      html, body, #root, div, * {
+        -ms-overflow-style: none !important; /* IE and Edge */
+        scrollbar-width: none !important; /* Firefox */
+      }
       /* These styles make the root element full-height */
       #root {
         display: flex;

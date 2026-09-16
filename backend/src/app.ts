@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.37',
+      version: '1.1.38',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.37',
+      version: '1.1.38',
       buildTime: Date.now(),
-      releaseNotes: 'Responsive desktop web layout with collapsible navigation sidebar and top bar, plus Teen Patti Equal Chip Mode cash-out alignment fix.'
+      releaseNotes: 'Scrollbars eliminated globally, full-width desktop layout, sidebar badge fix, clean profile editing, and condensed cashout UI.'
     });
   };
   app.get('/version', versionHandler);

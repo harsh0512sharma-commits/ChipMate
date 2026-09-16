@@ -1,5 +1,5 @@
 {
-  "version": "1.1.37",
-  "buildTime": 1789578000000,
-  "releaseNotes": "Responsive desktop web layout with collapsible navigation sidebar and top bar, plus Teen Patti Equal Chip Mode cash-out alignment fix."
+  "version": "1.1.38",
+  "buildTime": 1789582000000,
+  "releaseNotes": "Hide scrollbars everywhere, eliminate desktop margins, fix 0 sidebar badge, streamline profile editing, remove duplicate theme button, and condense cashout UI."
 }

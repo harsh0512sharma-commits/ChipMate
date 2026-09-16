@@ -31,6 +31,7 @@ import { apiRequest } from './src/api/client';
 import { InstallPromptModal } from './src/components/InstallPromptModal';
 import { UpdatePromptModal } from './src/components/UpdatePromptModal';
 import { SplashScreen } from './src/components/SplashScreen';
+import { APP_BUILD_VERSION } from './src/version';
 
 // Screens
 import { LoginScreen } from './src/screens/auth/LoginScreen';
@@ -459,13 +460,13 @@ function MainNavigator() {
                         size={20}
                         color={isActive ? colors.primary : colors.textSecondary}
                       />
-                      {item.badge && item.badge > 0 && isSidebarCollapsed && (
+                      {Boolean(item.badge && item.badge > 0) && isSidebarCollapsed ? (
                         <View style={[styles.desktopSidebarBadge, styles.desktopSidebarBadgeCollapsed]}>
                           <Text style={styles.desktopSidebarBadgeText}>
-                            {item.badge > 9 ? '9+' : item.badge}
+                            {item.badge! > 9 ? '9+' : item.badge}
                           </Text>
                         </View>
-                      )}
+                      ) : null}
                     </View>
 
                     {!isSidebarCollapsed && (
@@ -480,13 +481,13 @@ function MainNavigator() {
                       </Text>
                     )}
 
-                    {!isSidebarCollapsed && item.badge && item.badge > 0 && (
+                    {!isSidebarCollapsed && Boolean(item.badge && item.badge > 0) ? (
                       <View style={styles.desktopSidebarBadge}>
                         <Text style={styles.desktopSidebarBadgeText}>
-                          {item.badge > 9 ? '9+' : item.badge}
+                          {item.badge! > 9 ? '9+' : item.badge}
                         </Text>
                       </View>
-                    )}
+                    ) : null}
                   </TouchableOpacity>
                 );
               })}
@@ -523,7 +524,7 @@ function MainNavigator() {
             {/* Sidebar Footer */}
             <View style={styles.desktopSidebarFooter}>
               <Text style={styles.desktopSidebarVersionText}>
-                {isSidebarCollapsed ? 'v1.1.37' : 'ChipMate v1.1.37'}
+                {isSidebarCollapsed ? `v${APP_BUILD_VERSION}` : `ChipMate v${APP_BUILD_VERSION}`}
               </Text>
               {!isSidebarCollapsed && (
                 <Text style={styles.desktopSidebarSubText}>Physical Chips Ledger</Text>
@@ -1004,13 +1005,15 @@ const styles = StyleSheet.create({
   desktopContentArea: {
     flex: 1,
     backgroundColor: colors.background,
-    alignItems: 'center',
+    alignItems: 'stretch',
     justifyContent: 'flex-start',
     overflow: 'hidden'
   },
   desktopInnerContainer: {
     flex: 1,
     width: '100%',
-    maxWidth: 1040
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    alignSelf: 'stretch'
   }
 });

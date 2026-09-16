@@ -9,7 +9,8 @@ import {
   RefreshControl,
   Platform,
   Image,
-  ActivityIndicator
+  ActivityIndicator,
+  useWindowDimensions
 } from 'react-native';
 import {
   Plus,
@@ -67,6 +68,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const { user, refreshUser } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { updateAvailable, latestVersion, isUpdating, applyUpdate } = useUpdate();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const [activeTables, setActiveTables] = useState<any[]>([]);
   const [recentCompleted, setRecentCompleted] = useState<any[]>([]);
   const [joinCodeInput, setJoinCodeInput] = useState('');
@@ -81,31 +84,41 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         refreshUser()
       ]);
 
-      if (activeRes.success) setActiveTables(activeRes.tables || []);
-      if (histRes.success) setRecentCompleted(histRes.history || []);
-    } catch (err: any) {
-      console.warn('Home fetch error:', err.message);
-    }
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([loadData(), refreshUser()]);
-    setRefreshing(false);
+      if (activeRes.success && Array.isArray(activeRes.tables)) {
+        setActiveTables(activeRes.tables);
+      }
+      if (histRes.success && Array.isArray(histRes.tables)) {
+        setRecentCompleted(histRes.tables.slice(0, 3));
+      }
+    } catch (_) {}
   };
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(loadData, 10000);
+    return () => clearInterval(interval);
   }, []);
 
-  const handleQuickJoin = async () => {
-    if (!joinCodeInput.trim()) return;
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  const handleJoinByCode = async () => {
+    const code = joinCodeInput.trim().toUpperCase();
+    if (!code || code.length !== 5) {
+      setJoinError('Please enter a valid 5-character table code.');
+      return;
+    }
+
     setJoinError(null);
     try {
       const res = await apiRequest('/tables/join', {
         method: 'POST',
-        body: { code: joinCodeInput.trim().toUpperCase() }
+        body: JSON.stringify({ joinCode: code })
       });
+
       if (res.success && res.table) {
         setJoinCodeInput('');
         onOpenLiveTable(res.table.id);
@@ -125,6 +138,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Welcome Header */}
@@ -164,19 +178,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </TouchableOpacity>
             )}
 
-            {/* Day / Night Mode Switch Button */}
-            <TouchableOpacity
-              style={styles.themeToggleBtn}
-              onPress={toggleTheme}
-              activeOpacity={0.75}
-              accessibilityLabel={isDark ? 'Switch to Day Mode' : 'Switch to Night Mode'}
-            >
-              {isDark ? (
-                <Sun size={17} color="#FBBF24" />
-              ) : (
-                <Moon size={17} color="#2563EB" />
-              )}
-            </TouchableOpacity>
+            {/* Day / Night Mode Switch Button (Visible ONLY on Mobile; desktop top bar already displays it) */}
+            {!isDesktop && (
+              <TouchableOpacity
+                style={styles.themeToggleBtn}
+                onPress={toggleTheme}
+                activeOpacity={0.75}
+                accessibilityLabel={isDark ? 'Switch to Day Mode' : 'Switch to Night Mode'}
+              >
+                {isDark ? (
+                  <Sun size={17} color="#FBBF24" />
+                ) : (
+                  <Moon size={17} color="#2563EB" />
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -308,7 +324,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             />
             <TouchableOpacity
               style={[styles.joinBtn, !joinCodeInput.trim() && { opacity: 0.6 }]}
-              onPress={handleQuickJoin}
+              onPress={handleJoinByCode}
               disabled={!joinCodeInput.trim()}
             >
               <Text style={styles.joinBtnText}>Join</Text>

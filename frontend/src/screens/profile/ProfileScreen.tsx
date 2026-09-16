@@ -254,7 +254,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary, onO
     <View style={styles.container}>
       <Header title="Profile & Stats" />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* User Card */}
         <View style={styles.userCard}>
           {Platform.OS === 'web' && (
@@ -274,6 +274,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary, onO
               onPress={handlePickImage}
               disabled={uploadingAvatar}
               style={styles.avatarTouchable}
+              accessibilityLabel="Change profile avatar"
             >
               {user?.avatar_url ? (
                 <Image source={{ uri: user.avatar_url }} style={styles.avatarImage} />
@@ -291,11 +292,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary, onO
                   <Camera size={13} color="#FFF" />
                 )}
               </View>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handlePickImage} disabled={uploadingAvatar}>
-              <Text style={styles.changePhotoText}>
-                {uploadingAvatar ? 'Uploading...' : 'Change Photo'}
-              </Text>
             </TouchableOpacity>
           </View>
 
@@ -344,15 +340,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onOpenSummary, onO
             <View style={styles.nameRow}>
               <Text style={styles.displayName}>{user?.display_name || 'Player'}</Text>
               <TouchableOpacity
-                style={styles.editNameBtn}
+                style={styles.editPencilBtn}
                 onPress={() => {
                   setNewName(user?.display_name || '');
                   setNameError(null);
                   setIsEditingName(true);
                 }}
+                activeOpacity={0.7}
+                accessibilityLabel="Edit display name"
               >
                 <Edit2 size={13} color={colors.primary} />
-                <Text style={styles.editNameBtnText}>Edit Name</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -692,22 +689,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 4
   },
-  editNameBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  editPencilBtn: {
     backgroundColor: colors.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    padding: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.primary + '33',
-    marginLeft: 8
-  },
-  editNameBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primary,
-    marginLeft: 3
+    borderColor: colors.primary + '44',
+    marginLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   editNameBox: {
     width: '100%',

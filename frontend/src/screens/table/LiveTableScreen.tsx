@@ -885,6 +885,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Status and Connection Alert */}

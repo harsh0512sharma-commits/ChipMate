@@ -124,6 +124,7 @@ export const LeaderboardScreen: React.FC = () => {
 
       <ScrollView
         contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {loading ? (

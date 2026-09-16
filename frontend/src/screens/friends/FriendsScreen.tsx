@@ -197,6 +197,7 @@ export const FriendsScreen: React.FC<FriendsScreenProps> = ({ onOpenHeadToHead, 
 
       <ScrollView
         contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {tab === 'FRIENDS' ? (

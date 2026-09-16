@@ -354,7 +354,7 @@ export const SettlementScreen: React.FC<SettlementScreenProps> = ({
         onBack={onBack}
       />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* RECONCILIATION SUMMARY CARD */}
         <View style={styles.reconcileCard}>
           <View style={styles.reconcileHeader}>

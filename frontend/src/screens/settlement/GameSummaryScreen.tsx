@@ -132,7 +132,7 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Celebration Banner */}
         <View style={styles.heroCard}>
           <Text style={styles.confetti}>🎉</Text>
