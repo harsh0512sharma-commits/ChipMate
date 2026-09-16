@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator
 } from 'react-native';
-import { X, LogOut, AlertCircle, Coins, ArrowRight, CheckCircle2 } from 'lucide-react-native';
+import { X, LogOut, AlertCircle, Coins, ArrowRight, CheckCircle2, Minus, Plus } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { PlayerCardData } from './PlayerCard';
 
@@ -95,6 +95,20 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
   const isProfit = netWinnings > 0;
   const isLoss = netWinnings < 0;
 
+  const stepChips = (delta: number) => {
+    const current = parseInt(chipAmountStr, 10) || 0;
+    const next = Math.max(0, current + delta);
+    setChipAmountStr(String(next));
+    setMoneyValueStr(String(next * chipValue));
+  };
+
+  const stepValue = (delta: number) => {
+    const current = parseFloat(moneyValueStr) || 0;
+    const next = Math.max(0, current + delta);
+    setMoneyValueStr(String(next));
+    setChipAmountStr(String(next));
+  };
+
   const handleQuickPreset = (amount: number) => {
     const val = Math.max(0, Math.floor(amount));
     if (isValueMode || isDenomMode) {
@@ -171,7 +185,11 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+          >
             {/* Current Player Standing Summary */}
             <View style={styles.standingCard}>
               <View style={styles.standingCol}>
@@ -205,27 +223,64 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
                   : 'ENTER CHIPS TO CASH OUT'}
             </Text>
 
-            <View style={styles.inputWrapper}>
-              <Text style={styles.currencyPrefix}>{isValueMode || isDenomMode ? '₹' : '🪙'}</Text>
-              <TextInput
-                style={styles.textInput}
-                keyboardType="numeric"
-                value={isValueMode || isDenomMode ? moneyValueStr : chipAmountStr}
-                onChangeText={txt => {
-                  const sanitized = txt.replace(/[^0-9]/g, '');
-                  if (isValueMode || isDenomMode) {
-                    setMoneyValueStr(sanitized);
-                  } else {
-                    setChipAmountStr(sanitized);
-                    const c = parseInt(sanitized, 10) || 0;
-                    setMoneyValueStr(String(c * chipValue));
-                  }
-                }}
-                placeholder="0"
-                placeholderTextColor={colors.textMuted}
-                editable={!isSubmitting}
-                autoFocus
-              />
+            <View style={styles.inputCard}>
+              <View style={styles.stepperRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.stepBtn,
+                    (isValueMode ? cashOutMoney <= 0 : cashOutChips <= 0) && styles.stepBtnDisabled
+                  ]}
+                  onPress={() => (isValueMode ? stepValue(-50) : stepChips(-1))}
+                  disabled={isValueMode ? cashOutMoney <= 0 : cashOutChips <= 0 || isSubmitting}
+                  activeOpacity={0.7}
+                >
+                  <Minus size={18} color={colors.text} />
+                </TouchableOpacity>
+
+                <View style={styles.stepperInputWrap}>
+                  <Text style={styles.currencyPrefix}>{isValueMode || isDenomMode ? '₹' : '🪙'}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    keyboardType="numeric"
+                    value={isValueMode || isDenomMode ? moneyValueStr : chipAmountStr}
+                    onChangeText={txt => {
+                      const sanitized = txt.replace(/[^0-9]/g, '');
+                      if (isValueMode || isDenomMode) {
+                        setMoneyValueStr(sanitized);
+                      } else {
+                        setChipAmountStr(sanitized);
+                        const c = parseInt(sanitized, 10) || 0;
+                        setMoneyValueStr(String(c * chipValue));
+                      }
+                    }}
+                    placeholder="0"
+                    placeholderTextColor={colors.textMuted}
+                    editable={!isSubmitting}
+                    autoFocus
+                  />
+                  {!isValueMode && !isDenomMode && (
+                    <Text style={styles.unitSuffix}>chips</Text>
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  style={styles.stepBtn}
+                  onPress={() => (isValueMode ? stepValue(50) : stepChips(1))}
+                  disabled={isSubmitting}
+                  activeOpacity={0.7}
+                >
+                  <Plus size={18} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              {!isValueMode && !isDenomMode && (
+                <View style={styles.chipEquivBadge}>
+                  <Text style={styles.chipEquivText}>
+                    = <Text style={{ fontWeight: '800', color: colors.primary }}>₹{cashOutMoney.toLocaleString('en-IN')}</Text>
+                    <Text style={{ color: colors.textMuted }}> (@ ₹{chipValue}/chip)</Text>
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Presets Row */}
@@ -233,24 +288,29 @@ export const CashOutModal: React.FC<CashOutModalProps> = ({
               <TouchableOpacity
                 style={styles.presetChip}
                 onPress={() => handleQuickPreset(Math.max(0, player.current_chips))}
+                activeOpacity={0.75}
               >
-                <Text style={styles.presetChipText}>
-                  Current ({isValueMode ? `₹${Math.max(0, player.current_chips)}` : `${Math.max(0, player.current_chips)} chips`})
+                <Text style={styles.presetChipText} numberOfLines={1}>
+                  Holding ({isValueMode ? `₹${Math.max(0, player.current_chips)}` : `${Math.max(0, player.current_chips)}`})
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.presetChip}
                 onPress={() => handleQuickPreset(Math.max(0, isValueMode ? (buyInAmount - lentMoney + borrowedMoney) : Math.round((buyInAmount - lentMoney + borrowedMoney) / chipValue)))}
+                activeOpacity={0.75}
               >
-                <Text style={styles.presetChipText}>
+                <Text style={styles.presetChipText} numberOfLines={1}>
                   Break-Even
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.presetChip}
                 onPress={() => handleQuickPreset(0)}
+                activeOpacity={0.75}
               >
-                <Text style={styles.presetChipText}>0 (Busted)</Text>
+                <Text style={styles.presetChipText} numberOfLines={1}>
+                  Busted (0)
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -444,33 +504,77 @@ const styles = StyleSheet.create({
     color: colors.text
   },
   sectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.textMuted,
     marginBottom: 8,
-    letterSpacing: 0.5
+    letterSpacing: 0.6
   },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  inputCard: {
     backgroundColor: colors.cardRaised,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderColor: '#38bdf8',
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 6,
+    padding: 8,
     marginBottom: 10
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8
+  },
+  stepBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: colors.cardInset,
+    borderWidth: 1,
+    borderColor: colors.borderDark,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  stepBtnDisabled: {
+    opacity: 0.3
+  },
+  stepperInputWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   currencyPrefix: {
     fontSize: 22,
     fontWeight: '800',
     color: '#38bdf8',
-    marginRight: 8
+    marginRight: 6
   },
   textInput: {
-    flex: 1,
-    fontSize: 22,
+    minWidth: 50,
+    maxWidth: 130,
+    fontSize: 24,
     fontWeight: '800',
+    color: colors.text,
+    textAlign: 'center',
+    paddingVertical: Platform.OS === 'ios' ? 6 : 2
+  },
+  unitSuffix: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginLeft: 4
+  },
+  chipEquivBadge: {
+    alignSelf: 'center',
+    marginTop: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(56, 189, 248, 0.08)'
+  },
+  chipEquivText: {
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.text
   },
   presetsRow: {

@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.36',
+      version: '1.1.37',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.36',
+      version: '1.1.37',
       buildTime: Date.now(),
-      releaseNotes: 'Add secure Forgot/Reset Password feature via email OTP verification and automatic login.'
+      releaseNotes: 'Responsive desktop web layout with collapsible navigation sidebar and top bar, plus Teen Patti Equal Chip Mode cash-out alignment fix.'
     });
   };
   app.get('/version', versionHandler);

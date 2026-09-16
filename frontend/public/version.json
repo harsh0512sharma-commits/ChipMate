@@ -1,5 +1,5 @@
 {
-  "version": "1.1.36",
-  "buildTime": 1789570000000,
-  "releaseNotes": "Add secure Forgot/Reset Password feature via email OTP verification and automatic login."
+  "version": "1.1.37",
+  "buildTime": 1789578000000,
+  "releaseNotes": "Responsive desktop web layout with collapsible navigation sidebar and top bar, plus Teen Patti Equal Chip Mode cash-out alignment fix."
 }
