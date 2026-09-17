@@ -33,6 +33,7 @@ import { apiRequest } from './src/api/client';
 import { InstallPromptModal } from './src/components/InstallPromptModal';
 import { UpdatePromptModal } from './src/components/UpdatePromptModal';
 import { APP_BUILD_VERSION } from './src/version';
+import { ErrorBoundary } from './src/components/common/ErrorBoundary';
 import { ChipMateLogo, ChipMateWordmark } from './src/components/ChipMateBrand';
 
 // Screens
@@ -152,73 +153,6 @@ function MainNavigator() {
     return () => clearInterval(interval);
   }, [token, user]);
 
-  // If a public ledger link was opened, display read-only public ledger immediately
-  if (publicLedgerTableId) {
-    return (
-      <PublicLedgerScreen
-        tableId={publicLedgerTableId}
-        isLoggedIn={Boolean(token && user)}
-        onBackToApp={() => {
-          setPublicLedgerTableId(null);
-          if (Platform.OS === 'web' && typeof window !== 'undefined' && window.history) {
-            try {
-              const url = new URL(window.location.href);
-              url.searchParams.delete('ledger');
-              url.searchParams.delete('public_ledger');
-              url.searchParams.delete('game_ledger');
-              window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : ''));
-            } catch (_) {}
-          }
-        }}
-      />
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#000000" />
-        <ActivityIndicator size="large" color={colors.primary} />
-      </SafeAreaView>
-    );
-  }
-
-  // Not authenticated
-  if (!token || !user) {
-    if (showLanding) {
-      return (
-        <LandingScreen
-          onEnterApp={() => setShowLanding(false)}
-          onOpenSampleLedger={() => setShowLanding(false)}
-        />
-      );
-    }
-
-    if (authStep === 'LOGIN') {
-      return (
-        <LoginScreen
-          onOtpSent={(email, devOtp, phoneNumber, name) => {
-            setAuthEmail(email);
-            setAuthDevOtp(devOtp);
-            setAuthPhone(phoneNumber);
-            setAuthName(name);
-            setAuthStep('OTP');
-          }}
-          onBackToLanding={() => setShowLanding(true)}
-        />
-      );
-    }
-    return (
-      <VerifyOtpScreen
-        email={authEmail}
-        phoneNumber={authPhone}
-        initialDevOtp={authDevOtp}
-        initialName={authName}
-        onBack={() => setAuthStep('LOGIN')}
-      />
-    );
-  }
-
   const navigateTo = (screen: ScreenType, replace = false) => {
     if (replace) {
       setScreenHistory(prev => {
@@ -253,9 +187,10 @@ function MainNavigator() {
     return false;
   };
 
-  // Hardware back press listener on Android / mobile
+  // Hardware back press listener on Android / mobile (unconditionally registered at top level)
   useEffect(() => {
     const handleHardwareBack = () => {
+      if (!token || !user) return false;
       if (screenHistory.length > 1 || currentScreen !== 'TAB_HOME') {
         goBack();
         return true; // prevent exiting app
@@ -265,12 +200,13 @@ function MainNavigator() {
 
     const sub = BackHandler.addEventListener('hardwareBackPress', handleHardwareBack);
     return () => sub.remove();
-  }, [screenHistory, currentScreen]);
+  }, [screenHistory, currentScreen, token, user]);
 
-  // Browser popstate listener on Web (swipe back / browser back button)
+  // Browser popstate listener on Web (swipe back / browser back button) (unconditionally registered at top level)
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const handlePopState = () => {
+        if (!token || !user) return;
         if (screenHistory.length > 1) {
           const nextHistory = [...screenHistory];
           nextHistory.pop();
@@ -285,7 +221,7 @@ function MainNavigator() {
       window.addEventListener('popstate', handlePopState);
       return () => window.removeEventListener('popstate', handlePopState);
     }
-  }, [screenHistory, currentScreen]);
+  }, [screenHistory, currentScreen, token, user]);
 
   // Handle screen navigation
   const openLiveTable = (tableId: string) => {
@@ -354,6 +290,73 @@ function MainNavigator() {
         return 'ChipMate';
     }
   };
+
+  // If a public ledger link was opened, display read-only public ledger immediately
+  if (publicLedgerTableId) {
+    return (
+      <PublicLedgerScreen
+        tableId={publicLedgerTableId}
+        isLoggedIn={Boolean(token && user)}
+        onBackToApp={() => {
+          setPublicLedgerTableId(null);
+          if (Platform.OS === 'web' && typeof window !== 'undefined' && window.history) {
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.delete('ledger');
+              url.searchParams.delete('public_ledger');
+              url.searchParams.delete('game_ledger');
+              window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : ''));
+            } catch (_) {}
+          }
+        }}
+      />
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' }}>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  // Not authenticated
+  if (!token || !user) {
+    if (showLanding) {
+      return (
+        <LandingScreen
+          onEnterApp={() => setShowLanding(false)}
+          onOpenSampleLedger={() => setShowLanding(false)}
+        />
+      );
+    }
+
+    if (authStep === 'LOGIN') {
+      return (
+        <LoginScreen
+          onOtpSent={(email, devOtp, phoneNumber, name) => {
+            setAuthEmail(email);
+            setAuthDevOtp(devOtp);
+            setAuthPhone(phoneNumber);
+            setAuthName(name);
+            setAuthStep('OTP');
+          }}
+          onBackToLanding={() => setShowLanding(true)}
+        />
+      );
+    }
+    return (
+      <VerifyOtpScreen
+        email={authEmail}
+        phoneNumber={authPhone}
+        initialDevOtp={authDevOtp}
+        initialName={authName}
+        onBack={() => setAuthStep('LOGIN')}
+      />
+    );
+  }
 
   const renderScreenBody = () => (
     <View style={styles.screenBody}>
@@ -457,6 +460,35 @@ function MainNavigator() {
         <HeadToHeadScreen
           otherUserId={h2hUserId}
           onBack={goBack}
+        />
+      )}
+
+      {/* Safe fallback to HomeScreen if table/summary ID is missing or unknown screen state */}
+      {((currentScreen === 'LIVE_TABLE' && !activeTableId) ||
+        (currentScreen === 'SETTLEMENT' && !activeTableId) ||
+        (currentScreen === 'GAME_SUMMARY' && !(summaryGameId || activeTableId)) ||
+        (currentScreen === 'HEAD_TO_HEAD' && !h2hUserId) ||
+        (![
+          'TAB_HOME',
+          'TAB_GAMES',
+          'TAB_LEADERBOARD',
+          'TAB_FRIENDS',
+          'TAB_PROFILE',
+          'MASTER_ADMIN',
+          'CREATE_TABLE',
+          'JOIN_TABLE',
+          'LIVE_TABLE',
+          'SETTLEMENT',
+          'GAME_SUMMARY',
+          'HEAD_TO_HEAD'
+        ].includes(currentScreen))) && (
+        <HomeScreen
+          onOpenLiveTable={openLiveTable}
+          onCreateTable={() => navigateTo('CREATE_TABLE')}
+          onOpenJoinTable={() => navigateTo('JOIN_TABLE')}
+          onOpenLeaderboard={() => navigateTo('TAB_LEADERBOARD')}
+          onOpenGameHistory={() => navigateTo('TAB_GAMES')}
+          onOpenSummary={openSummary}
         />
       )}
     </View>
@@ -815,9 +847,11 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <UpdateProvider>
-          <MainNavigator />
-          <InstallPromptModal />
-          <UpdatePromptModal />
+          <ErrorBoundary>
+            <MainNavigator />
+            <InstallPromptModal />
+            <UpdatePromptModal />
+          </ErrorBoundary>
         </UpdateProvider>
       </AuthProvider>
     </ThemeProvider>

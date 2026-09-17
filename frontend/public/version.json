@@ -1,5 +1,5 @@
 {
-  "version": "1.1.51",
-  "buildTime": 1789648000000,
-  "releaseNotes": "Completely remove splash overlay interception on authenticated sessions so logging in navigates immediately and seamlessly to the Home Dashboard with zero black screens."
+  "version": "1.1.52",
+  "buildTime": 1789649000000,
+  "releaseNotes": "Fix React hooks lifecycle ordering in MainNavigator and add robust ErrorBoundary to guarantee immediate and seamless dashboard load upon login."
 }

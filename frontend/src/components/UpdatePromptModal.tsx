@@ -31,14 +31,14 @@ export const UpdatePromptModal: React.FC = () => {
     if (updateAvailable && !bannerDismissed) {
       Animated.spring(slideAnim, {
         toValue: 0,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
         bounciness: 6
       }).start();
     } else {
       Animated.timing(slideAnim, {
         toValue: -150,
         duration: 200,
-        useNativeDriver: true
+        useNativeDriver: Platform.OS !== 'web'
       }).start();
     }
   }, [updateAvailable, bannerDismissed, slideAnim]);

@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.51',
+      version: '1.1.52',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.51',
+      version: '1.1.52',
       buildTime: Date.now(),
-      releaseNotes: 'Completely remove splash overlay interception on authenticated sessions so logging in navigates immediately and seamlessly to the Home Dashboard with zero black screens.'
+      releaseNotes: 'Fix React hooks lifecycle ordering in MainNavigator and add robust ErrorBoundary to guarantee immediate and seamless dashboard load upon login.'
     });
   };
   app.get('/version', versionHandler);
