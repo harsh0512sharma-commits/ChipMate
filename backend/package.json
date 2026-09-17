@@ -1,6 +1,6 @@
 {
   "name": "backend",
-  "version": "1.1.50",
+  "version": "1.1.51",
   "description": "ChipMate Authoritative Real-Time Chip Ledger Backend",
   "main": "dist/server.js",
   "scripts": {

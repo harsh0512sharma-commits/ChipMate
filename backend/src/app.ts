@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.50',
+      version: '1.1.51',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.50',
+      version: '1.1.51',
       buildTime: Date.now(),
-      releaseNotes: 'Fix post-login black screen by bypassing splash on interactive login with safe animation drivers, restore intro video as primary hero phone slide, and enable interactive slide tours on Watch Live Demo.'
+      releaseNotes: 'Completely remove splash overlay interception on authenticated sessions so logging in navigates immediately and seamlessly to the Home Dashboard with zero black screens.'
     });
   };
   app.get('/version', versionHandler);

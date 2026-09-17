@@ -32,7 +32,6 @@ import { colors } from './src/theme/colors';
 import { apiRequest } from './src/api/client';
 import { InstallPromptModal } from './src/components/InstallPromptModal';
 import { UpdatePromptModal } from './src/components/UpdatePromptModal';
-import { SplashScreen } from './src/components/SplashScreen';
 import { APP_BUILD_VERSION } from './src/version';
 import { ChipMateLogo, ChipMateWordmark } from './src/components/ChipMateBrand';
 
@@ -90,7 +89,6 @@ function MainNavigator() {
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   const [summaryGameId, setSummaryGameId] = useState<string | null>(null);
   const [h2hUserId, setH2hUserId] = useState<string | null>(null);
-  const [isSplashDone, setIsSplashDone] = useState(false);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [showLanding, setShowLanding] = useState<boolean>(true);
 
@@ -154,13 +152,6 @@ function MainNavigator() {
     return () => clearInterval(interval);
   }, [token, user]);
 
-  // If unauthenticated on initial app load, mark splash as done so that logging in goes directly to dashboard
-  useEffect(() => {
-    if (!isLoading && (!token || !user)) {
-      setIsSplashDone(true);
-    }
-  }, [isLoading, token, user]);
-
   // If a public ledger link was opened, display read-only public ledger immediately
   if (publicLedgerTableId) {
     return (
@@ -179,16 +170,6 @@ function MainNavigator() {
             } catch (_) {}
           }
         }}
-      />
-    );
-  }
-
-  // Returning authenticated user: play the signature cinematic splash once
-  if (token && user && !isSplashDone) {
-    return (
-      <SplashScreen
-        isLoading={isLoading}
-        onAnimationEnd={() => setIsSplashDone(true)}
       />
     );
   }

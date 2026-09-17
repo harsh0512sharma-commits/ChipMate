@@ -1,5 +1,5 @@
 {
-  "version": "1.1.50",
-  "buildTime": 1789645000000,
-  "releaseNotes": "Fix post-login black screen by bypassing splash on interactive login with safe animation drivers, restore intro video as primary hero phone slide, and enable interactive slide tours on Watch Live Demo."
+  "version": "1.1.51",
+  "buildTime": 1789648000000,
+  "releaseNotes": "Completely remove splash overlay interception on authenticated sessions so logging in navigates immediately and seamlessly to the Home Dashboard with zero black screens."
 }
