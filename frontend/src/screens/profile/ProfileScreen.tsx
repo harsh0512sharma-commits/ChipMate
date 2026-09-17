@@ -62,7 +62,6 @@ function formatGameDateTime(dateStr?: string): string {
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onOpenSummary,
   onOpenMasterAdmin,
-  onOpenGames,
   initialSubView = 'MAIN'
 }) => {
   const [subView, setSubView] = useState<'MAIN' | 'APP_UPDATES'>(initialSubView);
@@ -587,38 +586,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         </View>
 
-        {/* QUICK NAVIGATION: GAMES & SYSTEM UPDATES */}
+        {/* QUICK NAVIGATION: SYSTEM UPDATES */}
         <View style={styles.navRowsCard}>
-          {/* Games Row */}
-          {onOpenGames && (
-            <>
-              <TouchableOpacity
-                style={styles.navRowItem}
-                onPress={onOpenGames}
-                activeOpacity={0.7}
-              >
-                <View style={styles.navRowLeft}>
-                  <View style={[styles.navRowIconWrap, { backgroundColor: 'rgba(234, 88, 12, 0.12)' }]}>
-                    <History size={19} color={colors.primary} />
-                  </View>
-                  <View style={{ marginLeft: 12 }}>
-                    <Text style={styles.navRowTitle}>Games</Text>
-                    <Text style={styles.navRowSubtitle}>
-                      {gameHistory.length} completed {gameHistory.length === 1 ? 'game' : 'games'} • View ledgers & summaries
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.navRowRight}>
-                  <View style={styles.navRowBadge}>
-                    <Text style={styles.navRowBadgeText}>{gameHistory.length}</Text>
-                  </View>
-                  <ChevronRight size={18} color={colors.textSecondary} style={{ marginLeft: 6 }} />
-                </View>
-              </TouchableOpacity>
-              <View style={styles.navRowDivider} />
-            </>
-          )}
-
           {/* App Version & Updates Row */}
           <TouchableOpacity
             style={styles.navRowItem}

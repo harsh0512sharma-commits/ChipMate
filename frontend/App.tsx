@@ -8,7 +8,8 @@ import {
   StatusBar,
   ActivityIndicator,
   Platform,
-  useWindowDimensions
+  useWindowDimensions,
+  BackHandler
 } from 'react-native';
 import {
   Home,
@@ -82,10 +83,12 @@ function MainNavigator() {
   const [authDevOtp, setAuthDevOtp] = useState<string | undefined>(undefined);
   const [authName, setAuthName] = useState<string | undefined>(undefined);
 
-  // App screen state
+  // App screen & history state
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('TAB_HOME');
+  const [screenHistory, setScreenHistory] = useState<ScreenType[]>(['TAB_HOME']);
   const [profileSubView, setProfileSubView] = useState<'MAIN' | 'APP_UPDATES'>('MAIN');
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
+  const [summaryGameId, setSummaryGameId] = useState<string | null>(null);
   const [h2hUserId, setH2hUserId] = useState<string | null>(null);
   const [isSplashDone, setIsSplashDone] = useState(false);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
@@ -228,25 +231,94 @@ function MainNavigator() {
     );
   }
 
+  const navigateTo = (screen: ScreenType, replace = false) => {
+    if (replace) {
+      setScreenHistory(prev => {
+        const next = [...prev];
+        next[next.length - 1] = screen;
+        return next;
+      });
+    } else {
+      setScreenHistory(prev => (prev[prev.length - 1] === screen ? prev : [...prev, screen]));
+    }
+    setCurrentScreen(screen);
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.history) {
+      try {
+        window.history.pushState({ screen }, '', window.location.href);
+      } catch (_) {}
+    }
+  };
+
+  const goBack = () => {
+    if (screenHistory.length > 1) {
+      const nextHistory = [...screenHistory];
+      nextHistory.pop();
+      const prevScreen = nextHistory[nextHistory.length - 1];
+      setScreenHistory(nextHistory);
+      setCurrentScreen(prevScreen);
+      return true;
+    } else if (currentScreen !== 'TAB_HOME') {
+      setCurrentScreen('TAB_HOME');
+      setScreenHistory(['TAB_HOME']);
+      return true;
+    }
+    return false;
+  };
+
+  // Hardware back press listener on Android / mobile
+  useEffect(() => {
+    const handleHardwareBack = () => {
+      if (screenHistory.length > 1 || currentScreen !== 'TAB_HOME') {
+        goBack();
+        return true; // prevent exiting app
+      }
+      return false; // let app close only when at root Home tab
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', handleHardwareBack);
+    return () => sub.remove();
+  }, [screenHistory, currentScreen]);
+
+  // Browser popstate listener on Web (swipe back / browser back button)
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const handlePopState = () => {
+        if (screenHistory.length > 1) {
+          const nextHistory = [...screenHistory];
+          nextHistory.pop();
+          const prevScreen = nextHistory[nextHistory.length - 1];
+          setScreenHistory(nextHistory);
+          setCurrentScreen(prevScreen);
+        } else if (currentScreen !== 'TAB_HOME') {
+          setCurrentScreen('TAB_HOME');
+          setScreenHistory(['TAB_HOME']);
+        }
+      };
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
+    }
+  }, [screenHistory, currentScreen]);
+
   // Handle screen navigation
   const openLiveTable = (tableId: string) => {
     setActiveTableId(tableId);
-    setCurrentScreen('LIVE_TABLE');
+    navigateTo('LIVE_TABLE');
   };
 
   const openSettlement = (tableId: string) => {
     setActiveTableId(tableId);
-    setCurrentScreen('SETTLEMENT');
+    navigateTo('SETTLEMENT');
   };
 
   const openSummary = (tableId: string) => {
-    setActiveTableId(tableId);
-    setCurrentScreen('GAME_SUMMARY');
+    // Strictly decouple from activeTableId so past games never show active game banner
+    setSummaryGameId(tableId);
+    navigateTo('GAME_SUMMARY');
   };
 
   const openH2H = (otherUserId: string) => {
     setH2hUserId(otherUserId);
-    setCurrentScreen('HEAD_TO_HEAD');
+    navigateTo('HEAD_TO_HEAD');
   };
 
   const isTabScreen =
@@ -300,10 +372,10 @@ function MainNavigator() {
       {currentScreen === 'TAB_HOME' && (
         <HomeScreen
           onOpenLiveTable={openLiveTable}
-          onCreateTable={() => setCurrentScreen('CREATE_TABLE')}
-          onOpenJoinTable={() => setCurrentScreen('JOIN_TABLE')}
-          onOpenLeaderboard={() => setCurrentScreen('TAB_LEADERBOARD')}
-          onOpenGameHistory={() => setCurrentScreen('TAB_GAMES')}
+          onCreateTable={() => navigateTo('CREATE_TABLE')}
+          onOpenJoinTable={() => navigateTo('JOIN_TABLE')}
+          onOpenLeaderboard={() => navigateTo('TAB_LEADERBOARD')}
+          onOpenGameHistory={() => navigateTo('TAB_GAMES')}
           onOpenSummary={openSummary}
         />
       )}
@@ -311,7 +383,7 @@ function MainNavigator() {
       {currentScreen === 'TAB_GAMES' && (
         <GamesScreen
           onOpenSummary={openSummary}
-          onBackToHome={() => setCurrentScreen('TAB_HOME')}
+          onBackToHome={() => navigateTo('TAB_HOME')}
         />
       )}
 
@@ -327,29 +399,28 @@ function MainNavigator() {
       {currentScreen === 'TAB_PROFILE' && (
         <ProfileScreen
           onOpenSummary={openSummary}
-          onOpenMasterAdmin={() => setCurrentScreen('MASTER_ADMIN')}
-          onOpenGames={() => setCurrentScreen('TAB_GAMES')}
+          onOpenMasterAdmin={() => navigateTo('MASTER_ADMIN')}
           initialSubView={profileSubView}
         />
       )}
 
       {currentScreen === 'MASTER_ADMIN' && (
         <MasterAdminScreen
-          onBack={() => setCurrentScreen('TAB_PROFILE')}
+          onBack={goBack}
           onOpenSummary={openSummary}
         />
       )}
 
       {currentScreen === 'CREATE_TABLE' && (
         <CreateTableScreen
-          onBack={() => setCurrentScreen('TAB_HOME')}
+          onBack={goBack}
           onTableCreated={tableId => openLiveTable(tableId)}
         />
       )}
 
       {currentScreen === 'JOIN_TABLE' && (
         <JoinTableScreen
-          onBack={() => setCurrentScreen('TAB_HOME')}
+          onBack={goBack}
           onTableJoined={tableId => openLiveTable(tableId)}
         />
       )}
@@ -357,35 +428,47 @@ function MainNavigator() {
       {currentScreen === 'LIVE_TABLE' && activeTableId && (
         <LiveTableScreen
           tableId={activeTableId}
-          onBack={() => setCurrentScreen('TAB_HOME')}
+          onBack={goBack}
           onProceedToSettlement={tableId => openSettlement(tableId)}
-          onOpenSummary={tableId => openSummary(tableId)}
+          onOpenSummary={tableId => {
+            setActiveTableId(null);
+            openSummary(tableId);
+          }}
         />
       )}
 
       {currentScreen === 'SETTLEMENT' && activeTableId && (
         <SettlementScreen
           tableId={activeTableId}
-          onBack={() => setCurrentScreen('LIVE_TABLE')}
+          onBack={goBack}
           onGameFinalized={tableId => {
             refreshUser();
+            setActiveTableId(null);
             openSummary(tableId);
           }}
         />
       )}
 
-      {currentScreen === 'GAME_SUMMARY' && activeTableId && (
+      {currentScreen === 'GAME_SUMMARY' && (summaryGameId || activeTableId) && (
         <GameSummaryScreen
-          gameId={activeTableId}
-          onGoHome={() => setCurrentScreen('TAB_HOME')}
-          onGoLeaderboard={() => setCurrentScreen('TAB_LEADERBOARD')}
+          gameId={(summaryGameId || activeTableId)!}
+          onBack={goBack}
+          onGoHome={() => navigateTo('TAB_HOME')}
+          onGoLeaderboard={() => navigateTo('TAB_LEADERBOARD')}
+          onGameDeleted={() => {
+            if (activeTableId === (summaryGameId || activeTableId)) {
+              setActiveTableId(null);
+            }
+            setSummaryGameId(null);
+            goBack();
+          }}
         />
       )}
 
       {currentScreen === 'HEAD_TO_HEAD' && h2hUserId && (
         <HeadToHeadScreen
           otherUserId={h2hUserId}
-          onBack={() => setCurrentScreen('TAB_FRIENDS')}
+          onBack={goBack}
         />
       )}
     </View>
@@ -410,7 +493,7 @@ function MainNavigator() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => setCurrentScreen('TAB_HOME')}
+              onPress={() => navigateTo('TAB_HOME')}
               style={styles.desktopBrandWrap}
               activeOpacity={0.8}
             >
@@ -474,7 +557,7 @@ function MainNavigator() {
             <TouchableOpacity
               onPress={() => {
                 setProfileSubView('MAIN');
-                setCurrentScreen('TAB_PROFILE');
+                navigateTo('TAB_PROFILE');
               }}
               style={styles.desktopUserPill}
               activeOpacity={0.8}
@@ -506,7 +589,7 @@ function MainNavigator() {
                       if (item.id === 'TAB_PROFILE') {
                         setProfileSubView('MAIN');
                       }
-                      setCurrentScreen(item.id);
+                      navigateTo(item.id);
                     }}
                     style={[
                       styles.desktopSidebarItem,
@@ -620,7 +703,7 @@ function MainNavigator() {
           <View style={styles.bottomBar}>
             <TouchableOpacity
               style={styles.tabItem}
-              onPress={() => setCurrentScreen('TAB_HOME')}
+              onPress={() => navigateTo('TAB_HOME')}
               activeOpacity={0.7}
             >
               <View style={[styles.tabIconWrapper, currentScreen === 'TAB_HOME' && styles.tabIconWrapperActive]}>
@@ -641,7 +724,7 @@ function MainNavigator() {
 
             <TouchableOpacity
               style={styles.tabItem}
-              onPress={() => setCurrentScreen('TAB_GAMES')}
+              onPress={() => navigateTo('TAB_GAMES')}
               activeOpacity={0.7}
             >
               <View style={[styles.tabIconWrapper, currentScreen === 'TAB_GAMES' && styles.tabIconWrapperActive]}>
@@ -662,7 +745,7 @@ function MainNavigator() {
 
             <TouchableOpacity
               style={styles.tabItem}
-              onPress={() => setCurrentScreen('TAB_LEADERBOARD')}
+              onPress={() => navigateTo('TAB_LEADERBOARD')}
               activeOpacity={0.7}
             >
               <View style={[styles.tabIconWrapper, currentScreen === 'TAB_LEADERBOARD' && styles.tabIconWrapperActive]}>
@@ -683,7 +766,7 @@ function MainNavigator() {
 
             <TouchableOpacity
               style={styles.tabItem}
-              onPress={() => setCurrentScreen('TAB_FRIENDS')}
+              onPress={() => navigateTo('TAB_FRIENDS')}
               activeOpacity={0.7}
             >
               <View style={[styles.tabIconWrapper, currentScreen === 'TAB_FRIENDS' && styles.tabIconWrapperActive]}>
@@ -713,7 +796,7 @@ function MainNavigator() {
               style={styles.tabItem}
               onPress={() => {
                 setProfileSubView('MAIN');
-                setCurrentScreen('TAB_PROFILE');
+                navigateTo('TAB_PROFILE');
               }}
               activeOpacity={0.7}
             >

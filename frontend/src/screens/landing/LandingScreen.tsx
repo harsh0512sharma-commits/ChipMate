@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,8 @@ import {
   BarChart2,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   Coins,
   Play,
@@ -60,6 +62,39 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   const [isContactModalOpen, setIsContactModalOpen] = useState<boolean>(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState<boolean>(false);
   const videoRef = useRef<any>(null);
+  const phoneRef = useRef<any>(null);
+
+  // Hero Mobile Phone Interactive Slideshow
+  const [activeSlideIndex, setActiveSlideIndex] = useState<number>(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (!isAutoPlaying) return;
+    const interval = setInterval(() => {
+      setActiveSlideIndex(prev => (prev + 1) % 4);
+    }, 3800);
+    return () => clearInterval(interval);
+  }, [isAutoPlaying]);
+
+  const handlePrevSlide = () => {
+    setIsAutoPlaying(false);
+    setActiveSlideIndex(prev => (prev === 0 ? 3 : prev - 1));
+  };
+
+  const handleNextSlide = () => {
+    setIsAutoPlaying(false);
+    setActiveSlideIndex(prev => (prev === 3 ? 0 : prev + 1));
+  };
+
+  const handleViewLiveDemo = () => {
+    setIsAutoPlaying(true);
+    setActiveSlideIndex(0);
+    if (Platform.OS === 'web' && phoneRef.current) {
+      try {
+        phoneRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch (_) {}
+    }
+  };
 
   const toggleVideoPlayback = () => {
     if (videoRef.current) {
@@ -246,15 +281,13 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                   <ArrowRight size={17} color="#FFF" style={{ marginLeft: 8 }} />
                 </TouchableOpacity>
 
-                {onOpenSampleLedger && (
-                  <TouchableOpacity
-                    style={[styles.heroSecondaryCta, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle }]}
-                    onPress={onOpenSampleLedger}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[styles.heroSecondaryCtaText, { color: colors.text }]}>View Live Demo</Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  style={[styles.heroSecondaryCta, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle }]}
+                  onPress={handleViewLiveDemo}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.heroSecondaryCtaText, { color: colors.text }]}>View Live Demo</Text>
+                </TouchableOpacity>
               </View>
 
               {/* Trust Badges */}
@@ -276,8 +309,8 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
               </View>
             </View>
 
-            {/* Right Column: High-End Portrait Smartphone Device (Zero Cropping!) */}
-            <View style={styles.heroPhoneColumn}>
+            {/* Right Column: High-End Portrait Smartphone Device with Interactive Slideshow */}
+            <View ref={phoneRef} style={styles.heroPhoneColumn}>
               {/* Outer Ambient Glow */}
               <View
                 style={[
@@ -295,68 +328,336 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                     <View style={styles.dynamicIslandCamera} />
                   </View>
 
-                  {/* Top Live Engine Badge */}
+                  {/* Top Live Engine Badge & Slide Title */}
                   <View style={styles.phoneTopBadge}>
-                    <View style={styles.phoneLiveDot} />
-                    <Text style={styles.phoneLiveText}>LIVE ENGINE DEMO</Text>
+                    <View style={[styles.phoneLiveDot, { backgroundColor: isAutoPlaying ? '#10B981' : '#FBBF24' }]} />
+                    <Text style={styles.phoneLiveText}>
+                      {activeSlideIndex === 0
+                        ? '1/4 • LIVE TABLE'
+                        : activeSlideIndex === 1
+                        ? '2/4 • GAME SUMMARY'
+                        : activeSlideIndex === 2
+                        ? '3/4 • RANKINGS'
+                        : '4/4 • FRIENDS'}
+                    </Text>
                   </View>
 
-                  {/* Native Portrait 9:16 Video Player - Zero Cropping */}
-                  {Platform.OS === 'web' && (
-                    <HtmlVideo
-                      ref={videoRef}
-                      src="/splash_video_v2.mp4?v=1.0.22"
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        backgroundColor: '#000000',
-                        objectFit: 'contain'
-                      }}
-                    />
+                  {/* Left Navigation Arrow */}
+                  <TouchableOpacity
+                    style={styles.phoneArrowLeft}
+                    onPress={handlePrevSlide}
+                    activeOpacity={0.7}
+                    accessibilityLabel="Previous Screen"
+                  >
+                    <ChevronLeft size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+
+                  {/* Right Navigation Arrow */}
+                  <TouchableOpacity
+                    style={styles.phoneArrowRight}
+                    onPress={handleNextSlide}
+                    activeOpacity={0.7}
+                    accessibilityLabel="Next Screen"
+                  >
+                    <ChevronRight size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+
+                  {/* Slide 0: Live Table Felt */}
+                  {activeSlideIndex === 0 && (
+                    <View style={styles.slideContainer}>
+                      {/* Table Header Bar */}
+                      <View style={styles.slideCardHeader}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={{ fontSize: 11, marginRight: 4 }}>♠</Text>
+                          <Text style={styles.slideTableTitle} numberOfLines={1}>Texas Hold'em</Text>
+                        </View>
+                        <View style={styles.slideCodeBadge}>
+                          <Text style={styles.slideCodeText}>#A7K92</Text>
+                        </View>
+                      </View>
+
+                      {/* Vault Status Box */}
+                      <View style={styles.slideVaultBox}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                          <Text style={styles.slideVaultLabel}>PHYSICAL BANK VAULT</Text>
+                          <Text style={styles.slideReconciledTag}>100% RECONCILED ✓</Text>
+                        </View>
+                        <View style={styles.slideProgressBar}>
+                          <View style={[styles.slideProgressFill, { width: '75%', backgroundColor: '#EA580C' }]} />
+                          <View style={[styles.slideProgressFill, { width: '25%', backgroundColor: '#3B82F6' }]} />
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 }}>
+                          <Text style={styles.slideVaultSub}>Play: 75 chips (₹1,500)</Text>
+                          <Text style={styles.slideVaultSub}>Vault: 25 chips (₹500)</Text>
+                        </View>
+                      </View>
+
+                      {/* Table Felt / Pot */}
+                      <View style={styles.slidePotFelt}>
+                        <Text style={styles.slidePotLabel}>CURRENT TABLE POT</Text>
+                        <Text style={styles.slidePotValue}>₹2,000</Text>
+                        <Text style={styles.slidePotSub}>Blinds: ₹10 / ₹20</Text>
+                      </View>
+
+                      {/* Seated Players Mini Roster */}
+                      <View style={styles.slideRoster}>
+                        <View style={styles.slideRosterRow}>
+                          <Text style={styles.slidePlayerName} numberOfLines={1}>👑 Vikram (Host)</Text>
+                          <Text style={styles.slidePlayerChips}>35 chips (₹700)</Text>
+                        </View>
+                        <View style={styles.slideRosterRow}>
+                          <Text style={styles.slidePlayerName} numberOfLines={1}>👤 Rahul (Friend)</Text>
+                          <Text style={styles.slidePlayerChips}>25 chips (₹500)</Text>
+                        </View>
+                        <View style={styles.slideRosterRow}>
+                          <Text style={styles.slidePlayerName} numberOfLines={1}>⚡ Amit (Guest)</Text>
+                          <Text style={styles.slidePlayerChips}>20 chips (₹400)</Text>
+                        </View>
+                      </View>
+
+                      {/* Table Action Buttons */}
+                      <View style={styles.slideActionsRow}>
+                        <View style={[styles.slideMiniBtn, { backgroundColor: '#EA580C' }]}>
+                          <Text style={styles.slideMiniBtnText}>+ Buy-In</Text>
+                        </View>
+                        <View style={styles.slideMiniBtnSec}>
+                          <Text style={styles.slideMiniBtnSecText}>🤝 Lend</Text>
+                        </View>
+                        <View style={styles.slideMiniBtnSec}>
+                          <Text style={styles.slideMiniBtnSecText}>🚪 Cash Out</Text>
+                        </View>
+                      </View>
+                    </View>
                   )}
 
-                  {/* Floating Frosted Glass Video Controls */}
-                  <View style={styles.phoneFloatingControls}>
-                    <TouchableOpacity
-                      onPress={toggleVideoPlayback}
-                      style={styles.phoneGlassBtn}
-                      activeOpacity={0.7}
-                      accessibilityLabel={isVideoPlaying ? 'Pause Video' : 'Play Video'}
-                    >
-                      {isVideoPlaying ? (
-                        <View style={styles.pauseIconBars}>
-                          <View style={styles.pauseBar} />
-                          <View style={styles.pauseBar} />
+                  {/* Slide 1: Game Summary with Detailed Breakdown */}
+                  {activeSlideIndex === 1 && (
+                    <View style={styles.slideContainer}>
+                      {/* Champion Trophy Box */}
+                      <View style={styles.slideChampionBox}>
+                        <Trophy size={14} color="#FBBF24" style={{ marginRight: 5 }} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.slideChampLabel}>CHAMPION</Text>
+                          <Text style={styles.slideChampName} numberOfLines={1}>Vikram (+₹1,400 Profit)</Text>
                         </View>
-                      ) : (
-                        <Play size={11} color="#FFFFFF" fill="#FFFFFF" />
-                      )}
-                    </TouchableOpacity>
+                      </View>
 
-                    <TouchableOpacity
-                      onPress={restartVideo}
-                      style={styles.phoneGlassBtn}
-                      activeOpacity={0.7}
-                      accessibilityLabel="Replay Video"
-                    >
-                      <RotateCcw size={11} color="#FFFFFF" />
-                    </TouchableOpacity>
+                      {/* Detailed Ledger Breakdown Table (Buy-in, Loans, Cash Out, Net) */}
+                      <View style={styles.slideSummaryTable}>
+                        <View style={styles.slideSummaryHeaderRow}>
+                          <Text style={[styles.slideColHdr, { flex: 2 }]}>PLAYER</Text>
+                          <Text style={[styles.slideColHdr, { flex: 1.1, textAlign: 'center' }]}>BUY</Text>
+                          <Text style={[styles.slideColHdr, { flex: 1.2, textAlign: 'center' }]}>LOAN</Text>
+                          <Text style={[styles.slideColHdr, { flex: 1.1, textAlign: 'center' }]}>CASH</Text>
+                          <Text style={[styles.slideColHdr, { flex: 1.2, textAlign: 'right' }]}>NET</Text>
+                        </View>
 
-                    <Text style={styles.phoneControlHint}>
-                      {isVideoPlaying ? 'Playing' : 'Paused'}
-                    </Text>
+                        <View style={styles.slideSummaryDataRow}>
+                          <Text style={[styles.slideColTxt, { flex: 2, fontWeight: '700' }]} numberOfLines={1}>Vikram</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.1, textAlign: 'center' }]}>₹500</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.2, textAlign: 'center', color: '#38BDF8' }]}>+₹200L</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.1, textAlign: 'center' }]}>₹2,100</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.2, textAlign: 'right', color: '#10B981', fontWeight: '800' }]}>+₹1,400</Text>
+                        </View>
+
+                        <View style={styles.slideSummaryDataRow}>
+                          <Text style={[styles.slideColTxt, { flex: 2, fontWeight: '700' }]} numberOfLines={1}>Priya</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.1, textAlign: 'center' }]}>₹500</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.2, textAlign: 'center', color: '#94A3B8' }]}>-</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.1, textAlign: 'center' }]}>₹900</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.2, textAlign: 'right', color: '#10B981', fontWeight: '800' }]}>+₹400</Text>
+                        </View>
+
+                        <View style={styles.slideSummaryDataRow}>
+                          <Text style={[styles.slideColTxt, { flex: 2, fontWeight: '700' }]} numberOfLines={1}>Amit</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.1, textAlign: 'center' }]}>₹500</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.2, textAlign: 'center', color: '#F87171' }]}>-₹200B</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.1, textAlign: 'center' }]}>₹300</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.2, textAlign: 'right', color: '#EF4444', fontWeight: '800' }]}>-₹400</Text>
+                        </View>
+
+                        <View style={[styles.slideSummaryDataRow, { borderBottomWidth: 0 }]}>
+                          <Text style={[styles.slideColTxt, { flex: 2, fontWeight: '700' }]} numberOfLines={1}>Rahul</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.1, textAlign: 'center' }]}>₹500</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.2, textAlign: 'center', color: '#F87171' }]}>-₹300B</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.1, textAlign: 'center' }]}>₹0</Text>
+                          <Text style={[styles.slideColTxt, { flex: 1.2, textAlign: 'right', color: '#EF4444', fontWeight: '800' }]}>-₹800</Text>
+                        </View>
+                      </View>
+
+                      {/* Bipartite Debt Minimization Settlement */}
+                      <View style={styles.slideSettleBox}>
+                        <Text style={styles.slideSettleBoxHdr}>OPTIMIZED ZERO-SUM PAYOFFS</Text>
+                        <View style={styles.slideSettleRow}>
+                          <Text style={styles.slideSettleText}>Rahul pays Vikram</Text>
+                          <Text style={styles.slideSettleAmt}>₹800</Text>
+                        </View>
+                        <View style={styles.slideSettleRow}>
+                          <Text style={styles.slideSettleText}>Amit pays Priya</Text>
+                          <Text style={styles.slideSettleAmt}>₹400</Text>
+                        </View>
+                      </View>
+
+                      {/* WhatsApp Dispatch Button */}
+                      <View style={styles.slideWhatsAppBtn}>
+                        <MessageSquare size={11} color="#FFF" style={{ marginRight: 4 }} />
+                        <Text style={styles.slideWhatsAppText}>Share Settlement on WhatsApp</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Slide 2: Rankings & Leaderboard */}
+                  {activeSlideIndex === 2 && (
+                    <View style={styles.slideContainer}>
+                      <View style={styles.slideRankingHdr}>
+                        <Trophy size={14} color="#FBBF24" style={{ marginRight: 5 }} />
+                        <Text style={styles.slideRankingTitle}>LEADERBOARD & WIN RATES</Text>
+                      </View>
+
+                      <View style={styles.slideFilterPillsRow}>
+                        <View style={[styles.slideFilterMiniPill, { backgroundColor: '#EA580C' }]}>
+                          <Text style={styles.slideFilterMiniTextActive}>All-Time</Text>
+                        </View>
+                        <View style={styles.slideFilterMiniPill}>
+                          <Text style={styles.slideFilterMiniText}>Monthly</Text>
+                        </View>
+                        <View style={styles.slideFilterMiniPill}>
+                          <Text style={styles.slideFilterMiniText}>Win Rate</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.slideRankList}>
+                        <View style={styles.slideRankItem}>
+                          <Text style={{ fontSize: 12, marginRight: 5 }}>🥇</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.slideRankName} numberOfLines={1}>Vikram</Text>
+                            <Text style={styles.slideRankStats}>78% Win Rate • 18 Games</Text>
+                          </View>
+                          <Text style={styles.slideRankProfit}>+₹14,250</Text>
+                        </View>
+
+                        <View style={styles.slideRankItem}>
+                          <Text style={{ fontSize: 12, marginRight: 5 }}>🥈</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.slideRankName} numberOfLines={1}>Rohan</Text>
+                            <Text style={styles.slideRankStats}>64% Win Rate • 14 Games</Text>
+                          </View>
+                          <Text style={styles.slideRankProfit}>+₹6,800</Text>
+                        </View>
+
+                        <View style={styles.slideRankItem}>
+                          <Text style={{ fontSize: 12, marginRight: 5 }}>🥉</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.slideRankName} numberOfLines={1}>Ananya</Text>
+                            <Text style={styles.slideRankStats}>55% Win Rate • 11 Games</Text>
+                          </View>
+                          <Text style={styles.slideRankProfit}>+₹2,100</Text>
+                        </View>
+
+                        <View style={[styles.slideRankItem, { borderBottomWidth: 0 }]}>
+                          <Text style={{ fontSize: 12, marginRight: 5 }}>4️⃣</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.slideRankName} numberOfLines={1}>Pooja</Text>
+                            <Text style={styles.slideRankStats}>48% Win Rate • 9 Games</Text>
+                          </View>
+                          <Text style={styles.slideRankProfit}>+₹950</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.slideBadgeRow}>
+                        <View style={styles.slideStreakBadge}>
+                          <Text style={styles.slideStreakText}>🔥 5-Game Streak</Text>
+                        </View>
+                        <View style={styles.slideStreakBadge}>
+                          <Text style={styles.slideStreakText}>🏆 High Roller Club</Text>
+                        </View>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Slide 3: Friends & Social Groups */}
+                  {activeSlideIndex === 3 && (
+                    <View style={styles.slideContainer}>
+                      <View style={styles.slideRankingHdr}>
+                        <Users size={14} color="#38BDF8" style={{ marginRight: 5 }} />
+                        <Text style={styles.slideRankingTitle}>FRIENDS & RIVALRIES</Text>
+                      </View>
+
+                      <View style={styles.slideFriendsList}>
+                        <View style={styles.slideFriendCard}>
+                          <View style={styles.slideFriendAvatar}>
+                            <Text style={{ fontSize: 11 }}>👤</Text>
+                            <View style={styles.slideOnlineDot} />
+                          </View>
+                          <View style={{ flex: 1, marginLeft: 6 }}>
+                            <Text style={styles.slideFriendName}>Rahul</Text>
+                            <Text style={styles.slideRivalryText}>H2H: 8W - 3L (+₹2,400)</Text>
+                          </View>
+                          <View style={styles.slideInviteBtn}>
+                            <Text style={styles.slideInviteBtnText}>Invite</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.slideFriendCard}>
+                          <View style={styles.slideFriendAvatar}>
+                            <Text style={{ fontSize: 11 }}>👤</Text>
+                            <View style={styles.slideOnlineDot} />
+                          </View>
+                          <View style={{ flex: 1, marginLeft: 6 }}>
+                            <Text style={styles.slideFriendName}>Priya</Text>
+                            <Text style={styles.slideRivalryText}>H2H: 6W - 2L (+₹1,100)</Text>
+                          </View>
+                          <View style={styles.slideInviteBtn}>
+                            <Text style={styles.slideInviteBtnText}>Invite</Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.slideFriendCard}>
+                          <View style={styles.slideFriendAvatar}>
+                            <Text style={{ fontSize: 11 }}>👤</Text>
+                            <View style={[styles.slideOnlineDot, { backgroundColor: '#64748B' }]} />
+                          </View>
+                          <View style={{ flex: 1, marginLeft: 6 }}>
+                            <Text style={styles.slideFriendName}>Amit</Text>
+                            <Text style={styles.slideRivalryText}>H2H: 5W - 5L (Even)</Text>
+                          </View>
+                          <Text style={{ fontSize: 9, color: '#94A3B8' }}>Offline</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.slideGroupBox}>
+                        <Text style={styles.slideGroupTitle}>SATURDAY NIGHT POKER BOYS</Text>
+                        <Text style={styles.slideGroupSub}>6 Active Card Buddies • ₹500 Buy-in</Text>
+                      </View>
+
+                      <View style={styles.slideAddFriendBtn}>
+                        <Plus size={11} color="#FFF" style={{ marginRight: 3 }} />
+                        <Text style={styles.slideAddFriendText}>+ Add Friend by Phone</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Bottom Navigation Dots */}
+                  <View style={styles.phoneDotRow}>
+                    {[0, 1, 2, 3].map(idx => (
+                      <TouchableOpacity
+                        key={idx}
+                        onPress={() => {
+                          setIsAutoPlaying(false);
+                          setActiveSlideIndex(idx);
+                        }}
+                        style={[
+                          styles.phoneDot,
+                          activeSlideIndex === idx && styles.phoneDotActive
+                        ]}
+                      />
+                    ))}
                   </View>
 
                   {/* Bottom Home Indicator Bar */}
                   <View style={styles.homeIndicatorBar} />
                 </View>
               </View>
-
-              {/* Device caption removed per user feedback */}
             </View>
           </View>
         </View>
@@ -461,8 +762,34 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
               </View>
             </View>
 
-            {/* STEP 2: Mockup Left, Text Right */}
+            {/* STEP 2: Mockup Left, Text Right (Desktop row-reverse: Child 1 Text is Right, Child 2 Mockup is Left) */}
             <View style={[styles.showcaseRow, isDesktop ? styles.showcaseRowDesktopReverse : styles.showcaseRowMobile]}>
+              {/* Text Column */}
+              <View style={styles.showcaseTextCol}>
+                <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
+                  <Text style={[styles.stepNumText, { color: colors.primary }]}>02</Text>
+                </View>
+                <Text style={[styles.showcaseStepEyebrow, { color: colors.primary }]}>STEP 02 • FRICTIONLESS SEATING</Text>
+                <Text style={[styles.showcaseTitle, { color: colors.text }]}>Seat Players with 1 Tap</Text>
+                <Text style={[styles.showcaseDesc, { color: colors.textSecondary }]}>
+                  Seat registered friends by phone number or add casual guests by name in one tap. Only the table host needs an account — guests don't need to sign up, download any app, or remember passwords.
+                </Text>
+                <View style={styles.showcaseHighlights}>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>1-Tap Guest Seating with zero signup</Text>
+                  </View>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Share 5-character table code or QR scan</Text>
+                  </View>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Remembers regular poker buddies for instant re-seating</Text>
+                  </View>
+                </View>
+              </View>
+
               {/* Mockup Screen Column */}
               <View style={styles.showcaseMockupCol}>
                 <View style={[styles.mockupWindow, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
@@ -521,32 +848,6 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                         <Text style={styles.mockupAddBtnText}>Seat Guest Player</Text>
                       </View>
                     </View>
-                  </View>
-                </View>
-              </View>
-
-              {/* Text Column */}
-              <View style={styles.showcaseTextCol}>
-                <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
-                  <Text style={[styles.stepNumText, { color: colors.primary }]}>02</Text>
-                </View>
-                <Text style={[styles.showcaseStepEyebrow, { color: colors.primary }]}>STEP 02 • FRICTIONLESS SEATING</Text>
-                <Text style={[styles.showcaseTitle, { color: colors.text }]}>Seat Players with 1 Tap</Text>
-                <Text style={[styles.showcaseDesc, { color: colors.textSecondary }]}>
-                  Seat registered friends by phone number or add casual guests by name in one tap. Only the table host needs an account — guests don't need to sign up, download any app, or remember passwords.
-                </Text>
-                <View style={styles.showcaseHighlights}>
-                  <View style={styles.showcaseHighlightItem}>
-                    <CheckCircle2 size={16} color={colors.primary} />
-                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>1-Tap Guest Seating with zero signup</Text>
-                  </View>
-                  <View style={styles.showcaseHighlightItem}>
-                    <CheckCircle2 size={16} color={colors.primary} />
-                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Share 5-character table code or QR scan</Text>
-                  </View>
-                  <View style={styles.showcaseHighlightItem}>
-                    <CheckCircle2 size={16} color={colors.primary} />
-                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Remembers regular poker buddies for instant re-seating</Text>
                   </View>
                 </View>
               </View>
@@ -637,8 +938,34 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
               </View>
             </View>
 
-            {/* STEP 4: Mockup Left, Text Right */}
+            {/* STEP 4: Mockup Left, Text Right (Desktop row-reverse: Child 1 Text is Right, Child 2 Mockup is Left) */}
             <View style={[styles.showcaseRow, isDesktop ? styles.showcaseRowDesktopReverse : styles.showcaseRowMobile]}>
+              {/* Text Column */}
+              <View style={styles.showcaseTextCol}>
+                <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
+                  <Text style={[styles.stepNumText, { color: colors.primary }]}>04</Text>
+                </View>
+                <Text style={[styles.showcaseStepEyebrow, { color: colors.primary }]}>STEP 04 • BIPARTITE SETTLEMENT</Text>
+                <Text style={[styles.showcaseTitle, { color: colors.text }]}>Settle & Share on WhatsApp</Text>
+                <Text style={[styles.showcaseDesc, { color: colors.textSecondary }]}>
+                  When game night wraps up, our bipartite debt-minimization engine calculates exact net balances and compresses all debts into the minimum number of direct transfers. Dispatch clean summaries directly to your WhatsApp group.
+                </Text>
+                <View style={styles.showcaseHighlights}>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Consolidates 10+ cross-debts into 2 direct transfers</Text>
+                  </View>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>1-Tap WhatsApp share with clean payment summary</Text>
+                  </View>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Public read-only ledger links for guests to audit</Text>
+                  </View>
+                </View>
+              </View>
+
               {/* Mockup Screen Column */}
               <View style={styles.showcaseMockupCol}>
                 <View style={[styles.mockupWindow, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
@@ -680,32 +1007,6 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                       <MessageSquare size={14} color="#FFF" style={{ marginRight: 6 }} />
                       <Text style={styles.mockupWhatsAppBtnText}>Share Settlement to WhatsApp Group</Text>
                     </View>
-                  </View>
-                </View>
-              </View>
-
-              {/* Text Column */}
-              <View style={styles.showcaseTextCol}>
-                <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
-                  <Text style={[styles.stepNumText, { color: colors.primary }]}>04</Text>
-                </View>
-                <Text style={[styles.showcaseStepEyebrow, { color: colors.primary }]}>STEP 04 • BIPARTITE SETTLEMENT</Text>
-                <Text style={[styles.showcaseTitle, { color: colors.text }]}>Settle & Share on WhatsApp</Text>
-                <Text style={[styles.showcaseDesc, { color: colors.textSecondary }]}>
-                  When game night wraps up, our bipartite debt-minimization engine calculates exact net balances and compresses all debts into the minimum number of direct transfers. Dispatch clean summaries directly to your WhatsApp group.
-                </Text>
-                <View style={styles.showcaseHighlights}>
-                  <View style={styles.showcaseHighlightItem}>
-                    <CheckCircle2 size={16} color={colors.primary} />
-                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Consolidates 10+ cross-debts into 2 direct transfers</Text>
-                  </View>
-                  <View style={styles.showcaseHighlightItem}>
-                    <CheckCircle2 size={16} color={colors.primary} />
-                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>1-Tap WhatsApp share with clean payment summary</Text>
-                  </View>
-                  <View style={styles.showcaseHighlightItem}>
-                    <CheckCircle2 size={16} color={colors.primary} />
-                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Public read-only ledger links for guests to audit</Text>
                   </View>
                 </View>
               </View>
@@ -2217,5 +2518,462 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFF'
+  },
+  phoneArrowLeft: {
+    position: 'absolute',
+    left: 6,
+    top: '48%',
+    marginTop: -15,
+    zIndex: 30,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)'
+  },
+  phoneArrowRight: {
+    position: 'absolute',
+    right: 6,
+    top: '48%',
+    marginTop: -15,
+    zIndex: 30,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)'
+  },
+  slideContainer: {
+    paddingTop: 56,
+    paddingHorizontal: 10,
+    paddingBottom: 24,
+    gap: 7,
+    flex: 1,
+    zIndex: 10
+  },
+  slideCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#0B132B',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)'
+  },
+  slideTableTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#F1F5F9'
+  },
+  slideCodeBadge: {
+    backgroundColor: 'rgba(234, 88, 12, 0.18)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(234, 88, 12, 0.4)'
+  },
+  slideCodeText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#FB923C'
+  },
+  slideVaultBox: {
+    backgroundColor: '#0F172A',
+    padding: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)'
+  },
+  slideVaultLabel: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.5
+  },
+  slideReconciledTag: {
+    fontSize: 8,
+    fontWeight: '900',
+    color: '#10B981',
+    letterSpacing: 0.3
+  },
+  slideProgressBar: {
+    flexDirection: 'row',
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginVertical: 3
+  },
+  slideProgressFill: {
+    height: '100%'
+  },
+  slideVaultSub: {
+    fontSize: 8.5,
+    color: '#64748B',
+    fontWeight: '600'
+  },
+  slidePotFelt: {
+    backgroundColor: '#064E3B',
+    borderRadius: 8,
+    padding: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#059669'
+  },
+  slidePotLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#6EE7B7',
+    letterSpacing: 0.8
+  },
+  slidePotValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginVertical: 1
+  },
+  slidePotSub: {
+    fontSize: 8.5,
+    color: '#A7F3D0',
+    fontWeight: '600'
+  },
+  slideRoster: {
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 4
+  },
+  slideRosterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2
+  },
+  slidePlayerName: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#E2E8F0',
+    maxWidth: 130
+  },
+  slidePlayerChips: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#F8FAFC'
+  },
+  slideActionsRow: {
+    flexDirection: 'row',
+    gap: 5
+  },
+  slideMiniBtn: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  slideMiniBtnText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#FFF'
+  },
+  slideMiniBtnSec: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)'
+  },
+  slideMiniBtnSecText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#E2E8F0'
+  },
+  slideChampionBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E1B4B',
+    padding: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.3)'
+  },
+  slideChampLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#FBBF24',
+    letterSpacing: 0.6
+  },
+  slideChampName: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#FFF'
+  },
+  slideSummaryTable: {
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)'
+  },
+  slideSummaryHeaderRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    paddingBottom: 3,
+    marginBottom: 3
+  },
+  slideColHdr: {
+    fontSize: 7.5,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.4
+  },
+  slideSummaryDataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2.5,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)'
+  },
+  slideColTxt: {
+    fontSize: 9,
+    color: '#E2E8F0'
+  },
+  slideSettleBox: {
+    backgroundColor: '#0B132B',
+    borderRadius: 8,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 3
+  },
+  slideSettleBoxHdr: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.5,
+    marginBottom: 2
+  },
+  slideSettleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  slideSettleText: {
+    fontSize: 9.5,
+    color: '#CBD5E1',
+    fontWeight: '600'
+  },
+  slideSettleAmt: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#10B981'
+  },
+  slideWhatsAppBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#15803D',
+    paddingVertical: 6,
+    borderRadius: 6
+  },
+  slideWhatsAppText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#FFF'
+  },
+  slideRankingHdr: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2
+  },
+  slideRankingTitle: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#F1F5F9',
+    letterSpacing: 0.5
+  },
+  slideFilterPillsRow: {
+    flexDirection: 'row',
+    gap: 4
+  },
+  slideFilterMiniPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 5,
+    backgroundColor: '#1E293B'
+  },
+  slideFilterMiniTextActive: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#FFF'
+  },
+  slideFilterMiniText: {
+    fontSize: 8.5,
+    fontWeight: '600',
+    color: '#94A3B8'
+  },
+  slideRankList: {
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)'
+  },
+  slideRankItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.06)'
+  },
+  slideRankName: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#F8FAFC'
+  },
+  slideRankStats: {
+    fontSize: 8,
+    color: '#94A3B8'
+  },
+  slideRankProfit: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#10B981'
+  },
+  slideBadgeRow: {
+    flexDirection: 'row',
+    gap: 5
+  },
+  slideStreakBadge: {
+    flex: 1,
+    backgroundColor: 'rgba(234, 88, 12, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(234, 88, 12, 0.3)',
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignItems: 'center'
+  },
+  slideStreakText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#FB923C'
+  },
+  slideFriendsList: {
+    backgroundColor: '#0F172A',
+    borderRadius: 8,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    gap: 5
+  },
+  slideFriendCard: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  slideFriendAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#1E293B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative'
+  },
+  slideOnlineDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#10B981',
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    borderWidth: 1,
+    borderColor: '#0F172A'
+  },
+  slideFriendName: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#F8FAFC'
+  },
+  slideRivalryText: {
+    fontSize: 8,
+    color: '#94A3B8'
+  },
+  slideInviteBtn: {
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 4,
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.4)'
+  },
+  slideInviteBtnText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#38BDF8'
+  },
+  slideGroupBox: {
+    backgroundColor: '#1E1B4B',
+    borderRadius: 8,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.25)'
+  },
+  slideGroupTitle: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#A5B4FC',
+    letterSpacing: 0.4
+  },
+  slideGroupSub: {
+    fontSize: 8,
+    color: '#818CF8',
+    marginTop: 1
+  },
+  slideAddFriendBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0284C7',
+    paddingVertical: 6,
+    borderRadius: 6
+  },
+  slideAddFriendText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#FFF'
+  },
+  phoneDotRow: {
+    position: 'absolute',
+    bottom: 14,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    zIndex: 25
+  },
+  phoneDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)'
+  },
+  phoneDotActive: {
+    backgroundColor: '#EA580C',
+    width: 14
   }
 });

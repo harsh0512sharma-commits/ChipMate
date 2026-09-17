@@ -10,15 +10,32 @@ import {
   Platform,
   Alert
 } from 'react-native';
-import { Trophy, TrendingDown, HandCoins, ArrowRight, Home, History, Users, Share2, Check, CheckCircle2, Crown } from 'lucide-react-native';
+import {
+  Trophy,
+  TrendingDown,
+  HandCoins,
+  ArrowRight,
+  ArrowLeft,
+  Trash2,
+  Home,
+  History,
+  Users,
+  Share2,
+  Check,
+  CheckCircle2,
+  Crown
+} from 'lucide-react-native';
 import { colors } from '../../theme/colors';
 import { apiRequest } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 import { formatTxSummary } from '../table/LiveTableScreen';
 
 interface GameSummaryScreenProps {
   gameId: string;
   onGoHome: () => void;
   onGoLeaderboard: () => void;
+  onBack?: () => void;
+  onGameDeleted?: () => void;
 }
 
 function formatGameDateTime(dateStr?: string): string {
@@ -40,8 +57,11 @@ function formatGameDateTime(dateStr?: string): string {
 export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
   gameId,
   onGoHome,
-  onGoLeaderboard
+  onGoLeaderboard,
+  onBack,
+  onGameDeleted
 }) => {
+  const { user } = useAuth();
   const [insights, setInsights] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [ledger, setLedger] = useState<any>(null);
@@ -49,6 +69,50 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
   const [showAllTx, setShowAllTx] = useState(false);
   const [standingFilter, setStandingFilter] = useState<'ALL' | 'WON' | 'LOST'>('ALL');
   const [copied, setCopied] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const isHostOrAdmin = Boolean(
+    insights?.hostUserId === user?.id ||
+    user?.isMasterAdmin ||
+    user?.phone_number === '7319123393' ||
+    ledger?.table?.host_user_id === user?.id
+  );
+
+  const handleDeleteGame = () => {
+    const gameName = insights?.gameName || ledger?.table?.name || 'this game';
+    Alert.alert(
+      'Delete Game Record',
+      `Are you sure you want to delete "${gameName}" from game records? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              const res = await apiRequest(`/tables/${gameId}`, { method: 'DELETE' });
+              if (res.success) {
+                if (onGameDeleted) {
+                  onGameDeleted();
+                } else if (onBack) {
+                  onBack();
+                } else {
+                  onGoHome();
+                }
+              } else {
+                Alert.alert('Error', res.error || 'Failed to delete game record');
+              }
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to delete game record');
+            } finally {
+              setIsDeleting(false);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const handleShareSummary = async () => {
     const origin = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : 'https://chipmate.online';
@@ -132,6 +196,54 @@ export const GameSummaryScreen: React.FC<GameSummaryScreenProps> = ({
 
   return (
     <View style={styles.container}>
+      {/* Top Navigation & Action Header */}
+      <View style={styles.topHeaderBar}>
+        <TouchableOpacity
+          style={styles.headerBackBtn}
+          onPress={onBack ? onBack : onGoHome}
+          activeOpacity={0.7}
+          accessibilityLabel="Go Back"
+        >
+          <ArrowLeft size={18} color={colors.text} />
+          <Text style={styles.headerBackText}>Back</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {insights?.gameName || 'Game Summary'}
+        </Text>
+
+        <View style={styles.headerActionsRight}>
+          <TouchableOpacity
+            style={styles.headerIconBtn}
+            onPress={handleShareSummary}
+            activeOpacity={0.7}
+            accessibilityLabel="Share Summary"
+          >
+            {copied ? (
+              <Check size={18} color={colors.successText} />
+            ) : (
+              <Share2 size={18} color={colors.text} />
+            )}
+          </TouchableOpacity>
+
+          {isHostOrAdmin && (
+            <TouchableOpacity
+              style={[styles.headerIconBtn, styles.headerDeleteBtn]}
+              onPress={handleDeleteGame}
+              disabled={isDeleting}
+              activeOpacity={0.7}
+              accessibilityLabel="Delete Game Record"
+            >
+              {isDeleting ? (
+                <ActivityIndicator size={16} color={colors.dangerText} />
+              ) : (
+                <Trash2 size={18} color={colors.dangerText} />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Celebration Banner */}
         <View style={styles.heroCard}>
@@ -508,6 +620,57 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background
+  },
+  topHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+    backgroundColor: colors.card
+  },
+  headerBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: colors.cardRaised
+  },
+  headerBackText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+    marginLeft: 4
+  },
+  headerTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.text,
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 8
+  },
+  headerActionsRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: colors.cardRaised,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  headerDeleteBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.25)'
   },
   content: {
     padding: 20,

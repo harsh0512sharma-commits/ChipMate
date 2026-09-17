@@ -16,7 +16,6 @@ import {
   Trophy,
   TrendingDown,
   ArrowRight,
-  Trash2,
   Filter,
   Calendar,
   User as UserIcon,
@@ -46,7 +45,6 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
-  const [deletingGameId, setDeletingGameId] = useState<string | null>(null);
 
   const isMasterAdmin = Boolean(user?.is_master_admin);
 
@@ -73,35 +71,6 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
     setRefreshing(true);
     await fetchGames();
     setRefreshing(false);
-  };
-
-  const handleDeleteGame = (game: any) => {
-    Alert.alert(
-      'Delete Game Record',
-      `Are you sure you want to delete "${game.name}" from game history? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeletingGameId(game.id);
-            try {
-              const res = await apiRequest(`/tables/${game.id}`, { method: 'DELETE' });
-              if (res.success) {
-                setGames(prev => prev.filter(g => g.id !== game.id));
-              } else {
-                Alert.alert('Error', res.error || 'Failed to delete game record');
-              }
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete game record');
-            } finally {
-              setDeletingGameId(null);
-            }
-          }
-        }
-      ]
-    );
   };
 
   // Filtered and searched games
@@ -200,12 +169,8 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
           )}
         </View>
 
-        {/* Filter Pills */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersScroll}
-        >
+        {/* Filter Pills (Compact, wrapping to fit all screens without scrolling) */}
+        <View style={styles.filtersWrap}>
           <TouchableOpacity
             style={[styles.filterPill, activeFilter === 'ALL' && styles.filterPillActive]}
             onPress={() => setActiveFilter('ALL')}
@@ -241,7 +206,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
             onPress={() => setActiveFilter('WON')}
             activeOpacity={0.7}
           >
-            <Trophy size={13} color={activeFilter === 'WON' ? '#10b981' : colors.textMuted} style={{ marginRight: 4 }} />
+            <Trophy size={12} color={activeFilter === 'WON' ? '#10b981' : colors.textMuted} style={{ marginRight: 3 }} />
             <Text style={[styles.filterPillText, activeFilter === 'WON' && styles.filterPillTextActiveWon]}>
               Won
             </Text>
@@ -252,12 +217,12 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
             onPress={() => setActiveFilter('LOST')}
             activeOpacity={0.7}
           >
-            <TrendingDown size={13} color={activeFilter === 'LOST' ? '#ef4444' : colors.textMuted} style={{ marginRight: 4 }} />
+            <TrendingDown size={12} color={activeFilter === 'LOST' ? '#ef4444' : colors.textMuted} style={{ marginRight: 3 }} />
             <Text style={[styles.filterPillText, activeFilter === 'LOST' && styles.filterPillTextActiveLost]}>
               Lost
             </Text>
           </TouchableOpacity>
-        </ScrollView>
+        </View>
 
         {/* Games List */}
         {loading ? (
@@ -279,76 +244,57 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
           </View>
         ) : (
           filteredGames.map(game => {
-            const isHostOrAdmin = game.host_user_id === user?.id || game.player_role === 'HOST' || isMasterAdmin;
-            const isDeleting = deletingGameId === game.id;
             const netMoney = Number(game.net_winnings_money) || 0;
             const isWin = netMoney > 0;
             const isLoss = netMoney < 0;
 
             return (
-              <View key={game.id} style={styles.gameCardWrapper}>
-                <TouchableOpacity
-                  style={styles.gameCard}
-                  onPress={() => onOpenSummary(game.id)}
-                  activeOpacity={0.75}
-                >
-                  <View style={styles.gameCardTopRow}>
-                    <View style={styles.gameTypeBadge}>
-                      <Gamepad2 size={13} color={colors.primary} style={{ marginRight: 4 }} />
-                      <Text style={styles.gameTypeBadgeText}>
-                        {game.game_type === 'TEEN_PATTI' ? 'Teen Patti' : 'Poker'}
-                      </Text>
-                    </View>
-
-                    <Text style={styles.gameDateText}>
-                      📅 {formatGameDateTime(game.finalized_at || game.created_at)}
+              <TouchableOpacity
+                key={game.id}
+                style={styles.gameCard}
+                onPress={() => onOpenSummary(game.id)}
+                activeOpacity={0.75}
+              >
+                <View style={styles.gameCardTopRow}>
+                  <View style={styles.gameTypeBadge}>
+                    <Gamepad2 size={13} color={colors.primary} style={{ marginRight: 4 }} />
+                    <Text style={styles.gameTypeBadgeText}>
+                      {game.game_type === 'TEEN_PATTI' ? 'Teen Patti' : 'Poker'}
                     </Text>
                   </View>
 
-                  <View style={styles.gameCardMainRow}>
-                    <View style={{ flex: 1, marginRight: 12 }}>
-                      <Text style={styles.gameNameText} numberOfLines={1}>
-                        {game.name}
-                      </Text>
-                      <Text style={styles.gameHostText}>
-                        Host: <Text style={{ color: colors.text }}>{game.host_name || 'Host'}</Text>
-                        {game.player_role ? ` • You were ${game.player_role}` : ''}
-                      </Text>
-                    </View>
+                  <Text style={styles.gameDateText}>
+                    📅 {formatGameDateTime(game.finalized_at || game.created_at)}
+                  </Text>
+                </View>
 
-                    <View style={styles.gameNetColumn}>
-                      <Text
-                        style={[
-                          styles.gameNetText,
-                          { color: isWin ? colors.successText : isLoss ? colors.dangerText : colors.textMuted }
-                        ]}
-                      >
-                        {isWin ? `+₹${netMoney.toLocaleString('en-IN')}` : isLoss ? `-₹${Math.abs(netMoney).toLocaleString('en-IN')}` : '₹0'}
-                      </Text>
-                      <View style={styles.viewSummaryCta}>
-                        <Text style={styles.viewSummaryCtaText}>View Summary</Text>
-                        <ArrowRight size={13} color={colors.primary} style={{ marginLeft: 3 }} />
-                      </View>
+                <View style={styles.gameCardMainRow}>
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <Text style={styles.gameNameText} numberOfLines={1}>
+                      {game.name}
+                    </Text>
+                    <Text style={styles.gameHostText}>
+                      Host: <Text style={{ color: colors.text }}>{game.host_name || 'Host'}</Text>
+                      {game.player_role ? ` • You were ${game.player_role}` : ''}
+                    </Text>
+                  </View>
+
+                  <View style={styles.gameNetColumn}>
+                    <Text
+                      style={[
+                        styles.gameNetText,
+                        { color: isWin ? colors.successText : isLoss ? colors.dangerText : colors.textMuted }
+                      ]}
+                    >
+                      {isWin ? `+₹${netMoney.toLocaleString('en-IN')}` : isLoss ? `-₹${Math.abs(netMoney).toLocaleString('en-IN')}` : '₹0'}
+                    </Text>
+                    <View style={styles.viewSummaryCta}>
+                      <Text style={styles.viewSummaryCtaText}>View Summary</Text>
+                      <ArrowRight size={13} color={colors.primary} style={{ marginLeft: 3 }} />
                     </View>
                   </View>
-                </TouchableOpacity>
-
-                {isHostOrAdmin && (
-                  <TouchableOpacity
-                    style={styles.deleteGameBtn}
-                    onPress={() => handleDeleteGame(game)}
-                    disabled={isDeleting}
-                    activeOpacity={0.7}
-                    accessibilityLabel="Delete Game Record"
-                  >
-                    {isDeleting ? (
-                      <ActivityIndicator size={14} color={colors.dangerText} />
-                    ) : (
-                      <Trash2 size={16} color={colors.dangerText} />
-                    )}
-                  </TouchableOpacity>
-                )}
-              </View>
+                </View>
+              </TouchableOpacity>
             );
           })
         )}
@@ -426,18 +372,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     paddingHorizontal: 4
   },
-  filtersScroll: {
+  filtersWrap: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-    paddingVertical: 2
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 16
   },
   filterPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.borderSubtle
@@ -500,18 +446,14 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     maxWidth: 320
   },
-  gameCardWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12
-  },
   gameCard: {
-    flex: 1,
+    width: '100%',
     backgroundColor: colors.card,
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.borderSubtle
+    borderColor: colors.borderSubtle,
+    marginBottom: 12
   },
   gameCardTopRow: {
     flexDirection: 'row',
@@ -569,16 +511,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: colors.primary
-  },
-  deleteGameBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8
   }
 });

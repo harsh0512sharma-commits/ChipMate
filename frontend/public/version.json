@@ -1,5 +1,5 @@
 {
-  "version": "1.1.48",
-  "buildTime": 1789620000000,
-  "releaseNotes": "Add dedicated Games navigation tab, route past games directly to Summary, remove hero eyebrow pill, and add full-width alternating How It Works showcase with UI mockups."
+  "version": "1.1.49",
+  "buildTime": 1789640000000,
+  "releaseNotes": "Route completed games cleanly to Summary without active table banner, move game delete inside summary top-right with back button, mobile responsive games filter wrap, navigation history stack with hardware/browser back support, and interactive hero mobile phone slideshow."
 }
