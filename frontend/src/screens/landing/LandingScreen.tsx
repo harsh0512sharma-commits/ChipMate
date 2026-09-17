@@ -64,31 +64,93 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   const videoRef = useRef<any>(null);
   const phoneRef = useRef<any>(null);
 
-  // Hero Mobile Phone Interactive Slideshow
+  // Hero Mobile Phone Interactive Slideshow (Slide 0: Video, Slides 1-4: Live App Features)
   const [activeSlideIndex, setActiveSlideIndex] = useState<number>(0);
-  const [isAutoPlaying, setIsAutoPlaying] = useState<boolean>(true);
 
+  // Auto-cycle through the app demo slides (1, 2, 3, 4) without interrupting the intro video
   useEffect(() => {
-    if (!isAutoPlaying) return;
+    if (activeSlideIndex === 0) return; // Keep video playing on Slide 0
     const interval = setInterval(() => {
-      setActiveSlideIndex(prev => (prev + 1) % 4);
-    }, 3800);
+      setActiveSlideIndex(prev => {
+        if (prev === 0) return 0;
+        return prev >= 4 ? 1 : prev + 1;
+      });
+    }, 4500);
     return () => clearInterval(interval);
-  }, [isAutoPlaying]);
+  }, [activeSlideIndex]);
 
   const handlePrevSlide = () => {
-    setIsAutoPlaying(false);
-    setActiveSlideIndex(prev => (prev === 0 ? 3 : prev - 1));
+    setActiveSlideIndex(prev => {
+      const nextIdx = prev === 0 ? 4 : prev - 1;
+      if (nextIdx === 0) {
+        if (videoRef.current) {
+          try {
+            videoRef.current.play();
+            setIsVideoPlaying(true);
+          } catch (_) {}
+        }
+      } else {
+        if (videoRef.current) {
+          try {
+            videoRef.current.pause();
+            setIsVideoPlaying(false);
+          } catch (_) {}
+        }
+      }
+      return nextIdx;
+    });
   };
 
   const handleNextSlide = () => {
-    setIsAutoPlaying(false);
-    setActiveSlideIndex(prev => (prev === 3 ? 0 : prev + 1));
+    setActiveSlideIndex(prev => {
+      const nextIdx = prev === 4 ? 0 : prev + 1;
+      if (nextIdx === 0) {
+        if (videoRef.current) {
+          try {
+            videoRef.current.play();
+            setIsVideoPlaying(true);
+          } catch (_) {}
+        }
+      } else {
+        if (videoRef.current) {
+          try {
+            videoRef.current.pause();
+            setIsVideoPlaying(false);
+          } catch (_) {}
+        }
+      }
+      return nextIdx;
+    });
+  };
+
+  const handleSelectSlide = (idx: number) => {
+    setActiveSlideIndex(idx);
+    if (idx === 0) {
+      if (videoRef.current) {
+        try {
+          videoRef.current.play();
+          setIsVideoPlaying(true);
+        } catch (_) {}
+      }
+    } else {
+      if (videoRef.current) {
+        try {
+          videoRef.current.pause();
+          setIsVideoPlaying(false);
+        } catch (_) {}
+      }
+    }
   };
 
   const handleViewLiveDemo = () => {
-    setIsAutoPlaying(true);
-    setActiveSlideIndex(0);
+    // When clicking "Watch Live Demo", advance to Slide 1 (hypothetical live table)
+    setActiveSlideIndex(prev => (prev === 0 ? 1 : prev >= 4 ? 1 : prev + 1));
+    if (videoRef.current) {
+      try {
+        videoRef.current.pause();
+        setIsVideoPlaying(false);
+      } catch (_) {}
+    }
     if (Platform.OS === 'web' && phoneRef.current) {
       try {
         phoneRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -286,7 +348,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                   onPress={handleViewLiveDemo}
                   activeOpacity={0.75}
                 >
-                  <Text style={[styles.heroSecondaryCtaText, { color: colors.text }]}>View Live Demo</Text>
+                  <Text style={[styles.heroSecondaryCtaText, { color: colors.text }]}>Watch Live Demo ▶</Text>
                 </TouchableOpacity>
               </View>
 
@@ -330,15 +392,17 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
 
                   {/* Top Live Engine Badge & Slide Title */}
                   <View style={styles.phoneTopBadge}>
-                    <View style={[styles.phoneLiveDot, { backgroundColor: isAutoPlaying ? '#10B981' : '#FBBF24' }]} />
+                    <View style={[styles.phoneLiveDot, { backgroundColor: activeSlideIndex === 0 ? '#10B981' : '#FBBF24' }]} />
                     <Text style={styles.phoneLiveText}>
                       {activeSlideIndex === 0
-                        ? '1/4 • LIVE TABLE'
+                        ? 'LIVE ENGINE DEMO'
                         : activeSlideIndex === 1
-                        ? '2/4 • GAME SUMMARY'
+                        ? '2/5 • LIVE TABLE'
                         : activeSlideIndex === 2
-                        ? '3/4 • RANKINGS'
-                        : '4/4 • FRIENDS'}
+                        ? '3/5 • GAME SUMMARY'
+                        : activeSlideIndex === 3
+                        ? '4/5 • RANKINGS'
+                        : '5/5 • FRIENDS'}
                     </Text>
                   </View>
 
@@ -362,8 +426,62 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                     <ChevronRight size={16} color="#FFFFFF" />
                   </TouchableOpacity>
 
-                  {/* Slide 0: Live Table Felt */}
+                  {/* Slide 0: ChipMate Intro Video (Default View on Landing) */}
                   {activeSlideIndex === 0 && (
+                    <View style={{ width: '100%', height: '100%', position: 'relative' }}>
+                      {Platform.OS === 'web' && (
+                        <HtmlVideo
+                          ref={videoRef}
+                          src="/splash_video_v2.mp4?v=1.0.22"
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            backgroundColor: '#000000',
+                            objectFit: 'contain'
+                          }}
+                        />
+                      )}
+
+                      {/* Floating Frosted Glass Video Controls */}
+                      <View style={styles.phoneFloatingControls}>
+                        <TouchableOpacity
+                          style={styles.phoneGlassBtn}
+                          onPress={toggleVideoPlayback}
+                          activeOpacity={0.7}
+                          accessibilityLabel={isVideoPlaying ? 'Pause video' : 'Play video'}
+                        >
+                          {isVideoPlaying ? (
+                            <View style={styles.pauseIconBars}>
+                              <View style={styles.pauseBar} />
+                              <View style={styles.pauseBar} />
+                            </View>
+                          ) : (
+                            <Play size={10} color="#FFFFFF" fill="#FFFFFF" />
+                          )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.phoneGlassBtn}
+                          onPress={restartVideo}
+                          activeOpacity={0.7}
+                          accessibilityLabel="Replay video"
+                        >
+                          <RotateCcw size={10} color="#FFFFFF" />
+                        </TouchableOpacity>
+
+                        <Text style={styles.phoneControlHint}>
+                          {isVideoPlaying ? 'Tap to pause' : 'Tap to play'}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Slide 1: Live Table Felt */}
+                  {activeSlideIndex === 1 && (
                     <View style={styles.slideContainer}>
                       {/* Table Header Bar */}
                       <View style={styles.slideCardHeader}>
@@ -430,8 +548,8 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                     </View>
                   )}
 
-                  {/* Slide 1: Game Summary with Detailed Breakdown */}
-                  {activeSlideIndex === 1 && (
+                  {/* Slide 2: Game Summary with Detailed Breakdown */}
+                  {activeSlideIndex === 2 && (
                     <View style={styles.slideContainer}>
                       {/* Champion Trophy Box */}
                       <View style={styles.slideChampionBox}>
@@ -506,8 +624,8 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                     </View>
                   )}
 
-                  {/* Slide 2: Rankings & Leaderboard */}
-                  {activeSlideIndex === 2 && (
+                  {/* Slide 3: Rankings & Leaderboard */}
+                  {activeSlideIndex === 3 && (
                     <View style={styles.slideContainer}>
                       <View style={styles.slideRankingHdr}>
                         <Trophy size={14} color="#FBBF24" style={{ marginRight: 5 }} />
@@ -575,8 +693,8 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                     </View>
                   )}
 
-                  {/* Slide 3: Friends & Social Groups */}
-                  {activeSlideIndex === 3 && (
+                  {/* Slide 4: Friends & Social Groups */}
+                  {activeSlideIndex === 4 && (
                     <View style={styles.slideContainer}>
                       <View style={styles.slideRankingHdr}>
                         <Users size={14} color="#38BDF8" style={{ marginRight: 5 }} />
@@ -639,13 +757,10 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
 
                   {/* Bottom Navigation Dots */}
                   <View style={styles.phoneDotRow}>
-                    {[0, 1, 2, 3].map(idx => (
+                    {[0, 1, 2, 3, 4].map(idx => (
                       <TouchableOpacity
                         key={idx}
-                        onPress={() => {
-                          setIsAutoPlaying(false);
-                          setActiveSlideIndex(idx);
-                        }}
+                        onPress={() => handleSelectSlide(idx)}
                         style={[
                           styles.phoneDot,
                           activeSlideIndex === idx && styles.phoneDotActive
@@ -658,6 +773,13 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                   <View style={styles.homeIndicatorBar} />
                 </View>
               </View>
+
+              {/* Informative Subtitle Caption under phone */}
+              <Text style={[styles.phoneCaptionText, { color: colors.textSecondary }]}>
+                {activeSlideIndex === 0
+                  ? 'Watch intro demo video or use arrows / "Watch Live Demo" to tour live app features'
+                  : 'Tap arrows or dots to tour table, summary ledger, rankings, and friends'}
+              </Text>
             </View>
           </View>
         </View>

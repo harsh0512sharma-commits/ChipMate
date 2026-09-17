@@ -24,19 +24,32 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd }) =>
     hasFinishedRef.current = true;
 
     // Smooth, professional fade out into the application
-    Animated.timing(opacityAnim, {
-      toValue: 0,
-      duration: 350,
-      useNativeDriver: true,
-    }).start(() => {
+    try {
+      Animated.timing(opacityAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: Platform.OS !== 'web',
+      }).start(() => {
+        if (onAnimationEnd) {
+          onAnimationEnd();
+        }
+      });
+    } catch (_) {
       if (onAnimationEnd) {
         onAnimationEnd();
       }
-    });
+    }
+
+    // Safety fallback so web never hangs on black screen
+    setTimeout(() => {
+      if (onAnimationEnd) {
+        onAnimationEnd();
+      }
+    }, 350);
   };
 
   useEffect(() => {
-    // If not web, instantly finish splash with zero delay and zero logo
+    // If not web, instantly finish splash with zero delay
     if (Platform.OS !== 'web') {
       finishSplash();
       return;
@@ -51,14 +64,19 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd }) =>
         videoRef.current.setAttribute('muted', '');
         videoRef.current.setAttribute('playsinline', '');
         videoRef.current.setAttribute('webkit-playsinline', '');
-        videoRef.current.play().catch(() => {});
-      } catch (_) {}
+        videoRef.current.play().catch(() => {
+          // If autoplay fails, finish splash immediately so screen is never black
+          finishSplash();
+        });
+      } catch (_) {
+        finishSplash();
+      }
     }
 
-    // Safety timer (5 seconds) to ensure app transitions smoothly if onEnded doesn't fire
+    // Safety timer (2 seconds max) to ensure app transitions smoothly
     const safetyTimer = setTimeout(() => {
       finishSplash();
-    }, 5000);
+    }, 2000);
 
     return () => {
       clearTimeout(safetyTimer);
@@ -66,15 +84,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd }) =>
   }, []);
 
   const handleContainerTap = () => {
-    if (videoRef.current) {
-      try {
-        if (videoRef.current.paused) {
-          videoRef.current.play().catch(() => finishSplash());
-        }
-      } catch (_) {
-        finishSplash();
-      }
-    }
+    finishSplash();
   };
 
   return (

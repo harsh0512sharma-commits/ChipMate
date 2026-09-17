@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.49',
+      version: '1.1.50',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.49',
+      version: '1.1.50',
       buildTime: Date.now(),
-      releaseNotes: 'Route completed games cleanly to Summary without active table banner, move game delete inside summary top-right with back button, mobile responsive games filter wrap, navigation history stack with hardware/browser back support, and interactive hero mobile phone slideshow.'
+      releaseNotes: 'Fix post-login black screen by bypassing splash on interactive login with safe animation drivers, restore intro video as primary hero phone slide, and enable interactive slide tours on Watch Live Demo.'
     });
   };
   app.get('/version', versionHandler);

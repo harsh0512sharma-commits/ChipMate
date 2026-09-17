@@ -154,6 +154,13 @@ function MainNavigator() {
     return () => clearInterval(interval);
   }, [token, user]);
 
+  // If unauthenticated on initial app load, mark splash as done so that logging in goes directly to dashboard
+  useEffect(() => {
+    if (!isLoading && (!token || !user)) {
+      setIsSplashDone(true);
+    }
+  }, [isLoading, token, user]);
+
   // If a public ledger link was opened, display read-only public ledger immediately
   if (publicLedgerTableId) {
     return (

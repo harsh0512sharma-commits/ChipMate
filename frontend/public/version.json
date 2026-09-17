@@ -1,5 +1,5 @@
 {
-  "version": "1.1.49",
-  "buildTime": 1789640000000,
-  "releaseNotes": "Route completed games cleanly to Summary without active table banner, move game delete inside summary top-right with back button, mobile responsive games filter wrap, navigation history stack with hardware/browser back support, and interactive hero mobile phone slideshow."
+  "version": "1.1.50",
+  "buildTime": 1789645000000,
+  "releaseNotes": "Fix post-login black screen by bypassing splash on interactive login with safe animation drivers, restore intro video as primary hero phone slide, and enable interactive slide tours on Watch Live Demo."
 }
