@@ -62,9 +62,10 @@ function formatGameDateTime(dateStr?: string): string {
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onOpenSummary,
   onOpenMasterAdmin,
+  onOpenGames,
   initialSubView = 'MAIN'
 }) => {
-  const [subView, setSubView] = useState<'MAIN' | 'GAME_HISTORY' | 'APP_UPDATES'>(initialSubView);
+  const [subView, setSubView] = useState<'MAIN' | 'APP_UPDATES'>(initialSubView);
 
   useEffect(() => {
     if (initialSubView) setSubView(initialSubView);
@@ -226,127 +227,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     }
   };
 
-  const handleDeleteHistoryGame = (game: any) => {
-    const message = `Are you sure you want to permanently delete "${game.name}"? Player statistics and standings will be recalculated.`;
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(message)) {
-        performDeleteGame(game.id);
-      }
-    } else {
-      Alert.alert(
-        'Delete Completed Game',
-        message,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: () => performDeleteGame(game.id) }
-        ]
-      );
-    }
-  };
 
-  const performDeleteGame = async (gameId: string) => {
-    setDeletingGameId(gameId);
-    try {
-      const res = await apiRequest(`/tables/${gameId}`, { method: 'DELETE' });
-      if (res.success) {
-        setGameHistory(prev => prev.filter(g => g.id !== gameId));
-        refreshUser();
-        Alert.alert('Deleted', 'Game record deleted and player stats updated successfully.');
-      } else {
-        Alert.alert('Delete Failed', res.error || 'Could not delete game');
-      }
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to delete game');
-    } finally {
-      setDeletingGameId(null);
-    }
-  };
-
-  if (subView === 'GAME_HISTORY') {
-    return (
-      <View style={styles.container}>
-        <View style={styles.subViewHeader}>
-          <TouchableOpacity
-            style={styles.subViewBackBtn}
-            onPress={() => setSubView('MAIN')}
-            activeOpacity={0.7}
-          >
-            <ChevronLeft size={20} color={colors.text} />
-            <Text style={styles.subViewBackText}>Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.subViewTitle}>Game History</Text>
-          <View style={styles.subViewCountPill}>
-            <Text style={styles.subViewCountText}>{gameHistory.length}</Text>
-          </View>
-        </View>
-
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {gameHistory.length === 0 ? (
-            <View style={styles.emptyStateBox}>
-              <History size={40} color={colors.textMuted} />
-              <Text style={styles.emptyStateTitle}>No Completed Games</Text>
-              <Text style={styles.emptyStateSubtitle}>
-                Completed and settled games will appear here with full ledger breakdowns and winner summaries.
-              </Text>
-            </View>
-          ) : (
-            gameHistory.map(game => {
-              const isHostOrAdmin = game.host_user_id === user?.id || game.player_role === 'HOST' || isMasterAdmin;
-              const isDeleting = deletingGameId === game.id;
-              return (
-                <View key={game.id} style={styles.historyGameRow}>
-                  <TouchableOpacity
-                    style={styles.historyGameItem}
-                    onPress={() => onOpenSummary && onOpenSummary(game.id)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={styles.historyGameName}>{game.name}</Text>
-                      <Text style={styles.historyGameMeta}>
-                        {game.game_type === 'TEEN_PATTI' ? 'Teen Patti' : 'Poker'} • Host: {game.host_name}
-                      </Text>
-                      <Text style={styles.historyGameDate}>
-                        📅 {formatGameDateTime(game.finalized_at || game.created_at)}
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text
-                        style={[
-                          styles.historyGameNet,
-                          { color: (game.net_winnings_money || 0) >= 0 ? colors.successText : colors.dangerText }
-                        ]}
-                      >
-                        {(game.net_winnings_money || 0) >= 0 ? `+₹${game.net_winnings_money || 0}` : `-₹${Math.abs(game.net_winnings_money || 0)}`}
-                      </Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                        <Text style={styles.finalizedBadge}>View Summary</Text>
-                        <ArrowRight size={12} color={colors.primary} style={{ marginLeft: 4 }} />
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-
-                  {isHostOrAdmin && (
-                    <TouchableOpacity
-                      style={styles.deleteHistoryGameBtn}
-                      onPress={() => handleDeleteHistoryGame(game)}
-                      disabled={isDeleting}
-                      activeOpacity={0.7}
-                    >
-                      {isDeleting ? (
-                        <ActivityIndicator size={14} color={colors.dangerText} />
-                      ) : (
-                        <Trash2 size={16} color={colors.dangerText} />
-                      )}
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-            })
-          )}
-        </ScrollView>
-      </View>
-    );
-  }
 
   if (subView === 'APP_UPDATES') {
     return (
@@ -706,34 +587,37 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         </View>
 
-        {/* QUICK NAVIGATION: GAME HISTORY & SYSTEM UPDATES */}
+        {/* QUICK NAVIGATION: GAMES & SYSTEM UPDATES */}
         <View style={styles.navRowsCard}>
-          {/* Game History Row */}
-          <TouchableOpacity
-            style={styles.navRowItem}
-            onPress={() => setSubView('GAME_HISTORY')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.navRowLeft}>
-              <View style={[styles.navRowIconWrap, { backgroundColor: 'rgba(234, 88, 12, 0.12)' }]}>
-                <History size={19} color={colors.primary} />
-              </View>
-              <View style={{ marginLeft: 12 }}>
-                <Text style={styles.navRowTitle}>Game History</Text>
-                <Text style={styles.navRowSubtitle}>
-                  {gameHistory.length} completed {gameHistory.length === 1 ? 'game' : 'games'} • View ledgers & summaries
-                </Text>
-              </View>
-            </View>
-            <View style={styles.navRowRight}>
-              <View style={styles.navRowBadge}>
-                <Text style={styles.navRowBadgeText}>{gameHistory.length}</Text>
-              </View>
-              <ChevronRight size={18} color={colors.textSecondary} style={{ marginLeft: 6 }} />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.navRowDivider} />
+          {/* Games Row */}
+          {onOpenGames && (
+            <>
+              <TouchableOpacity
+                style={styles.navRowItem}
+                onPress={onOpenGames}
+                activeOpacity={0.7}
+              >
+                <View style={styles.navRowLeft}>
+                  <View style={[styles.navRowIconWrap, { backgroundColor: 'rgba(234, 88, 12, 0.12)' }]}>
+                    <History size={19} color={colors.primary} />
+                  </View>
+                  <View style={{ marginLeft: 12 }}>
+                    <Text style={styles.navRowTitle}>Games</Text>
+                    <Text style={styles.navRowSubtitle}>
+                      {gameHistory.length} completed {gameHistory.length === 1 ? 'game' : 'games'} • View ledgers & summaries
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.navRowRight}>
+                  <View style={styles.navRowBadge}>
+                    <Text style={styles.navRowBadgeText}>{gameHistory.length}</Text>
+                  </View>
+                  <ChevronRight size={18} color={colors.textSecondary} style={{ marginLeft: 6 }} />
+                </View>
+              </TouchableOpacity>
+              <View style={styles.navRowDivider} />
+            </>
+          )}
 
           {/* App Version & Updates Row */}
           <TouchableOpacity

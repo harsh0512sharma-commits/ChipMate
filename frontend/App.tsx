@@ -21,7 +21,8 @@ import {
   Moon,
   Sparkles,
   Play,
-  Coins
+  Coins,
+  History
 } from 'lucide-react-native';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { UpdateProvider, useUpdate } from './src/context/UpdateContext';
@@ -39,6 +40,7 @@ import { LandingScreen } from './src/screens/landing/LandingScreen';
 import { LoginScreen } from './src/screens/auth/LoginScreen';
 import { VerifyOtpScreen } from './src/screens/auth/VerifyOtpScreen';
 import { HomeScreen } from './src/screens/home/HomeScreen';
+import { GamesScreen } from './src/screens/games/GamesScreen';
 import { CreateTableScreen } from './src/screens/table/CreateTableScreen';
 import { JoinTableScreen } from './src/screens/table/JoinTableScreen';
 import { LiveTableScreen } from './src/screens/table/LiveTableScreen';
@@ -53,6 +55,7 @@ import { PublicLedgerScreen } from './src/screens/table/PublicLedgerScreen';
 
 type ScreenType =
   | 'TAB_HOME'
+  | 'TAB_GAMES'
   | 'TAB_LEADERBOARD'
   | 'TAB_FRIENDS'
   | 'TAB_PROFILE'
@@ -81,7 +84,7 @@ function MainNavigator() {
 
   // App screen state
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('TAB_HOME');
-  const [profileSubView, setProfileSubView] = useState<'MAIN' | 'GAME_HISTORY' | 'APP_UPDATES'>('MAIN');
+  const [profileSubView, setProfileSubView] = useState<'MAIN' | 'APP_UPDATES'>('MAIN');
   const [activeTableId, setActiveTableId] = useState<string | null>(null);
   const [h2hUserId, setH2hUserId] = useState<string | null>(null);
   const [isSplashDone, setIsSplashDone] = useState(false);
@@ -248,12 +251,14 @@ function MainNavigator() {
 
   const isTabScreen =
     currentScreen === 'TAB_HOME' ||
+    currentScreen === 'TAB_GAMES' ||
     currentScreen === 'TAB_LEADERBOARD' ||
     currentScreen === 'TAB_FRIENDS' ||
     currentScreen === 'TAB_PROFILE';
 
   const navItems = [
     { id: 'TAB_HOME' as ScreenType, label: 'Home', icon: Home },
+    { id: 'TAB_GAMES' as ScreenType, label: 'Games', icon: History },
     { id: 'TAB_LEADERBOARD' as ScreenType, label: 'Rankings', icon: Trophy },
     { id: 'TAB_FRIENDS' as ScreenType, label: 'Friends', icon: Users, badge: pendingRequestsCount },
     { id: 'TAB_PROFILE' as ScreenType, label: 'Profile', icon: User }
@@ -263,12 +268,14 @@ function MainNavigator() {
     switch (currentScreen) {
       case 'TAB_HOME':
         return 'Home Dashboard';
+      case 'TAB_GAMES':
+        return 'Games & History';
       case 'TAB_LEADERBOARD':
         return 'Rankings & Leaderboard';
       case 'TAB_FRIENDS':
         return 'Friends & Social Groups';
       case 'TAB_PROFILE':
-        return 'Player Profile & History';
+        return 'Player Profile';
       case 'CREATE_TABLE':
         return 'Host New Game Table';
       case 'JOIN_TABLE':
@@ -296,11 +303,15 @@ function MainNavigator() {
           onCreateTable={() => setCurrentScreen('CREATE_TABLE')}
           onOpenJoinTable={() => setCurrentScreen('JOIN_TABLE')}
           onOpenLeaderboard={() => setCurrentScreen('TAB_LEADERBOARD')}
-          onOpenGameHistory={() => {
-            setProfileSubView('GAME_HISTORY');
-            setCurrentScreen('TAB_PROFILE');
-          }}
+          onOpenGameHistory={() => setCurrentScreen('TAB_GAMES')}
           onOpenSummary={openSummary}
+        />
+      )}
+
+      {currentScreen === 'TAB_GAMES' && (
+        <GamesScreen
+          onOpenSummary={openSummary}
+          onBackToHome={() => setCurrentScreen('TAB_HOME')}
         />
       )}
 
@@ -317,6 +328,7 @@ function MainNavigator() {
         <ProfileScreen
           onOpenSummary={openSummary}
           onOpenMasterAdmin={() => setCurrentScreen('MASTER_ADMIN')}
+          onOpenGames={() => setCurrentScreen('TAB_GAMES')}
           initialSubView={profileSubView}
         />
       )}
@@ -347,6 +359,7 @@ function MainNavigator() {
           tableId={activeTableId}
           onBack={() => setCurrentScreen('TAB_HOME')}
           onProceedToSettlement={tableId => openSettlement(tableId)}
+          onOpenSummary={tableId => openSummary(tableId)}
         />
       )}
 
@@ -623,6 +636,27 @@ function MainNavigator() {
                 ]}
               >
                 Home
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.tabItem}
+              onPress={() => setCurrentScreen('TAB_GAMES')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.tabIconWrapper, currentScreen === 'TAB_GAMES' && styles.tabIconWrapperActive]}>
+                <History
+                  size={20}
+                  color={currentScreen === 'TAB_GAMES' ? colors.primary : colors.textSecondary}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.tabItemText,
+                  currentScreen === 'TAB_GAMES' && styles.tabItemTextActive
+                ]}
+              >
+                Games
               </Text>
             </TouchableOpacity>
 

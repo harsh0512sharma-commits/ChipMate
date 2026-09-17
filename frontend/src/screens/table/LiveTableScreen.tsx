@@ -116,13 +116,15 @@ interface LiveTableScreenProps {
   tableId: string;
   onBack: () => void;
   onProceedToSettlement: (tableId: string) => void;
+  onOpenSummary?: (tableId: string) => void;
   onAddPlayerModalOpen?: () => void;
 }
 
 export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
   tableId,
   onBack,
-  onProceedToSettlement
+  onProceedToSettlement,
+  onOpenSummary
 }) => {
   const { user } = useAuth();
   const [data, setData] = useState<any>(null);
@@ -165,6 +167,15 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
     try {
       const res = await apiRequest(`/tables/${tableId}`);
       if (res.success) {
+        if (res.table?.status === 'FINALIZED') {
+          if (onOpenSummary) {
+            onOpenSummary(tableId);
+            return;
+          } else {
+            onProceedToSettlement(tableId);
+            return;
+          }
+        }
         setData(res);
       }
     } catch (err: any) {
@@ -172,7 +183,7 @@ export const LiveTableScreen: React.FC<LiveTableScreenProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [tableId]);
+  }, [tableId, onOpenSummary, onProceedToSettlement]);
 
   useEffect(() => {
     fetchTableData();

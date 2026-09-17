@@ -26,7 +26,14 @@ import {
   Play,
   RotateCcw,
   X,
-  Mail
+  Mail,
+  QrCode,
+  Trophy,
+  HandCoins,
+  Share2,
+  Plus,
+  Lock,
+  Check
 } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { colors } from '../../theme/colors';
@@ -215,13 +222,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                 ChipMate – Poker &amp; Teen Patti Settlement Calculator
               </Text>
 
-              {/* Eyebrow Pill */}
-              <View style={[styles.heroPill, { backgroundColor: isDark ? 'rgba(234, 88, 12, 0.05)' : 'rgba(37, 99, 235, 0.04)', borderColor: isDark ? 'rgba(234, 88, 12, 0.15)' : 'rgba(37, 99, 235, 0.12)' }]}>
-                <Sparkles size={13} color={colors.primary} style={{ marginRight: 6 }} />
-                <Text style={[styles.heroPillText, { color: colors.primary }]}>
-                  THE ZERO-SUM CHIP LEDGER &amp; SETTLEMENT ENGINE
-                </Text>
-              </View>
+
 
               {/* Big Headline */}
               <Text style={[styles.heroHeadline, { color: colors.text, textAlign: isDesktop ? 'left' : 'center' }]}>
@@ -360,50 +361,354 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           </View>
         </View>
 
-        {/* 1. HOW IT WORKS (4 STEPS) */}
+        {/* 1. HOW IT WORKS (4 STEPS - ALTERNATING FULL-WIDTH SHOWCASE) */}
         <View nativeID="how-it-works" {...({ id: 'how-it-works' } as any)} style={styles.sectionWrap}>
           <Text style={[styles.sectionEyebrow, { color: colors.primary }]}>HOW IT WORKS</Text>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Four steps to a stress-free game night</Text>
+          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+            From opening the chip case to the final WhatsApp settlement, ChipMate automates every calculation.
+          </Text>
 
-          <View style={styles.stepsGrid}>
-            <View style={[styles.stepCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-              <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
-                <Text style={[styles.stepNumText, { color: colors.primary }]}>01</Text>
+          <View style={styles.showcaseRowsContainer}>
+            {/* STEP 1: Text Left, Mockup Right */}
+            <View style={[styles.showcaseRow, isDesktop ? styles.showcaseRowDesktop : styles.showcaseRowMobile]}>
+              {/* Text Column */}
+              <View style={styles.showcaseTextCol}>
+                <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
+                  <Text style={[styles.stepNumText, { color: colors.primary }]}>01</Text>
+                </View>
+                <Text style={[styles.showcaseStepEyebrow, { color: colors.primary }]}>STEP 01 • SETUP & VAULT</Text>
+                <Text style={[styles.showcaseTitle, { color: colors.text }]}>Create Your Table in Seconds</Text>
+                <Text style={[styles.showcaseDesc, { color: colors.textSecondary }]}>
+                  Choose Texas Hold'em or Teen Patti. Pick equal value per chip or customize physical White, Red, Blue, Green, and Black chip values. Set your chip box inventory so players can never buy more chips than physically exist on the table.
+                </Text>
+                <View style={styles.showcaseHighlights}>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Texas Hold'em & Teen Patti Modes</Text>
+                  </View>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Custom chip colors & values (₹10, ₹20, ₹50, ₹100)</Text>
+                  </View>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Physical Bank Vault chip limits enforced</Text>
+                  </View>
+                </View>
               </View>
-              <Text style={[styles.stepCardTitle, { color: colors.text }]}>Create Your Table</Text>
-              <Text style={[styles.stepCardDesc, { color: colors.textSecondary }]}>
-                Choose Texas Hold'em or Teen Patti. Pick Equal Value per chip or customize physical White, Red, Blue, and Green chip values.
-              </Text>
+
+              {/* Mockup Screen Column */}
+              <View style={styles.showcaseMockupCol}>
+                <View style={[styles.mockupWindow, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+                  <View style={[styles.mockupWindowHeader, { backgroundColor: colors.cardRaised, borderBottomColor: colors.borderSubtle }]}>
+                    <View style={styles.mockupDots}>
+                      <View style={[styles.mockupDot, { backgroundColor: '#EF4444' }]} />
+                      <View style={[styles.mockupDot, { backgroundColor: '#FBBF24' }]} />
+                      <View style={[styles.mockupDot, { backgroundColor: '#10B981' }]} />
+                    </View>
+                    <Text style={[styles.mockupWindowTitle, { color: colors.textMuted }]}>chipmate.online • Host New Game Table</Text>
+                  </View>
+
+                  <View style={styles.mockupBody}>
+                    <View style={styles.mockupGameTypeRow}>
+                      <View style={[styles.mockupTypePillActive, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.mockupTypePillActiveText}>♠ Texas Hold'em</Text>
+                      </View>
+                      <View style={[styles.mockupTypePillInactive, { borderColor: colors.borderSubtle }]}>
+                        <Text style={[styles.mockupTypePillInactiveText, { color: colors.textSecondary }]}>Teen Patti</Text>
+                      </View>
+                    </View>
+
+                    <View style={[styles.mockupBox, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle }]}>
+                      <Text style={[styles.mockupBoxLabel, { color: colors.textMuted }]}>PHYSICAL CHIP BOX CONFIGURATION</Text>
+                      <View style={styles.mockupChipGrid}>
+                        <View style={styles.mockupChipItem}>
+                          <View style={[styles.mockupChipCircle, { backgroundColor: '#FFFFFF', borderColor: '#CBD5E1' }]}>
+                            <Text style={{ fontSize: 9, fontWeight: '800', color: '#0F172A' }}>₹10</Text>
+                          </View>
+                          <Text style={[styles.mockupChipCount, { color: colors.text }]}>40 chips</Text>
+                        </View>
+                        <View style={styles.mockupChipItem}>
+                          <View style={[styles.mockupChipCircle, { backgroundColor: '#EF4444', borderColor: '#B91C1C' }]}>
+                            <Text style={{ fontSize: 9, fontWeight: '800', color: '#FFFFFF' }}>₹20</Text>
+                          </View>
+                          <Text style={[styles.mockupChipCount, { color: colors.text }]}>30 chips</Text>
+                        </View>
+                        <View style={styles.mockupChipItem}>
+                          <View style={[styles.mockupChipCircle, { backgroundColor: '#3B82F6', borderColor: '#1D4ED8' }]}>
+                            <Text style={{ fontSize: 9, fontWeight: '800', color: '#FFFFFF' }}>₹50</Text>
+                          </View>
+                          <Text style={[styles.mockupChipCount, { color: colors.text }]}>20 chips</Text>
+                        </View>
+                        <View style={styles.mockupChipItem}>
+                          <View style={[styles.mockupChipCircle, { backgroundColor: '#10B981', borderColor: '#047857' }]}>
+                            <Text style={{ fontSize: 9, fontWeight: '800', color: '#FFFFFF' }}>₹100</Text>
+                          </View>
+                          <Text style={[styles.mockupChipCount, { color: colors.text }]}>10 chips</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={[styles.mockupVaultSummary, { backgroundColor: colors.primaryLight, borderColor: colors.primaryBorder }]}>
+                      <Lock size={14} color={colors.primary} style={{ marginRight: 6 }} />
+                      <Text style={[styles.mockupVaultSummaryText, { color: colors.primary }]}>
+                        Bank Vault: 100 Chips • ₹3,000 Total Box Inventory
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
             </View>
 
-            <View style={[styles.stepCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-              <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
-                <Text style={[styles.stepNumText, { color: colors.primary }]}>02</Text>
+            {/* STEP 2: Mockup Left, Text Right */}
+            <View style={[styles.showcaseRow, isDesktop ? styles.showcaseRowDesktopReverse : styles.showcaseRowMobile]}>
+              {/* Mockup Screen Column */}
+              <View style={styles.showcaseMockupCol}>
+                <View style={[styles.mockupWindow, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+                  <View style={[styles.mockupWindowHeader, { backgroundColor: colors.cardRaised, borderBottomColor: colors.borderSubtle }]}>
+                    <View style={styles.mockupDots}>
+                      <View style={[styles.mockupDot, { backgroundColor: '#EF4444' }]} />
+                      <View style={[styles.mockupDot, { backgroundColor: '#FBBF24' }]} />
+                      <View style={[styles.mockupDot, { backgroundColor: '#10B981' }]} />
+                    </View>
+                    <Text style={[styles.mockupWindowTitle, { color: colors.textMuted }]}>Table #A7K92 • Live Player Roster</Text>
+                  </View>
+
+                  <View style={styles.mockupBody}>
+                    <View style={styles.mockupTableCodeRow}>
+                      <View>
+                        <Text style={[styles.mockupCodeLabel, { color: colors.textMuted }]}>TABLE JOIN CODE</Text>
+                        <Text style={[styles.mockupCodeValue, { color: colors.primary }]}>#A7K92</Text>
+                      </View>
+                      <View style={[styles.mockupQrPill, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle }]}>
+                        <QrCode size={14} color={colors.text} style={{ marginRight: 4 }} />
+                        <Text style={[styles.mockupQrPillText, { color: colors.text }]}>Show QR</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.mockupRosterList}>
+                      <View style={[styles.mockupRosterItem, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle }]}>
+                        <View style={styles.mockupPlayerInfo}>
+                          <Text style={{ fontSize: 13, marginRight: 6 }}>👑</Text>
+                          <Text style={[styles.mockupPlayerName, { color: colors.text }]}>Vikram (Host)</Text>
+                        </View>
+                        <Text style={[styles.mockupPlayerChips, { color: colors.successText }]}>25 chips (₹500)</Text>
+                      </View>
+
+                      <View style={[styles.mockupRosterItem, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle }]}>
+                        <View style={styles.mockupPlayerInfo}>
+                          <Text style={{ fontSize: 13, marginRight: 6 }}>👤</Text>
+                          <Text style={[styles.mockupPlayerName, { color: colors.text }]}>Rahul (Friend)</Text>
+                        </View>
+                        <Text style={[styles.mockupPlayerChips, { color: colors.successText }]}>25 chips (₹500)</Text>
+                      </View>
+
+                      <View style={[styles.mockupRosterItem, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle }]}>
+                        <View style={styles.mockupPlayerInfo}>
+                          <Text style={{ fontSize: 13, marginRight: 6 }}>⚡</Text>
+                          <Text style={[styles.mockupPlayerName, { color: colors.text }]}>Amit (Guest)</Text>
+                        </View>
+                        <View style={[styles.mockupGuestBadge, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
+                          <Text style={{ fontSize: 10, color: '#38bdf8', fontWeight: '700' }}>1-Tap Guest</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={[styles.mockupActionRow]}>
+                      <View style={[styles.mockupAddBtn, { backgroundColor: colors.primary }]}>
+                        <Plus size={13} color="#FFF" style={{ marginRight: 4 }} />
+                        <Text style={styles.mockupAddBtnText}>Seat Guest Player</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
               </View>
-              <Text style={[styles.stepCardTitle, { color: colors.text }]}>Seat Players with 1 Tap</Text>
-              <Text style={[styles.stepCardDesc, { color: colors.textSecondary }]}>
-                Seat registered friends by phone or add guests by name. Only the host records; guests don't even need an account.
-              </Text>
+
+              {/* Text Column */}
+              <View style={styles.showcaseTextCol}>
+                <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
+                  <Text style={[styles.stepNumText, { color: colors.primary }]}>02</Text>
+                </View>
+                <Text style={[styles.showcaseStepEyebrow, { color: colors.primary }]}>STEP 02 • FRICTIONLESS SEATING</Text>
+                <Text style={[styles.showcaseTitle, { color: colors.text }]}>Seat Players with 1 Tap</Text>
+                <Text style={[styles.showcaseDesc, { color: colors.textSecondary }]}>
+                  Seat registered friends by phone number or add casual guests by name in one tap. Only the table host needs an account — guests don't need to sign up, download any app, or remember passwords.
+                </Text>
+                <View style={styles.showcaseHighlights}>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>1-Tap Guest Seating with zero signup</Text>
+                  </View>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Share 5-character table code or QR scan</Text>
+                  </View>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Remembers regular poker buddies for instant re-seating</Text>
+                  </View>
+                </View>
+              </View>
             </View>
 
-            <View style={[styles.stepCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-              <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
-                <Text style={[styles.stepNumText, { color: colors.primary }]}>03</Text>
+            {/* STEP 3: Text Left, Mockup Right */}
+            <View style={[styles.showcaseRow, isDesktop ? styles.showcaseRowDesktop : styles.showcaseRowMobile]}>
+              {/* Text Column */}
+              <View style={styles.showcaseTextCol}>
+                <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
+                  <Text style={[styles.stepNumText, { color: colors.primary }]}>03</Text>
+                </View>
+                <Text style={[styles.showcaseStepEyebrow, { color: colors.primary }]}>STEP 03 • LIVE IN-GAME AUDIT</Text>
+                <Text style={[styles.showcaseTitle, { color: colors.text }]}>Track Buy-ins, Loans & Credit</Text>
+                <Text style={[styles.showcaseDesc, { color: colors.textSecondary }]}>
+                  Record rebuys, shot loans between players, and mid-game cash-outs effortlessly. ChipMate maintains a live 100/100 physical chip reconciliation so no chips can ever disappear without being accounted for.
+                </Text>
+                <View style={styles.showcaseHighlights}>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>1-Click Rebuys with instant vault deduction</Text>
+                  </View>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Inter-player loan tracking (Rahul owes Vikram)</Text>
+                  </View>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Mathematical zero-sum audit ensures pot accuracy</Text>
+                  </View>
+                </View>
               </View>
-              <Text style={[styles.stepCardTitle, { color: colors.text }]}>Track Buy-ins & Credit</Text>
-              <Text style={[styles.stepCardDesc, { color: colors.textSecondary }]}>
-                Record rebuys, shot loans, and early cash-outs. The live bank vault verifies that physical chips match the money pot.
-              </Text>
+
+              {/* Mockup Screen Column */}
+              <View style={styles.showcaseMockupCol}>
+                <View style={[styles.mockupWindow, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+                  <View style={[styles.mockupWindowHeader, { backgroundColor: colors.cardRaised, borderBottomColor: colors.borderSubtle }]}>
+                    <View style={styles.mockupDots}>
+                      <View style={[styles.mockupDot, { backgroundColor: '#EF4444' }]} />
+                      <View style={[styles.mockupDot, { backgroundColor: '#FBBF24' }]} />
+                      <View style={[styles.mockupDot, { backgroundColor: '#10B981' }]} />
+                    </View>
+                    <Text style={[styles.mockupWindowTitle, { color: colors.textMuted }]}>Bank Vault & Physical Chip Audit</Text>
+                  </View>
+
+                  <View style={styles.mockupBody}>
+                    <View style={[styles.mockupReconciledPill, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
+                      <CheckCircle2 size={15} color="#10B981" style={{ marginRight: 6 }} />
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#10B981' }}>
+                        100 / 100 Physical Chips Reconciled ✓
+                      </Text>
+                    </View>
+
+                    <View style={styles.mockupProgressWrap}>
+                      <View style={styles.mockupProgressBar}>
+                        <View style={[styles.mockupProgressPlay, { width: '75%', backgroundColor: colors.primary }]} />
+                        <View style={[styles.mockupProgressVault, { width: '25%', backgroundColor: '#3B82F6' }]} />
+                      </View>
+                      <View style={styles.mockupProgressLabels}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>In Play: 75 chips (₹2,250)</Text>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#3B82F6' }}>In Vault: 25 chips (₹750)</Text>
+                      </View>
+                    </View>
+
+                    <View style={[styles.mockupLoanCard, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <HandCoins size={15} color="#FBBF24" style={{ marginRight: 6 }} />
+                        <Text style={[styles.mockupLoanTitle, { color: colors.text }]}>Inter-Player Credit Loan</Text>
+                      </View>
+                      <Text style={[styles.mockupLoanDesc, { color: colors.textSecondary }]}>
+                        Rahul borrowed 10 chips (₹200) from Vikram • Automatically factored at settlement
+                      </Text>
+                    </View>
+
+                    <View style={styles.mockupHostActionsRow}>
+                      <View style={[styles.mockupMiniBtn, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.mockupMiniBtnText}>+ Buy-In</Text>
+                      </View>
+                      <View style={[styles.mockupMiniBtn, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle, borderWidth: 1 }]}>
+                        <Text style={[styles.mockupMiniBtnText, { color: colors.text }]}>🤝 Lend</Text>
+                      </View>
+                      <View style={[styles.mockupMiniBtn, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle, borderWidth: 1 }]}>
+                        <Text style={[styles.mockupMiniBtnText, { color: colors.text }]}>🚪 Cash Out</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
             </View>
 
-            <View style={[styles.stepCard, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
-              <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
-                <Text style={[styles.stepNumText, { color: colors.primary }]}>04</Text>
+            {/* STEP 4: Mockup Left, Text Right */}
+            <View style={[styles.showcaseRow, isDesktop ? styles.showcaseRowDesktopReverse : styles.showcaseRowMobile]}>
+              {/* Mockup Screen Column */}
+              <View style={styles.showcaseMockupCol}>
+                <View style={[styles.mockupWindow, { backgroundColor: colors.card, borderColor: colors.borderSubtle }]}>
+                  <View style={[styles.mockupWindowHeader, { backgroundColor: colors.cardRaised, borderBottomColor: colors.borderSubtle }]}>
+                    <View style={styles.mockupDots}>
+                      <View style={[styles.mockupDot, { backgroundColor: '#EF4444' }]} />
+                      <View style={[styles.mockupDot, { backgroundColor: '#FBBF24' }]} />
+                      <View style={[styles.mockupDot, { backgroundColor: '#10B981' }]} />
+                    </View>
+                    <Text style={[styles.mockupWindowTitle, { color: colors.textMuted }]}>Official Game Settlement • Minimized</Text>
+                  </View>
+
+                  <View style={styles.mockupBody}>
+                    <View style={[styles.mockupChampionCard, { backgroundColor: 'rgba(245, 158, 11, 0.12)', borderColor: 'rgba(245, 158, 11, 0.3)' }]}>
+                      <Trophy size={18} color="#D97706" style={{ marginRight: 8 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '800', color: '#D97706', letterSpacing: 0.8 }}>CHAMPION</Text>
+                        <Text style={[styles.mockupChampionName, { color: colors.text }]}>Vikram (+₹1,500 Net Profit)</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.mockupSettlementRows}>
+                      <View style={[styles.mockupSettlementRow, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle }]}>
+                        <Text style={[styles.mockupSettleText, { color: colors.text }]}>
+                          <Text style={{ fontWeight: '700', color: '#EF4444' }}>Amit</Text> pays <Text style={{ fontWeight: '700', color: '#10B981' }}>Vikram</Text>
+                        </Text>
+                        <Text style={[styles.mockupSettleAmount, { color: colors.text }]}>₹1,000</Text>
+                      </View>
+
+                      <View style={[styles.mockupSettlementRow, { backgroundColor: colors.cardRaised, borderColor: colors.borderSubtle }]}>
+                        <Text style={[styles.mockupSettleText, { color: colors.text }]}>
+                          <Text style={{ fontWeight: '700', color: '#EF4444' }}>Pooja</Text> pays <Text style={{ fontWeight: '700', color: '#10B981' }}>Vikram</Text>
+                        </Text>
+                        <Text style={[styles.mockupSettleAmount, { color: colors.text }]}>₹500</Text>
+                      </View>
+                    </View>
+
+                    <View style={[styles.mockupWhatsAppBtn, { backgroundColor: '#25D366' }]}>
+                      <MessageSquare size={14} color="#FFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.mockupWhatsAppBtnText}>Share Settlement to WhatsApp Group</Text>
+                    </View>
+                  </View>
+                </View>
               </View>
-              <Text style={[styles.stepCardTitle, { color: colors.text }]}>Settle & Share on WhatsApp</Text>
-              <Text style={[styles.stepCardDesc, { color: colors.textSecondary }]}>
-                ChipMate minimizes debt into the fewest possible payments. Copy or share formatted summaries straight to your WhatsApp group.
-              </Text>
+
+              {/* Text Column */}
+              <View style={styles.showcaseTextCol}>
+                <View style={[styles.stepNumBadge, { backgroundColor: colors.primaryLight }]}>
+                  <Text style={[styles.stepNumText, { color: colors.primary }]}>04</Text>
+                </View>
+                <Text style={[styles.showcaseStepEyebrow, { color: colors.primary }]}>STEP 04 • BIPARTITE SETTLEMENT</Text>
+                <Text style={[styles.showcaseTitle, { color: colors.text }]}>Settle & Share on WhatsApp</Text>
+                <Text style={[styles.showcaseDesc, { color: colors.textSecondary }]}>
+                  When game night wraps up, our bipartite debt-minimization engine calculates exact net balances and compresses all debts into the minimum number of direct transfers. Dispatch clean summaries directly to your WhatsApp group.
+                </Text>
+                <View style={styles.showcaseHighlights}>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Consolidates 10+ cross-debts into 2 direct transfers</Text>
+                  </View>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>1-Tap WhatsApp share with clean payment summary</Text>
+                  </View>
+                  <View style={styles.showcaseHighlightItem}>
+                    <CheckCircle2 size={16} color={colors.primary} />
+                    <Text style={[styles.showcaseHighlightText, { color: colors.text }]}>Public read-only ledger links for guests to audit</Text>
+                  </View>
+                </View>
+              </View>
             </View>
           </View>
         </View>
@@ -1265,20 +1570,69 @@ const styles = StyleSheet.create({
     width: 16,
     textAlign: 'center'
   },
-  stepsGrid: {
+  showcaseRowsContainer: {
     width: '100%',
+    gap: 56,
+    marginTop: 20
+  },
+  showcaseRow: {
+    width: '100%'
+  },
+  showcaseRowDesktop: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
+    alignItems: 'center',
+    gap: 48
+  },
+  showcaseRowDesktopReverse: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 48
+  },
+  showcaseRowMobile: {
+    flexDirection: 'column',
+    gap: 24
+  },
+  showcaseTextCol: {
+    flex: 1,
+    minWidth: 280,
     justifyContent: 'center'
   },
-  stepCard: {
+  showcaseMockupCol: {
     flex: 1,
-    minWidth: 220,
-    maxWidth: 250,
-    borderRadius: 14,
-    padding: 20,
-    borderWidth: 1
+    minWidth: 280,
+    width: '100%',
+    justifyContent: 'center'
+  },
+  showcaseStepEyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 8
+  },
+  showcaseTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    lineHeight: 32,
+    letterSpacing: -0.5,
+    marginBottom: 12
+  },
+  showcaseDesc: {
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 18
+  },
+  showcaseHighlights: {
+    gap: 10
+  },
+  showcaseHighlightItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  showcaseHighlightText: {
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1
   },
   stepNumBadge: {
     width: 34,
@@ -1292,15 +1646,281 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900'
   },
-  stepCardTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 8,
+  mockupWindow: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 8
+  },
+  mockupWindowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1
+  },
+  mockupDots: {
+    flexDirection: 'row',
+    gap: 5,
+    marginRight: 10
+  },
+  mockupDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4
+  },
+  mockupWindowTitle: {
+    fontSize: 11,
+    fontWeight: '600',
     letterSpacing: -0.2
   },
-  stepCardDesc: {
+  mockupBody: {
+    padding: 16,
+    gap: 12
+  },
+  mockupGameTypeRow: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  mockupTypePillActive: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8
+  },
+  mockupTypePillActiveText: {
     fontSize: 12,
-    lineHeight: 18
+    fontWeight: '800',
+    color: '#FFF'
+  },
+  mockupTypePillInactive: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1
+  },
+  mockupTypePillInactiveText: {
+    fontSize: 12,
+    fontWeight: '600'
+  },
+  mockupBox: {
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1
+  },
+  mockupBoxLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 8
+  },
+  mockupChipGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8
+  },
+  mockupChipItem: {
+    alignItems: 'center',
+    gap: 4
+  },
+  mockupChipCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  mockupChipCount: {
+    fontSize: 10,
+    fontWeight: '700'
+  },
+  mockupVaultSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1
+  },
+  mockupVaultSummaryText: {
+    fontSize: 11,
+    fontWeight: '800'
+  },
+  mockupTableCodeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  mockupCodeLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8
+  },
+  mockupCodeValue: {
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: 1
+  },
+  mockupQrPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1
+  },
+  mockupQrPillText: {
+    fontSize: 11,
+    fontWeight: '700'
+  },
+  mockupRosterList: {
+    gap: 8
+  },
+  mockupRosterItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1
+  },
+  mockupPlayerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  mockupPlayerName: {
+    fontSize: 12,
+    fontWeight: '700'
+  },
+  mockupPlayerChips: {
+    fontSize: 12,
+    fontWeight: '800'
+  },
+  mockupGuestBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4
+  },
+  mockupActionRow: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  mockupAddBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8
+  },
+  mockupAddBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFF'
+  },
+  mockupReconciledPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1
+  },
+  mockupProgressWrap: {
+    gap: 6
+  },
+  mockupProgressBar: {
+    flexDirection: 'row',
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden'
+  },
+  mockupProgressPlay: {
+    height: '100%'
+  },
+  mockupProgressVault: {
+    height: '100%'
+  },
+  mockupProgressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between'
+  },
+  mockupLoanCard: {
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 4
+  },
+  mockupLoanTitle: {
+    fontSize: 12,
+    fontWeight: '800'
+  },
+  mockupLoanDesc: {
+    fontSize: 11,
+    lineHeight: 15
+  },
+  mockupHostActionsRow: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  mockupMiniBtn: {
+    flex: 1,
+    paddingVertical: 7,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  mockupMiniBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFF'
+  },
+  mockupChampionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1
+  },
+  mockupChampionName: {
+    fontSize: 13,
+    fontWeight: '800'
+  },
+  mockupSettlementRows: {
+    gap: 6
+  },
+  mockupSettlementRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1
+  },
+  mockupSettleText: {
+    fontSize: 12
+  },
+  mockupSettleAmount: {
+    fontSize: 13,
+    fontWeight: '800'
+  },
+  mockupWhatsAppBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 8
+  },
+  mockupWhatsAppBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFF'
   },
   featuresGrid: {
     width: '100%',

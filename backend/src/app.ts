@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.47',
+      version: '1.1.48',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.47',
+      version: '1.1.48',
       buildTime: Date.now(),
-      releaseNotes: 'Fix pre-rendered HTML flash, add missing logo on SEO pages, remove device caption, reduce eyebrow pill highlighting.'
+      releaseNotes: 'Add dedicated Games navigation tab, route past games directly to Summary, remove hero eyebrow pill, and add full-width alternating How It Works showcase with UI mockups.'
     });
   };
   app.get('/version', versionHandler);
