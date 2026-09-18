@@ -93,7 +93,7 @@ function MainNavigator() {
   const [h2hUserId, setH2hUserId] = useState<string | null>(null);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [showLanding, setShowLanding] = useState<boolean>(true);
-  const [isSplashDone, setIsSplashDone] = useState<boolean>(false);
+  const [hasPlayedLoginSplash, setHasPlayedLoginSplash] = useState<boolean>(false);
 
   // Check for public ledger link in URL (?ledger=<id> or ?public_ledger=<id>)
   const [publicLedgerTableId, setPublicLedgerTableId] = useState<string | null>(() => {
@@ -137,6 +137,14 @@ function MainNavigator() {
       } catch (_) {}
     }
   }, []);
+
+  // Reset login splash state whenever user logs out
+  useEffect(() => {
+    if (!token || !user) {
+      setHasPlayedLoginSplash(false);
+      setShowLanding(true);
+    }
+  }, [token, user]);
 
   // Poll for incoming friend requests
   useEffect(() => {
@@ -315,26 +323,7 @@ function MainNavigator() {
     );
   }
 
-  // Signature cinematic splash video played once on initial app open
-  if (!isSplashDone) {
-    return (
-      <SplashScreen
-        isLoading={isLoading}
-        onAnimationEnd={() => setIsSplashDone(true)}
-      />
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' }}>
-        <StatusBar barStyle="light-content" backgroundColor="#000000" />
-        <ActivityIndicator size="large" color={colors.primary} />
-      </SafeAreaView>
-    );
-  }
-
-  // Not authenticated
+  // Not authenticated: visitors immediately view the Landing Screen (NO splash video on landing)
   if (!token || !user) {
     if (showLanding) {
       return (
@@ -367,6 +356,25 @@ function MainNavigator() {
         initialName={authName}
         onBack={() => setAuthStep('LOGIN')}
       />
+    );
+  }
+
+  // Authenticated: Signature cinematic splash video plays when logging in to mask the dashboard loading buffer
+  if (!hasPlayedLoginSplash) {
+    return (
+      <SplashScreen
+        isLoading={isLoading}
+        onAnimationEnd={() => setHasPlayedLoginSplash(true)}
+      />
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' }}>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
     );
   }
 

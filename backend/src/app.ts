@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.54',
+      version: '1.1.55',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.54',
+      version: '1.1.55',
       buildTime: Date.now(),
-      releaseNotes: 'Restore full visibility of SEO pre-rendered HTML content for Googlebot and search crawlers, improve noscript accessibility, and harmonize meta descriptions.'
+      releaseNotes: 'Direct instant landing screen load for visitors without splash video delay; cinematic intro video reserved for login transition to mask dashboard loading buffer.'
     });
   };
   app.get('/version', versionHandler);

@@ -1,5 +1,5 @@
 {
-  "version": "1.1.54",
-  "buildTime": 1789710000000,
-  "releaseNotes": "Restore full visibility of SEO pre-rendered HTML content for Googlebot and search crawlers, improve noscript accessibility, and harmonize meta descriptions."
+  "version": "1.1.55",
+  "buildTime": 1789720000000,
+  "releaseNotes": "Direct instant landing screen load for visitors without splash video delay; cinematic intro video reserved for login transition to mask dashboard loading buffer."
 }
