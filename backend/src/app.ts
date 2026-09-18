@@ -28,7 +28,7 @@ export function createApp() {
     res.json({
       status: 'ok',
       service: 'ChipMate Backend',
-      version: '1.1.52',
+      version: '1.1.53',
       timestamp: new Date().toISOString()
     });
   });
@@ -36,9 +36,9 @@ export function createApp() {
   // Version check for PWA / native client updates
   const versionHandler = (_req: Request, res: Response) => {
     res.json({
-      version: '1.1.52',
+      version: '1.1.53',
       buildTime: Date.now(),
-      releaseNotes: 'Fix React hooks lifecycle ordering in MainNavigator and add robust ErrorBoundary to guarantee immediate and seamless dashboard load upon login.'
+      releaseNotes: 'Restore signature splash intro video on app open and ensure reliable hero phone video autoplay across all mobile and desktop browsers.'
     });
   };
   app.get('/version', versionHandler);

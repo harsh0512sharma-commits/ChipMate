@@ -431,12 +431,40 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                     <View style={{ width: '100%', height: '100%', position: 'relative' }}>
                       {Platform.OS === 'web' && (
                         <HtmlVideo
-                          ref={videoRef}
+                          ref={(el: any) => {
+                            videoRef.current = el;
+                            if (el) {
+                              try {
+                                el.muted = true;
+                                el.defaultMuted = true;
+                                el.playsInline = true;
+                                el.setAttribute('muted', '');
+                                el.setAttribute('playsinline', '');
+                                el.setAttribute('webkit-playsinline', '');
+                                el.play().catch(() => {});
+                              } catch (_) {}
+                            }
+                          }}
                           src="/splash_video_v2.mp4?v=1.0.22"
                           autoPlay
                           loop
-                          muted
+                          muted={true}
                           playsInline
+                          preload="auto"
+                          onLoadedMetadata={() => {
+                            if (videoRef.current) {
+                              videoRef.current.muted = true;
+                              videoRef.current.defaultMuted = true;
+                              videoRef.current.play().catch(() => {});
+                            }
+                          }}
+                          onCanPlay={() => {
+                            if (videoRef.current) {
+                              videoRef.current.muted = true;
+                              videoRef.current.defaultMuted = true;
+                              videoRef.current.play().catch(() => {});
+                            }
+                          }}
                           style={{
                             width: '100%',
                             height: '100%',

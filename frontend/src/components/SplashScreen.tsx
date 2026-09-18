@@ -3,8 +3,12 @@ import {
   StyleSheet,
   Animated,
   StatusBar,
-  Platform
+  Platform,
+  TouchableOpacity,
+  Text,
+  View
 } from 'react-native';
+import { ChipMateLogo } from './ChipMateBrand';
 
 interface SplashScreenProps {
   onAnimationEnd?: () => void;
@@ -23,11 +27,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd }) =>
     if (hasFinishedRef.current) return;
     hasFinishedRef.current = true;
 
-    // Smooth, professional fade out into the application
+    // Smooth fade out into the application
     try {
       Animated.timing(opacityAnim, {
         toValue: 0,
-        duration: 300,
+        duration: 280,
         useNativeDriver: Platform.OS !== 'web',
       }).start(() => {
         if (onAnimationEnd) {
@@ -45,7 +49,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd }) =>
       if (onAnimationEnd) {
         onAnimationEnd();
       }
-    }, 350);
+    }, 320);
   };
 
   useEffect(() => {
@@ -55,7 +59,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd }) =>
       return;
     }
 
-    // Instant DOM-level autoplay trigger for mobile Safari & Chrome Android
+    // Direct DOM-level muted autoplay trigger for mobile Safari & Chrome Android
     if (videoRef.current) {
       try {
         videoRef.current.muted = true;
@@ -64,19 +68,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd }) =>
         videoRef.current.setAttribute('muted', '');
         videoRef.current.setAttribute('playsinline', '');
         videoRef.current.setAttribute('webkit-playsinline', '');
-        videoRef.current.play().catch(() => {
-          // If autoplay fails, finish splash immediately so screen is never black
-          finishSplash();
-        });
-      } catch (_) {
-        finishSplash();
-      }
+        videoRef.current.play().catch(() => {});
+      } catch (_) {}
     }
 
-    // Safety timer (2 seconds max) to ensure app transitions smoothly
+    // Safety timer: video is 3.5s runtime; safety timeout at 4.2s ensures app transitions smoothly
     const safetyTimer = setTimeout(() => {
       finishSplash();
-    }, 2000);
+    }, 4200);
 
     return () => {
       clearTimeout(safetyTimer);
@@ -96,9 +95,27 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd }) =>
     >
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
 
+      {/* Subtle brand backdrop shown while video buffer starts */}
+      <View style={styles.backdropBrand}>
+        <ChipMateLogo size={56} borderRadius={14} />
+      </View>
+
       {Platform.OS === 'web' && (
         <HtmlVideo
-          ref={videoRef}
+          ref={(el: any) => {
+            videoRef.current = el;
+            if (el) {
+              try {
+                el.muted = true;
+                el.defaultMuted = true;
+                el.playsInline = true;
+                el.setAttribute('muted', '');
+                el.setAttribute('playsinline', '');
+                el.setAttribute('webkit-playsinline', '');
+                el.play().catch(() => {});
+              } catch (_) {}
+            }
+          }}
           src="/splash_video_v2.mp4?v=1.0.22"
           autoPlay
           muted={true}
@@ -114,6 +131,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd }) =>
           onCanPlay={() => {
             if (videoRef.current) {
               videoRef.current.muted = true;
+              videoRef.current.defaultMuted = true;
               videoRef.current.play().catch(() => {});
             }
           }}
@@ -126,10 +144,21 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onAnimationEnd }) =>
             width: '100%',
             height: '100%',
             objectFit: 'contain',
-            backgroundColor: '#000000'
+            backgroundColor: '#000000',
+            zIndex: 10
           }}
         />
       )}
+
+      {/* Tap to skip button for fast access */}
+      <TouchableOpacity
+        style={styles.skipButton}
+        onPress={finishSplash}
+        activeOpacity={0.7}
+        accessibilityLabel="Skip intro video"
+      >
+        <Text style={styles.skipButtonText}>Skip →</Text>
+      </TouchableOpacity>
     </Animated.View>
   );
 };
@@ -147,5 +176,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999
+  },
+  backdropBrand: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1
+  },
+  skipButton: {
+    position: 'absolute',
+    top: Platform.OS === 'web' ? 20 : 48,
+    right: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    zIndex: 20
+  },
+  skipButtonText: {
+    color: '#F8FAFC',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3
   }
 });

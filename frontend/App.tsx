@@ -34,6 +34,7 @@ import { InstallPromptModal } from './src/components/InstallPromptModal';
 import { UpdatePromptModal } from './src/components/UpdatePromptModal';
 import { APP_BUILD_VERSION } from './src/version';
 import { ErrorBoundary } from './src/components/common/ErrorBoundary';
+import { SplashScreen } from './src/components/SplashScreen';
 import { ChipMateLogo, ChipMateWordmark } from './src/components/ChipMateBrand';
 
 // Screens
@@ -92,6 +93,7 @@ function MainNavigator() {
   const [h2hUserId, setH2hUserId] = useState<string | null>(null);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [showLanding, setShowLanding] = useState<boolean>(true);
+  const [isSplashDone, setIsSplashDone] = useState<boolean>(false);
 
   // Check for public ledger link in URL (?ledger=<id> or ?public_ledger=<id>)
   const [publicLedgerTableId, setPublicLedgerTableId] = useState<string | null>(() => {
@@ -309,6 +311,16 @@ function MainNavigator() {
             } catch (_) {}
           }
         }}
+      />
+    );
+  }
+
+  // Signature cinematic splash video played once on initial app open
+  if (!isSplashDone) {
+    return (
+      <SplashScreen
+        isLoading={isLoading}
+        onAnimationEnd={() => setIsSplashDone(true)}
       />
     );
   }
